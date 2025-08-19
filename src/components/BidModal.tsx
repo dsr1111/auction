@@ -88,10 +88,13 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === '') {
+    // 콤마와 공백 제거하여 숫자만 추출
+    const cleanValue = value.replace(/[,\s]/g, '');
+    
+    if (cleanValue === '') {
       setBidAmount(0);
     } else {
-      const numValue = parseFloat(value);
+      const numValue = parseFloat(cleanValue);
       if (!isNaN(numValue) && numValue > 0) {
         setBidAmount(numValue);
       }
@@ -99,7 +102,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} 입찰하기`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
       <div className="flex flex-col gap-4">
         <div className="bg-gray-50 p-3 rounded-md">
           <p className="text-sm text-gray-600">현재 입찰가</p>
@@ -135,12 +138,11 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
           </label>
           <input
             id="bidInput"
-            type="number"
-            value={bidAmount || ''}
+            type="text"
+            value={bidAmount ? bidAmount.toLocaleString() : ''}
             onChange={handleBidAmountChange}
             className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            min={item.current_bid + 1}
-            step="1"
+            placeholder="예: 1,000"
           />
           <p className="text-xs text-gray-500 mt-2">
             최소 입찰가: {(item.current_bid + 1).toLocaleString()}
