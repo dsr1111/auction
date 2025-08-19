@@ -2,7 +2,8 @@
 "use client";
 
 import { useSession, signOut } from 'next-auth/react';
-import Link from 'next/link';
+import { useState } from 'react';
+import LoginModal from './LoginModal';
 
 interface ExtendedUser {
   name?: string | null;
@@ -13,9 +14,18 @@ interface ExtendedUser {
 
 const Header = () => {
   const { data: session } = useSession();
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   
   const handleSignOut = () => {
     signOut({ callbackUrl: '/' });
+  };
+
+  const handleLoginClick = () => {
+    setIsLoginModalOpen(true);
+  };
+
+  const handleLoginModalClose = () => {
+    setIsLoginModalOpen(false);
   };
 
   return (
@@ -49,16 +59,22 @@ const Header = () => {
                 </button>
               </div>
             ) : (
-              <Link
-                href="/admin/login"
+              <button
+                onClick={handleLoginClick}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:shadow-md"
               >
                 로그인
-              </Link>
+              </button>
             )}
           </div>
         </div>
       </div>
+      
+      {/* 로그인 모달 */}
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={handleLoginModalClose} 
+      />
     </header>
   );
 };
