@@ -27,7 +27,7 @@ const handler = NextAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'identify guilds', // guilds.members.read 제거
+          scope: 'identify guilds guilds.members.read', // 필요한 스코프 모두 포함
         },
       },
     }),
@@ -56,17 +56,17 @@ const handler = NextAuth({
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
             (user as ExtendedUser).isAdmin = isAdmin;
             
-            return isAdmin;
+            return isAdmin; // 관리자 역할이 있는 사용자만 로그인 허용
           } else {
             console.error('Discord Guild API 오류:', guildResponse.status, await guildResponse.text());
-            return false;
+            return false; // API 호출 실패 시 로그인 거부
           }
         } catch (error) {
           console.error('Discord API 호출 중 오류:', error);
-          return false;
+          return false; // 오류 발생 시 로그인 거부
         }
       }
-      return false;
+      return false; // Discord가 아닌 경우 로그인 거부
     },
     async jwt({ token, user }) {
       if (user) {
