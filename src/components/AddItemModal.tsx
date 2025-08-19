@@ -1,0 +1,196 @@
+"use client";
+
+import { useState } from 'react';
+import Modal from './Modal';
+import { createClient } from '@/lib/supabase/client';
+import { notifyItemUpdate } from '@/utils/pusher';
+
+type AddItemModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onItemAdded?: () => void;
+};
+
+const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
+  const [itemName, setItemName] = useState('');
+  const [itemPrice, setItemPrice] = useState('');
+  const [duration, setDuration] = useState('24'); // 24시간 또는 48시간
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const supabase = createClient();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!itemName.trim()) {
+      setError('아이템 이름을 입력해주세요.');
+      return;
+    }
+
+    // 가격이 비워져있으면 0원으로 설정
+    const price = itemPrice.trim() === '' ? 0 : parseFloat(itemPrice);
+    if (isNaN(price) || price < 0) {
+      setError('유효한 가격을 입력해주세요. (0원 이상)');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // 마감 시간 계산 (현재 시간 + 선택된 시간)
+      const now = new Date();
+      let endTime;
+      
+      if (duration === '2') {
+        // 2분은 분 단위로 계산
+        endTime = new Date(now.getTime() + 2 * 60 * 1000);
+      } else {
+        // 24시간, 48시간은 시간 단위로 계산
+        endTime = new Date(now.getTime() + parseInt(duration) * 60 * 60 * 1000);
+      }
+
+      const { error: insertError } = await supabase
+        .from('items')
+        .insert([
+          {
+            name: itemName.trim(),
+            price: price,
+            current_bid: price,
+            last_bidder_nickname: null,
+            end_time: endTime.toISOString(),
+          }
+        ]);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // WebSocket으로 실시간 업데이트 알림
+      try {
+        notifyItemUpdate('added');
+      } catch (wsError) {
+        console.error('WebSocket 알림 실패:', wsError);
+      }
+
+      // 즉시 모달 닫기 및 콜백 호출
+      onClose();
+      if (onItemAdded) {
+        onItemAdded();
+      }
+
+    } catch (err: any) {
+      setError(err.message || '아이템 추가에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isLoading) {
+      setItemName('');
+      setItemPrice('');
+      setError(null);
+      onClose();
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title="새 경매 아이템 추가">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="itemName" className="block text-gray-700 text-sm font-medium mb-2">
+            아이템 이름
+          </label>
+          <input
+            id="itemName"
+            type="text"
+            value={itemName}
+            onChange={(e) => setItemName(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            placeholder="아이템 이름을 입력하세요"
+            disabled={isLoading}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="itemPrice" className="block text-gray-700 text-sm font-medium mb-2">
+            시작 가격
+          </label>
+          <div className="relative">
+            <input
+              id="itemPrice"
+              type="number"
+              value={itemPrice}
+              onChange={(e) => setItemPrice(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 pr-12"
+              placeholder="0"
+              disabled={isLoading}
+            />
+            <img 
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
+              alt="bit" 
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 object-contain"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="duration" className="block text-gray-700 text-sm font-medium mb-2">
+            경매 마감 시간
+          </label>
+          <select
+            id="duration"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            disabled={isLoading}
+          >
+            <option value="2">2분 (테스트용)</option>
+            <option value="24">24시간</option>
+            <option value="48">48시간</option>
+          </select>
+        </div>
+
+        <div className="flex space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isLoading}
+            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-medium transition-colors disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-medium transition-all duration-200 hover:shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>추가 중...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>아이템 추가</span>
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default AddItemModal;
