@@ -46,31 +46,43 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     }
 
     try {
-      const { error: updateError } = await supabase
+      console.log('🔄 입찰 시도:', { itemId: item.id, bidAmount, bidderNickname });
+      
+      const { data, error: updateError } = await supabase
         .from('items')
         .update({
           current_bid: bidAmount,
           last_bidder_nickname: bidderNickname.trim(),
         })
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .select(); // 업데이트된 데이터를 반환받기 위해 추가
 
       if (updateError) {
-        setError('입찰에 실패했습니다. 다시 시도해주세요.');
-        console.error('Error placing bid:', updateError);
-      } else {
-        // WebSocket으로 실시간 업데이트 알림
-        try {
-          await notifyItemUpdate('bid', item.id);
-        } catch (wsError) {
-          console.error('WebSocket 알림 실패:', wsError);
-        }
-        
-        onClose();
-        onBidSuccess?.();
+        console.error('❌ Supabase 업데이트 실패:', updateError);
+        setError(`입찰에 실패했습니다: ${updateError.message}`);
+        return;
       }
+
+      if (!data || data.length === 0) {
+        console.error('❌ 업데이트된 데이터가 없음');
+        setError('입찰 업데이트에 실패했습니다.');
+        return;
+      }
+
+      console.log('✅ Supabase 업데이트 성공:', data);
+      
+      // WebSocket으로 실시간 업데이트 알림
+      try {
+        await notifyItemUpdate('bid', item.id);
+      } catch (wsError) {
+        console.error('WebSocket 알림 실패:', wsError);
+      }
+      
+      onClose();
+      onBidSuccess?.();
     } catch (err) {
+      console.error('❌ 예상치 못한 오류:', err);
       setError('예상치 못한 오류가 발생했습니다.');
-      console.error('Unexpected error:', err);
     }
   };
 
