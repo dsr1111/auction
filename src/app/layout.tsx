@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DSRWiki 경매",
-  description: "실시간 게임 아이템 경매 사이트.",
+  title: "경매",
+  description: "경매",
 };
 
 export default function RootLayout({
