@@ -36,6 +36,14 @@ const handler = NextAuth({
     async signIn({ user, account }) {
       if (account?.provider === 'discord') {
         try {
+          // 환경 변수 디버깅
+          console.log('환경 변수 확인:', {
+            clientId: process.env.DISCORD_CLIENT_ID,
+            guildId: process.env.DISCORD_GUILD_ID,
+            adminRoleId: process.env.DISCORD_ADMIN_ROLE_ID,
+            hasBotToken: !!process.env.DISCORD_BOT_TOKEN
+          });
+
           // Discord Guild API로 사용자의 서버 멤버 정보 가져오기
           const guildResponse = await fetch(
             `https://discord.com/api/v9/guilds/${process.env.DISCORD_GUILD_ID}/members/${user.id}`,
