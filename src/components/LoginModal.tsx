@@ -18,8 +18,9 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="로그인">
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="flex flex-col gap-6">
+        <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">로그인</h2>
         <div className="text-center">
           <p className="text-gray-900 text-sm font-medium mb-2">
             관리자 전용 로그인
