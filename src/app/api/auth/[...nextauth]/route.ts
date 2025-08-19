@@ -1,14 +1,6 @@
 import NextAuth from 'next-auth';
 import DiscordProvider from 'next-auth/providers/discord';
 
-interface DiscordUser {
-  id: string;
-  username: string;
-  discriminator: string;
-  avatar: string;
-  global_name?: string;
-}
-
 interface DiscordGuildMember {
   user: {
     id: string;
@@ -41,7 +33,7 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account?.provider === 'discord') {
         try {
           // Discord Guild API로 사용자의 서버 멤버 정보 가져오기

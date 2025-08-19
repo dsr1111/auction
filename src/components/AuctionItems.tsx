@@ -17,6 +17,13 @@ type Item = {
   end_time: string | null;
 };
 
+interface ExtendedUser {
+  name?: string | null;
+  image?: string | null;
+  displayName?: string;
+  isAdmin?: boolean;
+}
+
 export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +34,8 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const { data, error } = await supabase
         .from('items')
         .select('*')
@@ -37,9 +46,9 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       }
 
       setItems(data || []);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || '아이템을 불러오는데 실패했습니다.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -87,7 +96,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     );
   }
 
-  const isAdmin = session?.user && (session.user as any).isAdmin;
+  const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

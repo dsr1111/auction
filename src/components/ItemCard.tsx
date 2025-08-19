@@ -24,6 +24,13 @@ type ItemCardProps = {
   onModalStateChange?: (isOpen: boolean) => void; // 모달 상태 변경 콜백 추가
 };
 
+interface ExtendedUser {
+  name?: string | null;
+  image?: string | null;
+  displayName?: string;
+  isAdmin?: boolean;
+}
+
 const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
   const {
     id,
@@ -117,7 +124,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
     }
   };
 
-  const isAdmin = session?.user && (session.user as any).isAdmin;
+  const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
     <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 ${
