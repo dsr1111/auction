@@ -21,8 +21,11 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
     <Modal isOpen={isOpen} onClose={onClose} title="로그인">
       <div className="flex flex-col gap-6">
         <div className="text-center">
+          <p className="text-gray-900 text-sm font-medium mb-2">
+            관리자 전용 로그인
+          </p>
           <p className="text-gray-600 text-sm mb-6">
-            Discord 계정으로 로그인하여 경매에 참여하세요
+            일반 길드원은 비로그인으로 하시면 됩니다.
           </p>
         </div>
         
@@ -41,11 +44,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
           Discord로 로그인
         </button>
 
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            로그인하면 관리자 권한이 확인됩니다
-          </p>
-        </div>
+
       </div>
     </Modal>
   );
