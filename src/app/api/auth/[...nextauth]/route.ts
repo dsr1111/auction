@@ -38,7 +38,7 @@ const handler = NextAuth({
         try {
           // Discord Guild API로 사용자의 서버 멤버 정보 가져오기
           const guildResponse = await fetch(
-            `https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/members/${user.id}`,
+            `https://discord.com/api/v9/guilds/${process.env.DISCORD_GUILD_ID}/members/${user.id}`,
             {
               headers: {
                 Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
@@ -56,13 +56,25 @@ const handler = NextAuth({
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
             (user as ExtendedUser).isAdmin = isAdmin;
             
+            console.log('Discord 로그인 성공:', { userId: user.id, isAdmin, displayName: (user as ExtendedUser).displayName });
             return isAdmin; // 관리자 역할이 있는 사용자만 로그인 허용
           } else {
-            console.error('Discord Guild API 오류:', guildResponse.status, await guildResponse.text());
+            const errorText = await guildResponse.text();
+            console.error('Discord Guild API 오류:', {
+              status: guildResponse.status,
+              statusText: guildResponse.statusText,
+              error: errorText,
+              guildId: process.env.DISCORD_GUILD_ID,
+              userId: user.id
+            });
             return false; // API 호출 실패 시 로그인 거부
           }
         } catch (error) {
-          console.error('Discord API 호출 중 오류:', error);
+          console.error('Discord API 호출 중 오류:', {
+            error: error instanceof Error ? error.message : error,
+            guildId: process.env.DISCORD_GUILD_ID,
+            userId: user.id
+          });
           return false; // 오류 발생 시 로그인 거부
         }
       }
