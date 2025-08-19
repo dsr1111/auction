@@ -21,7 +21,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false); // 모달 상태 추가
   const { data: session } = useSession();
   const supabase = createClient();
 
@@ -52,9 +51,9 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
 
   // Pusher로 실시간 업데이트
   useEffect(() => {
-    const unsubscribe = subscribeToAuctionChannel((data) => {
+    const unsubscribe = subscribeToAuctionChannel((data: { action: string; itemId?: number; timestamp: number }) => {
       console.log('📨 Pusher 메시지 수신:', data);
-      if (data.type === 'item-updated' || data.action) {
+      if (data.action) {
         console.log('🔄 아이템 업데이트 감지, 데이터 새로고침 중...');
         fetchItems();
       }

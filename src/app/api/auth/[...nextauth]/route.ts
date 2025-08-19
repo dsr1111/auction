@@ -1,6 +1,33 @@
 import NextAuth from 'next-auth';
 import DiscordProvider from 'next-auth/providers/discord';
 
+interface DiscordUser {
+  id: string;
+  username: string;
+  discriminator: string;
+  avatar: string;
+  global_name?: string;
+}
+
+interface DiscordGuildMember {
+  user: {
+    id: string;
+    username: string;
+    global_name?: string;
+  };
+  nick?: string;
+  roles: string[];
+}
+
+interface ExtendedUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  displayName?: string;
+  isAdmin?: boolean;
+}
+
 const handler = NextAuth({
   providers: [
     DiscordProvider({
@@ -8,133 +35,64 @@ const handler = NextAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'identify guilds',
+          scope: 'identify guilds guilds.members.read',
         },
       },
     }),
   ],
-  pages: {
-    signIn: '/admin/login',
-    signOut: '/',
-    error: '/admin/login',
-  },
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'discord') {
-        const guildId = process.env.DISCORD_ADMIN_GUILD_ID;
-        const roleId = process.env.DISCORD_ADMIN_ROLE_ID;
-        const botToken = process.env.DISCORD_BOT_TOKEN;
-
-        if (!guildId || !roleId || !botToken) {
-          console.error('환경 변수 누락: Discord 관리자 길드 ID, 역할 ID 또는 봇 토큰이 설정되지 않았습니다.');
-          return false;
-        }
-
         try {
-          // 1. 사용자 길드 정보 가져오기 (OAuth2 토큰 사용)
-          const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
-            headers: {
-              Authorization: `Bearer ${account.access_token}`,
-            },
-          });
-
-          if (!guildsResponse.ok) {
-            const errorText = await guildsResponse.text();
-            console.error(`Discord 길드 API 오류: ${guildsResponse.status} - ${errorText}`);
-            
-            // 401 오류인 경우 더 자세한 로그
-            if (guildsResponse.status === 401) {
-              console.error('Discord OAuth2 토큰이 만료되었거나 권한이 부족합니다.');
-              console.error('토큰:', account.access_token?.substring(0, 20) + '...');
+          // Discord Guild API로 사용자의 서버 멤버 정보 가져오기
+          const guildResponse = await fetch(
+            `https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/members/${user.id}`,
+            {
+              headers: {
+                Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+              },
             }
-            return false;
-          }
+          );
 
-          const guilds = await guildsResponse.json();
-          console.log('사용자 길드:', guilds.map((g: any) => g.name));
-
-          const adminGuild = guilds.find((g: any) => g.id === guildId);
-
-          if (!adminGuild) {
-            console.log('관리자 길드에 속해있지 않습니다.');
-            return false;
-          }
-
-          // 2. 관리자 길드 내 사용자 역할 정보 가져오기 (봇 토큰 사용)
-          const memberResponse = await fetch(`https://discord.com/api/guilds/${guildId}/members/${user.id}`, {
-            headers: {
-              Authorization: `Bot ${botToken}`,
-            },
-          });
-
-          if (!memberResponse.ok) {
-            const errorText = await memberResponse.text();
-            console.error(`Discord 멤버 API 오류: ${memberResponse.status} - ${errorText}`);
+          if (guildResponse.ok) {
+            const member: DiscordGuildMember = await guildResponse.json();
             
-            // 403 오류인 경우 봇 권한 문제일 수 있음
-            if (memberResponse.status === 403) {
-              console.error('봇이 해당 서버의 멤버 정보를 읽을 권한이 없습니다.');
-              console.error('봇에게 "서버 멤버 보기" 권한을 부여해주세요.');
-              console.error('Discord Developer Portal에서 "Server Members Intent"를 활성화해주세요.');
-              
-              // 대안: 사용자가 서버에 속해있는지만 확인하고 기본적으로 허용
-              console.log('대안 방법: 사용자가 서버에 속해있으므로 기본적으로 허용합니다.');
-              (user as any).isAdmin = true;
-              return true;
-            }
-            return false;
-          }
-
-          const member = await memberResponse.json();
-          console.log('관리자 길드 내 사용자 멤버 정보:', member);
-
-          if (member && member.roles && member.roles.includes(roleId)) {
-            console.log('관리자 역할 확인됨. 로그인 허용.');
-            (user as any).isAdmin = true;
+            // 관리자 역할 확인
+            const isAdmin = member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID!);
             
-            // 서버 별명이 있으면 사용, 없으면 전역 닉네임 사용
-            if (member.nick) {
-              (user as any).displayName = member.nick;
-            } else if (member.user && member.user.username) {
-              (user as any).displayName = member.user.username;
-            }
+            // 서버 닉네임 또는 글로벌 유저네임 설정
+            (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
+            (user as ExtendedUser).isAdmin = isAdmin;
             
-            return true;
+            return isAdmin;
           } else {
-            console.log('관리자 역할이 없습니다.');
+            console.error('Discord Guild API 오류:', guildResponse.status, await guildResponse.text());
             return false;
           }
         } catch (error) {
-          console.error('Discord 역할 확인 중 예상치 못한 오류 발생:', error);
+          console.error('Discord API 호출 중 오류:', error);
           return false;
         }
       }
       return false;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.isAdmin = (user as any).isAdmin;
-        token.displayName = (user as any).displayName;
+        token.displayName = (user as ExtendedUser).displayName;
+        token.isAdmin = (user as ExtendedUser).isAdmin;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        (session.user as any).isAdmin = token.isAdmin;
-        if (token.displayName) {
-          (session.user as any).displayName = token.displayName;
-        }
+        (session.user as ExtendedUser).displayName = token.displayName as string;
+        (session.user as ExtendedUser).isAdmin = token.isAdmin as boolean;
       }
       return session;
     },
-    async redirect({ url, baseUrl }) {
-      // 로그인 성공 후 메인 페이지로 리다이렉트
-      if (url.startsWith(baseUrl)) {
-        return `${baseUrl}/`;
-      }
-      // 외부 URL인 경우 그대로 반환
-      return url;
-    },
+  },
+  pages: {
+    signIn: '/admin/login',
   },
 });
 

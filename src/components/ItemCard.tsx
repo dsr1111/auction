@@ -25,7 +25,13 @@ type ItemCardProps = {
 };
 
 const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
-  const { id, name, price, current_bid, last_bidder_nickname, end_time } = item;
+  const {
+    id,
+    name,
+    current_bid,
+    last_bidder_nickname,
+    end_time,
+  } = item;
   const { data: session } = useSession();
   const supabase = createClient();
   const cdnBaseUrl = "https://media.dsrwiki.com/dsrwiki/item/";

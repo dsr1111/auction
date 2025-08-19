@@ -1,5 +1,11 @@
 import Pusher from 'pusher-js';
 
+interface ItemUpdateData {
+  action: 'bid' | 'added' | 'deleted';
+  itemId?: number;
+  timestamp: number;
+}
+
 // Pusher 클라이언트 초기화
 export const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY!, {
   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
@@ -12,7 +18,7 @@ export const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY!, {
 });
 
 // 경매 채널 구독
-export const subscribeToAuctionChannel = (callback: (data: any) => void) => {
+export const subscribeToAuctionChannel = (callback: (data: ItemUpdateData) => void) => {
   const channel = pusher.subscribe('auction-updates');
   
   channel.bind('item-updated', callback);

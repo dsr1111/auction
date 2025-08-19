@@ -80,8 +80,9 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
         onItemAdded();
       }
 
-    } catch (err: any) {
-      setError(err.message || '아이템 추가에 실패했습니다.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : '아이템 추가에 실패했습니다.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
