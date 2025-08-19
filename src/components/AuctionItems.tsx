@@ -58,19 +58,52 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     fetchItems();
   }, [fetchItems]);
 
-  // Pusher로 실시간 업데이트
+  // 스마트 업데이트: 특정 아이템만 업데이트
+  const updateSingleItem = useCallback(async (itemId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+
+      if (error) {
+        console.error('아이템 개별 업데이트 실패:', error);
+        return;
+      }
+
+      if (data) {
+        setItems(prevItems => 
+          prevItems.map(item => 
+            item.id === itemId ? data : item
+          )
+        );
+        console.log('✅ 아이템 개별 업데이트 성공:', data);
+      }
+    } catch (err) {
+      console.error('아이템 업데이트 중 오류:', err);
+    }
+  }, [supabase]);
+
+  // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
     const unsubscribe = subscribeToAuctionChannel((data: { action: string; itemId?: number; timestamp: number }) => {
       console.log('📨 Pusher 메시지 수신:', data);
-      if (data.action) {
-        console.log('🔄 아이템 업데이트 감지, 데이터 새로고침 중...');
+      
+      if (data.action === 'bid' && data.itemId) {
+        // 입찰 업데이트: 해당 아이템만 업데이트 (깜빡임 없음)
+        console.log('🔄 입찰 업데이트 - 아이템', data.itemId, '만 업데이트');
+        updateSingleItem(data.itemId);
+      } else if (data.action === 'added' || data.action === 'deleted') {
+        // 추가/삭제: 전체 목록 새로고침 (필요한 경우만)
+        console.log('🔄 아이템', data.action, '- 전체 목록 새로고침');
         fetchItems();
       }
     });
     
     // 컴포넌트 언마운트 시 구독 해제
     return unsubscribe;
-  }, [fetchItems]);
+  }, [fetchItems, updateSingleItem]);
 
   useEffect(() => {
     if (onItemAdded) {
