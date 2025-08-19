@@ -27,7 +27,7 @@ const handler = NextAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'identify guilds guilds.members.read',
+          scope: 'identify guilds', // guilds.members.read 제거
         },
       },
     }),
