@@ -153,8 +153,8 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
         <div className="flex items-center justify-center h-full">
           <div className="flex-shrink-0 mr-4">
             <div 
-              className="rounded-[10px] p-2"
-              style={{ backgroundColor: '#2d3748' }}
+              className="rounded-[10px] p-1"
+              style={{ backgroundColor: '#1a202c' }}
             >
               <Image 
                 src={constructedImageUrl} 
