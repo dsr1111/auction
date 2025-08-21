@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
+import { useSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 
 type BidModalProps = {
   isOpen: boolean;
@@ -18,8 +20,9 @@ type BidModalProps = {
 
 const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   const [bidAmount, setBidAmount] = useState<number>(0);
-  const [bidderNickname, setBidderNickname] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { data: session, status } = useSession();
   const supabase = createClient();
 
   // item이 변경될 때마다 bidAmount를 안전하게 초기화
@@ -31,31 +34,70 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     }
   }, [item]);
 
+  // 로그인 상태 확인
+  if (status === 'loading') {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
+        <div className="flex items-center justify-center p-8">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="ml-2 text-gray-600">로그인 상태 확인 중...</span>
+        </div>
+      </Modal>
+    );
+  }
+
+  // 로그인되지 않은 경우
+  if (!session) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
+        <div className="text-center p-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">로그인이 필요합니다</h3>
+          <p className="text-gray-600 mb-6">입찰을 하려면 디스코드로 로그인해주세요.</p>
+          <button
+            onClick={() => signIn('discord')}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 hover:shadow-lg flex items-center justify-center space-x-2"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515a.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0a12.64 12.64 0 00-.617-1.25a.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057a19.9 19.9 0 005.993 3.03a.078.078 0 00.084-.028a14.09 14.09 0 001.226-1.994a.076.076 0 00-.041-.106a13.107 13.107 0 01-1.872-.892a.077.077 0 01-.008-.128a10.2 10.2 0 00.372-.292a.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127a12.299 12.299 0 01-1.873.892a.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028a19.839 19.839 0 006.002-3.03a.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+            <span>디스코드로 로그인</span>
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
   const handlePlaceBid = async () => {
     setError(null);
+    setIsLoading(true);
     
     // 유효성 검사
     if (!bidAmount || isNaN(bidAmount) || bidAmount <= item.current_bid) {
       setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
-      return;
-    }
-    
-    if (!bidderNickname.trim()) {
-      setError('닉네임을 입력해주세요.');
+      setIsLoading(false);
       return;
     }
 
     try {
-      console.log('🔄 입찰 시도:', { itemId: item.id, bidAmount, bidderNickname });
+      console.log('🔄 입찰 시도:', { 
+        itemId: item.id, 
+        bidAmount, 
+        bidderNickname: session.user?.displayName || session.user?.name 
+      });
       
       const { data, error: updateError } = await supabase
         .from('items')
         .update({
           current_bid: bidAmount,
-          last_bidder_nickname: bidderNickname.trim(),
+          last_bidder_nickname: session.user?.displayName || session.user?.name,
         })
         .eq('id', item.id)
-        .select(); // 업데이트된 데이터를 반환받기 위해 추가
+        .select();
 
       if (updateError) {
         console.error('❌ Supabase 업데이트 실패:', updateError);
@@ -83,6 +125,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     } catch (err) {
       console.error('❌ 예상치 못한 오류:', err);
       setError('예상치 못한 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -120,16 +164,14 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         
         <div>
           <label htmlFor="nicknameInput" className="block text-gray-700 text-sm font-medium mb-2">
-            닉네임
+            입찰자 닉네임
           </label>
-          <input
-            id="nicknameInput"
-            type="text"
-            value={bidderNickname}
-            onChange={(e) => setBidderNickname(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            placeholder="닉네임을 입력하세요"
-          />
+          <div className="bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700">
+            {session.user?.displayName || session.user?.name || '알 수 없음'}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            디스코드 로그인 정보에서 자동으로 가져옵니다
+          </p>
         </div>
         
         <div>
@@ -162,9 +204,17 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         
         <button
           onClick={handlePlaceBid}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 hover:shadow-lg"
+          disabled={isLoading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
         >
-          입찰하기
+          {isLoading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>입찰 중...</span>
+            </>
+          ) : (
+            '입찰하기'
+          )}
         </button>
       </div>
     </Modal>

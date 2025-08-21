@@ -18,14 +18,10 @@ type ItemCardProps = {
     current_bid: number;
     last_bidder_nickname: string | null;
     end_time: string | null;
-    batch_id?: string;        // 배치 그룹 ID
-    item_index?: number;      // 배치 내 순서
-    total_quantity?: number;  // 총 수량
-    remaining_quantity?: number; // 남은 수량
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
-  onModalStateChange?: (isOpen: boolean) => void; // 모달 상태 변경 콜백 추가
+  onModalStateChange?: (isOpen: boolean) => void;
 };
 
 interface ExtendedUser {
@@ -42,10 +38,6 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
     current_bid,
     last_bidder_nickname,
     end_time,
-    batch_id,
-    item_index,
-    total_quantity,
-    remaining_quantity,
   } = item;
   const { data: session } = useSession();
   const supabase = createClient();
@@ -56,6 +48,28 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isAuctionEnded, setIsAuctionEnded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+
+  // 이미지 로드 성공 시
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  // 이미지 로드 실패 시
+  const handleImageError = () => {
+    setImageLoading(false);
+    setImageError(true);
+  };
+
+  // 이미지 URL 결정 (에러 시 기본 이미지 사용)
+  const getImageUrl = () => {
+    if (imageError) {
+      return "https://media.dsrwiki.com/dsrwiki/default.webp"; // 기본 이미지
+    }
+    return constructedImageUrl;
+  };
 
   // 모달 상태 변경 시 부모 컴포넌트에 알림
   useEffect(() => {
@@ -161,16 +175,30 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
         <div className="flex items-center justify-center h-full">
           <div className="flex-shrink-0 mr-4">
             <div 
-              className="rounded-[10px] p-1"
+              className="rounded-[10px] p-1 relative"
               style={{ backgroundColor: '#1a202c' }}
             >
+              {imageLoading && (
+                <div className="w-14 h-14 bg-gray-200 rounded-xl animate-pulse flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
               <Image 
-                src={constructedImageUrl} 
+                src={getImageUrl()} 
                 alt={name} 
                 width={56} 
                 height={56} 
-                className="rounded-xl object-cover" 
+                className={`rounded-xl object-cover ${imageLoading ? 'hidden' : 'block'}`}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
               />
+              {imageError && (
+                <div className="absolute inset-0 bg-gray-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
 
@@ -180,23 +208,6 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
                 {name}
               </h3>
             </CustomTooltip>
-            
-            {/* 배치 정보 표시 */}
-            {batch_id && total_quantity && (
-              <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-green-700 font-medium">길드 보상 아이템</span>
-                  <span className="text-green-600 font-bold">
-                    {item_index}/{total_quantity}
-                  </span>
-                </div>
-                {remaining_quantity !== undefined && remaining_quantity < total_quantity && (
-                  <div className="mt-1 text-xs text-green-600">
-                    남은 수량: {remaining_quantity}개
-                  </div>
-                )}
-              </div>
-            )}
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">
