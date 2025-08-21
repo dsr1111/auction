@@ -21,7 +21,12 @@ const CustomTooltip = ({
   // 텍스트가 실제로 짤렸는지 확인하는 함수
   const isTextTruncated = () => {
     if (!triggerRef.current) return false;
-    return triggerRef.current.scrollWidth > triggerRef.current.clientWidth;
+    
+    // truncate 클래스가 적용된 실제 텍스트 요소 찾기
+    const textElement = triggerRef.current.querySelector('.truncate') as HTMLElement;
+    if (!textElement) return false;
+    
+    return textElement.scrollWidth > textElement.clientWidth;
   };
 
   const showTooltip = () => {
