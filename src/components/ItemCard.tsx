@@ -47,29 +47,20 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   const [isDeleting, setIsDeleting] = useState(false);
   const [imageError, setImageError] = useState(false);
   
-  // 디버깅용 로그
-  useEffect(() => {
-    console.log('🖼️ 이미지 정보:', {
-      itemName: name,
-      processedName: name.replace(/%/g, '^'),
-      imageUrl: `https://media.dsrwiki.com/dsrwiki/item/${name.replace(/%/g, '^')}.webp`,
-      imageError
-    });
-  }, [name, imageError]);
-
   // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
-    console.log('❌ 이미지 로드 실패:', `https://media.dsrwiki.com/dsrwiki/item/${name.replace(/%/g, '^')}.webp`);
     setImageError(true);
   };
 
   // 이미지 URL 생성
   const getImageUrl = () => {
-    if (imageError) {
-      return "https://media.dsrwiki.com/dsrwiki/item/default.webp";
-    }
     const processedItemName = name.replace(/%/g, '^');
     return `https://media.dsrwiki.com/dsrwiki/item/${processedItemName}.webp`;
+  };
+
+  // 기본 이미지 URL
+  const getDefaultImageUrl = () => {
+    return "https://media.dsrwiki.com/dsrwiki/item/default.webp";
   };
 
   // 아이템이 변경될 때마다 이미지 상태 초기화
@@ -185,12 +176,12 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
               style={{ backgroundColor: '#1a202c' }}
             >
               <Image 
-                key={`${id}-${name}`}
-                src={getImageUrl()} 
+                key={`${id}-${name}-${imageError}`}
+                src={imageError ? getDefaultImageUrl() : getImageUrl()} 
                 alt={name} 
                 width={56} 
                 height={56} 
-                className="rounded-xl object-cover w-14 h-14"
+                className="rounded-xl object-cover"
                 onError={handleImageError}
               />
             </div>
