@@ -28,8 +28,14 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
   const { data: session } = useSession();
   const supabase = createClient();
+
+  // 모달 상태 변경 핸들러
+  const handleModalStateChange = (isOpen: boolean) => {
+    setIsAnyModalOpen(isOpen);
+  };
 
   const fetchItems = useCallback(async () => {
     try {
@@ -132,13 +138,14 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative ${isAnyModalOpen ? 'modal-open' : ''}`}>
       {items.map((item) => (
         <ItemCard 
           key={item.id} 
           item={item} 
           onBidSuccess={fetchItems} 
           onItemDeleted={fetchItems}
+          onModalStateChange={handleModalStateChange}
         />
       ))}
       
