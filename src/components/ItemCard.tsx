@@ -23,7 +23,6 @@ type ItemCardProps = {
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
   onModalStateChange?: (isOpen: boolean) => void;
-  disableButtons?: boolean;
 };
 
 interface ExtendedUser {
@@ -33,7 +32,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, disableButtons }: ItemCardProps) => {
+const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
   const {
     id,
     name,
@@ -74,9 +73,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, disab
   // 모달 상태 변경 시 부모 컴포넌트에 알림
   useEffect(() => {
     if (onModalStateChange) {
-      onModalStateChange(isBidModalOpen || isBidHistoryModalOpen);
+      onModalStateChange(isBidModalOpen);
     }
-  }, [isBidModalOpen, isBidHistoryModalOpen, onModalStateChange]);
+  }, [isBidModalOpen, onModalStateChange]);
 
   // 남은 시간 계산
   useEffect(() => {
@@ -153,7 +152,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, disab
       isAuctionEnded 
         ? 'bg-gray-50 border-gray-300 opacity-75' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
-    } h-48 flex flex-col ${isBidModalOpen || isBidHistoryModalOpen ? 'modal-open' : ''}`}>
+    } h-48 flex flex-col`}>
       
       {/* 관리자용 삭제 버튼 */}
       {isAdmin && (
@@ -247,9 +246,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, disab
         <div className="flex space-x-2">
           <button
             onClick={() => setIsBidModalOpen(true)}
-            disabled={isAuctionEnded || disableButtons}
+            disabled={isAuctionEnded}
             className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isAuctionEnded || disableButtons
+              isAuctionEnded
                 ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
             }`}
@@ -258,9 +257,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, disab
           </button>
           <button
             onClick={() => setIsBidHistoryModalOpen(true)}
-            disabled={isAuctionEnded || disableButtons}
+            disabled={isAuctionEnded}
             className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isAuctionEnded || disableButtons
+              isAuctionEnded
                 ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                 : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
             }`}
