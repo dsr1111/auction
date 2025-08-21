@@ -11,3 +11,50 @@
     font-family: var(--font-noto-sans);
   }
 }
+
+@layer components {
+  /* 모달 z-index 우선순위 강제 설정 */
+  .modal-overlay {
+    z-index: 999999 !important;
+    position: fixed !important;
+    transform: translateZ(0) !important;
+    will-change: z-index !important;
+  }
+  
+  .modal-content {
+    z-index: 999999 !important;
+    position: relative !important;
+    transform: translateZ(0) !important;
+    will-change: z-index !important;
+  }
+  
+  /* 아이템 카드 z-index 강제 설정 */
+  .item-card {
+    z-index: 0 !important;
+    position: relative !important;
+    transform: translateZ(0) !important;
+    will-change: auto !important;
+  }
+  
+  /* 아이템 그리드 컨테이너 z-index 강제 설정 */
+  .items-grid {
+    z-index: 0 !important;
+    position: relative !important;
+    transform: translateZ(0) !important;
+    will-change: auto !important;
+  }
+}
+
+/* 전역 스타일로 모달 우선순위 강제 설정 */
+.modal-overlay,
+.modal-content {
+  z-index: 999999 !important;
+  position: fixed !important;
+}
+
+/* 아이템 카드들 강제로 하위 레이어에 배치 */
+.item-card,
+.items-grid {
+  z-index: 0 !important;
+  position: relative !important;
+}

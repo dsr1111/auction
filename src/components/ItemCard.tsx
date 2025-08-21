@@ -142,11 +142,12 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 z-10 ${
+    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 item-card ${
       isAuctionEnded 
-        ? 'bg-gray-50 border-gray-300 opacity-75' 
+        ? 'bg-gray-100 border-gray-400 opacity-90' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
-    } h-48 flex flex-col`}>
+    } h-48 flex flex-col`}
+    style={{ zIndex: 0, position: 'relative' }}>
       
       {/* 관리자용 삭제 버튼 */}
       {isAdmin && (
@@ -251,10 +252,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
           </button>
           <button
             onClick={() => setIsBidHistoryModalOpen(true)}
-            disabled={isAuctionEnded}
             className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
               isAuctionEnded
-                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                ? 'bg-gray-500 hover:bg-gray-600 text-white hover:shadow-md'
                 : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
             }`}
           >
