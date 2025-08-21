@@ -205,7 +205,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">현재 입찰가</span>
                 <div className="flex items-center space-x-1">
-                  <span className="text-sm font-semibold text-blue-600">
+                  <span className="text-xs font-semibold text-blue-600">
                     {current_bid.toLocaleString()}
                   </span>
                   <img 
