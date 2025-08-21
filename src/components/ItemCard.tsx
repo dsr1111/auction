@@ -41,73 +41,39 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   } = item;
   const { data: session } = useSession();
   const supabase = createClient();
-  const cdnBaseUrl = "https://media.dsrwiki.com/dsrwiki/item/";
-  const processedItemName = name.replace(/%/g, '^');
-  const constructedImageUrl = `${cdnBaseUrl}${processedItemName}.webp`;
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isAuctionEnded, setIsAuctionEnded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
   
   // 디버깅용 로그
   useEffect(() => {
     console.log('🖼️ 이미지 정보:', {
       itemName: name,
-      processedName: processedItemName,
-      imageUrl: constructedImageUrl,
-      imageLoading,
+      processedName: name.replace(/%/g, '^'),
+      imageUrl: `https://media.dsrwiki.com/dsrwiki/item/${name.replace(/%/g, '^')}.webp`,
       imageError
     });
-  }, [name, processedItemName, constructedImageUrl, imageLoading, imageError]);
+  }, [name, imageError]);
 
-  // 이미지 로드 성공 시
-  const handleImageLoad = () => {
-    console.log('✅ 이미지 로드 성공:', constructedImageUrl);
-    setImageLoading(false);
-    setImageError(false);
-  };
-
-  // 이미지 로드 실패 시
+  // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
-    console.log('❌ 이미지 로드 실패:', constructedImageUrl);
-    setImageLoading(false);
+    console.log('❌ 이미지 로드 실패:', `https://media.dsrwiki.com/dsrwiki/item/${name.replace(/%/g, '^')}.webp`);
     setImageError(true);
   };
 
-  // 이미지 URL 결정 (에러 시 기본 이미지 사용)
+  // 이미지 URL 생성
   const getImageUrl = () => {
     if (imageError) {
-      // 기본 이미지 (여러 옵션 시도)
-      const fallbackImages = [
-        "https://media.dsrwiki.com/dsrwiki/default.webp",
-        "https://via.placeholder.com/56x56/1a202c/ffffff?text=No+Image",
-        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNTYiIHZpZXdCb3g9IjAgMCA1NiA1NiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiBmaWxsPSIjMWEyMDJjIi8+CjxwYXRoIGQ9Ik0xNiAxNkgyNE0xNiAyNEgyNE0xNiAzMkgyNCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+"
-      ];
-      
-      // 첫 번째 이미지 반환 (실제로는 더 스마트한 로직 필요)
-      return fallbackImages[0];
+      return "https://media.dsrwiki.com/dsrwiki/default.webp";
     }
-    return constructedImageUrl;
+    const processedItemName = name.replace(/%/g, '^');
+    return `https://media.dsrwiki.com/dsrwiki/item/${processedItemName}.webp`;
   };
-
-  // 이미지 로딩 타임아웃 설정
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (imageLoading) {
-        console.log('⏰ 이미지 로딩 타임아웃:', constructedImageUrl);
-        setImageLoading(false);
-        setImageError(true);
-      }
-    }, 10000); // 10초 후 타임아웃
-
-    return () => clearTimeout(timer);
-  }, [imageLoading, constructedImageUrl]);
 
   // 아이템이 변경될 때마다 이미지 상태 초기화
   useEffect(() => {
-    setImageLoading(true);
     setImageError(false);
   }, [id, name]);
 
@@ -218,28 +184,15 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
               className="rounded-[10px] p-1 relative"
               style={{ backgroundColor: '#1a202c' }}
             >
-              {imageLoading && (
-                <div className="w-14 h-14 bg-gray-200 rounded-xl animate-pulse flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
               <Image 
                 key={`${id}-${name}`}
                 src={getImageUrl()} 
                 alt={name} 
                 width={56} 
                 height={56} 
-                className={`rounded-xl object-cover ${imageLoading ? 'hidden' : 'block'}`}
-                onLoad={handleImageLoad}
+                className="rounded-xl object-cover"
                 onError={handleImageError}
               />
-              {imageError && (
-                <div className="absolute inset-0 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              )}
             </div>
           </div>
 
