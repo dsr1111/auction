@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'; // Import useState and useEffect
 import BidModal from './BidModal'; // Import BidModal
+import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
@@ -42,6 +43,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   const { data: session } = useSession();
   const supabase = createClient();
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
+  const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isAuctionEnded, setIsAuctionEnded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -205,7 +207,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">현재 입찰가</span>
                 <div className="flex items-center space-x-1">
-                  <span className="text-xs font-semibold text-blue-600">
+                  <span className="text-sm font-semibold text-blue-600">
                     {current_bid.toLocaleString()}
                   </span>
                   <img 
@@ -241,17 +243,25 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
       </div>
 
       <div className="px-4 pb-4 mt-auto">
-        <button
-          onClick={() => setIsBidModalOpen(true)}
-          disabled={isAuctionEnded}
-          className={`w-full text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-            isAuctionEnded
-              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
-          }`}
-        >
-          {isAuctionEnded ? '경매 마감' : '입찰하기'}
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setIsBidModalOpen(true)}
+            disabled={isAuctionEnded}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
+              isAuctionEnded
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
+            }`}
+          >
+            {isAuctionEnded ? '경매 마감' : '입찰하기'}
+          </button>
+          <button
+            onClick={() => setIsBidHistoryModalOpen(true)}
+            className="flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md"
+          >
+            입찰 내역
+          </button>
+        </div>
       </div>
 
       <BidModal
@@ -259,6 +269,12 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
         onClose={() => setIsBidModalOpen(false)}
         item={{ id, name, current_bid }}
         onBidSuccess={onBidSuccess}
+      />
+      
+      <BidHistoryModal
+        isOpen={isBidHistoryModalOpen}
+        onClose={() => setIsBidHistoryModalOpen(false)}
+        item={{ id, name }}
       />
     </div>
   );

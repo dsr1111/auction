@@ -94,6 +94,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         bidderNickname: bidderName,
       });
 
+      // 아이템 업데이트
       const { data, error: updateError } = await supabase
         .from('items')
         .update({
@@ -107,6 +108,20 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         console.error('❌ Supabase 업데이트 실패:', updateError);
         setError(`입찰에 실패했습니다: ${updateError.message}`);
         return;
+      }
+
+      // 입찰 내역 저장
+      const { error: historyError } = await supabase
+        .from('bid_history')
+        .insert({
+          item_id: item.id,
+          bid_amount: bidAmount,
+          bidder_nickname: bidderName,
+        });
+
+      if (historyError) {
+        console.error('❌ 입찰 내역 저장 실패:', historyError);
+        // 입찰 내역 저장 실패해도 입찰은 성공한 것으로 처리
       }
 
       if (!data || data.length === 0) {
