@@ -153,7 +153,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, isAny
       isAuctionEnded 
         ? 'bg-gray-50 border-gray-300 opacity-75' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
-    } h-48 flex flex-col ${isAnyModalOpen ? 'z-0' : 'z-10'}`}>
+    } h-48 flex flex-col ${isAnyModalOpen ? 'z-[-1] pointer-events-none' : 'z-10'}`}>
       
       {/* 관리자용 삭제 버튼 */}
       {isAdmin && (

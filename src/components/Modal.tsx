@@ -13,7 +13,7 @@ const Modal = ({ isOpen, onClose, children, title }: ModalProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[999999] p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex justify-center items-center z-[999999] p-4">
       <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-lg w-full relative text-gray-900 overflow-y-auto max-h-[90vh] z-[999999]">
         <button
           onClick={onClose}
