@@ -23,6 +23,7 @@ type ItemCardProps = {
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
   onModalStateChange?: (isOpen: boolean) => void;
+  disableButtons?: boolean;
 };
 
 interface ExtendedUser {
@@ -32,7 +33,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
+const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, disableButtons }: ItemCardProps) => {
   const {
     id,
     name,
@@ -73,9 +74,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   // 모달 상태 변경 시 부모 컴포넌트에 알림
   useEffect(() => {
     if (onModalStateChange) {
-      onModalStateChange(isBidModalOpen);
+      onModalStateChange(isBidModalOpen || isBidHistoryModalOpen);
     }
-  }, [isBidModalOpen, onModalStateChange]);
+  }, [isBidModalOpen, isBidHistoryModalOpen, onModalStateChange]);
 
   // 남은 시간 계산
   useEffect(() => {
@@ -246,9 +247,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
         <div className="flex space-x-2">
           <button
             onClick={() => setIsBidModalOpen(true)}
-            disabled={isAuctionEnded}
+            disabled={isAuctionEnded || disableButtons}
             className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isAuctionEnded
+              isAuctionEnded || disableButtons
                 ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
             }`}
@@ -257,7 +258,12 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
           </button>
           <button
             onClick={() => setIsBidHistoryModalOpen(true)}
-            className="flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md"
+            disabled={isAuctionEnded || disableButtons}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
+              isAuctionEnded || disableButtons
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
+            }`}
           >
             입찰 내역
           </button>

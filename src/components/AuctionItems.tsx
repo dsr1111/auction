@@ -146,6 +146,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           onBidSuccess={fetchItems} 
           onItemDeleted={fetchItems}
           onModalStateChange={handleModalStateChange}
+          disableButtons={isAnyModalOpen}
         />
       ))}
       
