@@ -66,7 +66,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   // 이미지 URL 생성
   const getImageUrl = () => {
     if (imageError) {
-      return "https://media.dsrwiki.com/dsrwiki/default.webp";
+      return "https://media.dsrwiki.com/dsrwiki/item/default.webp";
     }
     const processedItemName = name.replace(/%/g, '^');
     return `https://media.dsrwiki.com/dsrwiki/item/${processedItemName}.webp`;
