@@ -159,7 +159,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
         <button
           onClick={handleDelete}
           disabled={isDeleting}
-          className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-red-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 disabled:opacity-50 z-10 group"
+          className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-red-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 disabled:opacity-50 z-20 group"
           title="아이템 삭제"
         >
           {isDeleting ? (
