@@ -70,7 +70,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handlePlaceBid = async () => {
     setError(null);
-    
+    const MAX_BID_AMOUNT = 2000000000;
+
     if (!bidderName.trim()) {
       setError('입찰자 닉네임을 입력해주세요.');
       return;
@@ -79,16 +80,20 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
       return;
     }
+    if (bidAmount > MAX_BID_AMOUNT) {
+      setError('입찰 금액은 최대 20억을 초과할 수 없습니다.');
+      return;
+    }
 
     setIsLoading(true);
 
     try {
-      console.log('🔄 입찰 시도:', { 
-        itemId: item.id, 
-        bidAmount, 
-        bidderNickname: bidderName 
+      console.log('🔄 입찰 시도:', {
+        itemId: item.id,
+        bidAmount,
+        bidderNickname: bidderName,
       });
-      
+
       const { data, error: updateError } = await supabase
         .from('items')
         .update({
@@ -111,9 +116,9 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       }
 
       console.log('✅ Supabase 업데이트 성공:', data);
-      
+
       await notifyItemUpdate('bid', item.id);
-      
+
       onClose();
       onBidSuccess?.();
     } catch (err) {
@@ -127,12 +132,16 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const cleanValue = value.replace(/[,\s]/g, '');
-    
+    const MAX_BID_AMOUNT = 2000000000;
+
     if (cleanValue === '') {
       setBidAmount(0);
     } else {
-      const numValue = parseFloat(cleanValue);
-      if (!isNaN(numValue) && numValue > 0) {
+      let numValue = parseFloat(cleanValue);
+      if (!isNaN(numValue)) {
+        if (numValue > MAX_BID_AMOUNT) {
+          numValue = MAX_BID_AMOUNT;
+        }
         setBidAmount(numValue);
       }
     }
