@@ -95,44 +95,33 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
         ) : (
           <div className="max-h-96 overflow-y-auto">
             <div className="space-y-3">
-              {bidHistory.map((bid, index) => (
-                <div
-                  key={bid.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    index === 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className={`text-sm font-medium ${
-                        index === 0 ? 'text-blue-700' : 'text-gray-700'
-                      }`}>
-                        {bid.bidder_nickname}
-                      </span>
-                      {index === 0 && (
-                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">
-                          최고가
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatDate(bid.created_at)}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-lg font-bold ${
-                      index === 0 ? 'text-blue-600' : 'text-gray-900'
-                    }`}>
-                      {bid.bid_amount.toLocaleString()}
-                    </span>
-                    <img 
-                      src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-                      alt="bit" 
-                      className="w-5 h-5 object-contain"
-                    />
-                  </div>
-                </div>
-              ))}
+                             {bidHistory.map((bid) => (
+                 <div
+                   key={bid.id}
+                   className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 border-gray-200"
+                 >
+                   <div className="flex-1">
+                     <div className="flex items-center space-x-2">
+                       <span className="text-sm font-medium text-gray-700">
+                         {bid.bidder_nickname}
+                       </span>
+                     </div>
+                     <p className="text-xs text-gray-500 mt-1">
+                       {formatDate(bid.created_at)}
+                     </p>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <span className="text-lg font-bold text-gray-900">
+                       {bid.bid_amount.toLocaleString()}
+                     </span>
+                     <img 
+                       src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
+                       alt="bit" 
+                       className="w-5 h-5 object-contain"
+                     />
+                   </div>
+                 </div>
+               ))}
             </div>
           </div>
         )}
