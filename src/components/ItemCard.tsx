@@ -180,7 +180,15 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
                 alt={name} 
                 width={56} 
                 height={56} 
-                className="rounded-xl object-cover"
+                className="rounded-xl object-cover w-14 h-14"
+                style={{ 
+                  width: '56px', 
+                  height: '56px',
+                  minWidth: '56px',
+                  minHeight: '56px',
+                  maxWidth: '56px',
+                  maxHeight: '56px'
+                }}
                 onError={handleImageError}
               />
             </div>
