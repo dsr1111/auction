@@ -17,7 +17,11 @@ type ItemCardProps = {
     price: number;
     current_bid: number;
     last_bidder_nickname: string | null;
-    end_time: string | null; // Add end_time to the type
+    end_time: string | null;
+    batch_id?: string;        // 배치 그룹 ID
+    item_index?: number;      // 배치 내 순서
+    total_quantity?: number;  // 총 수량
+    remaining_quantity?: number; // 남은 수량
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
@@ -38,6 +42,10 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
     current_bid,
     last_bidder_nickname,
     end_time,
+    batch_id,
+    item_index,
+    total_quantity,
+    remaining_quantity,
   } = item;
   const { data: session } = useSession();
   const supabase = createClient();
@@ -172,6 +180,23 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
                 {name}
               </h3>
             </CustomTooltip>
+            
+            {/* 배치 정보 표시 */}
+            {batch_id && total_quantity && (
+              <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-green-700 font-medium">길드 보상 아이템</span>
+                  <span className="text-green-600 font-bold">
+                    {item_index}/{total_quantity}
+                  </span>
+                </div>
+                {remaining_quantity !== undefined && remaining_quantity < total_quantity && (
+                  <div className="mt-1 text-xs text-green-600">
+                    남은 수량: {remaining_quantity}개
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">

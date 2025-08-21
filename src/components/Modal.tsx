@@ -21,7 +21,7 @@ const Modal = ({ isOpen, onClose, children, title }: ModalProps) => {
         >
           &times;
         </button>
-        {title && <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center">{title}</h2>}
+        {title && <h2 className="text-2xl font-bold mb-6 text-gray-800">{title}</h2>}
         {children}
       </div>
     </div>
