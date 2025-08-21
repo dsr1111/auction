@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
+import Image from 'next/image';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
@@ -21,7 +22,7 @@ const BatchAddItemModal = ({ isOpen, onClose, onItemAdded }: BatchAddItemModalPr
   
   const supabase = createClient();
 
-  const handleSubmit = async (e: React.FormFormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!itemName.trim()) {
@@ -165,10 +166,12 @@ const BatchAddItemModal = ({ isOpen, onClose, onItemAdded }: BatchAddItemModalPr
                 placeholder="0"
                 disabled={isLoading}
               />
-              <img 
+              <Image 
                 src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
                 alt="bit" 
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 object-contain"
+                width={20}
+                height={20}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 object-contain"
               />
             </div>
           </div>
