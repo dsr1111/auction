@@ -58,3 +58,9 @@
   z-index: 0 !important;
   position: relative !important;
 }
+
+/* 툴팁 z-index 강제 설정 */
+.tooltip {
+  z-index: 9999999 !important;
+  position: fixed !important;
+}

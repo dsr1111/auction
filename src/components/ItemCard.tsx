@@ -192,8 +192,8 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col h-full justify-center">
-            <CustomTooltip content={name} delay={50}>
-              <h3 className="text-sm font-bold text-gray-900 truncate mb-3 cursor-help hover:text-blue-600 transition-colors w-full">
+            <CustomTooltip content={name}>
+              <h3 className="text-sm font-bold text-gray-900 truncate mb-3 cursor-pointer hover:text-blue-600 transition-colors w-full">
                 {name}
               </h3>
             </CustomTooltip>

@@ -11,32 +11,32 @@ interface CustomTooltipProps {
 const CustomTooltip = ({ 
   content, 
   children, 
-  delay = 50 
+  delay = 500 
 }: CustomTooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [shouldShow, setShouldShow] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // 텍스트가 실제로 짤렸는지 확인하는 함수
+  const isTextTruncated = () => {
+    if (!triggerRef.current) return false;
+    return triggerRef.current.scrollWidth > triggerRef.current.clientWidth;
+  };
 
   const showTooltip = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     
+    // 텍스트가 짤렸을 때만 툴팁 표시
+    if (!isTextTruncated()) {
+      return;
+    }
+    
     timeoutRef.current = setTimeout(() => {
-      if (triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        const centerX = rect.left + (rect.width / 2);
-        
-        console.log('Card rect:', rect);
-        console.log('Calculated center X:', centerX);
-        
-        setTooltipPosition({
-          x: centerX -35 ,
-          y: rect.top - 30
-        });
-        setIsVisible(true);
-      }
+      setShouldShow(true);
+      setIsVisible(true);
     }, delay);
   };
 
@@ -45,6 +45,7 @@ const CustomTooltip = ({
       clearTimeout(timeoutRef.current);
     }
     setIsVisible(false);
+    setShouldShow(false);
   };
 
   useEffect(() => {
@@ -56,33 +57,32 @@ const CustomTooltip = ({
   }, []);
 
   return (
-    <div 
-      ref={triggerRef}
-      onMouseEnter={showTooltip}
-      onMouseLeave={hideTooltip}
-      className="w-full"
-    >
-      {children}
+    <div className="relative w-full">
+      <div 
+        ref={triggerRef}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+        className="w-full"
+      >
+        {children}
+      </div>
       
-      {isVisible && (
+      {shouldShow && isVisible && (
         <div
-          className="fixed z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg max-w-xs break-words pointer-events-none"
+          className="absolute left-1/2 bottom-full mb-2 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap pointer-events-none z-[9999999]"
           style={{
-            left: tooltipPosition.x,
-            top: tooltipPosition.y,
-            transform: 'translate(-50%, -100%)', // 툴팁을 위쪽으로 이동하고 중앙 정렬
+            transform: 'translateX(-50%)',
           }}
         >
           {content}
+          {/* 툴팁 화살표 */}
           <div 
-            className="absolute w-0 h-0"
+            className="absolute left-1/2 top-full w-0 h-0"
             style={{
-              left: '50%',
-              top: '100%',
               transform: 'translateX(-50%)',
               borderLeft: '6px solid transparent',
               borderRight: '6px solid transparent',
-              borderTop: '6px solid #111827', // bg-gray-900과 동일한 색상
+              borderTop: '6px solid #111827',
             }}
           />
         </div>
