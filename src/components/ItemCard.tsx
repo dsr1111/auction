@@ -1,7 +1,7 @@
 
 "use client"; // Make it a client component
 
-import Image from 'next/image';
+
 import { useState, useEffect } from 'react'; // Import useState and useEffect
 import BidModal from './BidModal'; // Import BidModal
 import CustomTooltip from './CustomTooltip';
@@ -175,8 +175,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
               className="rounded-[10px] p-1 relative"
               style={{ backgroundColor: '#1a202c' }}
             >
-              <Image 
-                key={`${id}-${name}-${imageError}`}
+              <img 
                 src={imageError ? getDefaultImageUrl() : getImageUrl()} 
                 alt={name} 
                 width={56} 
