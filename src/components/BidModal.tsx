@@ -19,22 +19,19 @@ type BidModalProps = {
 };
 
 const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
+  const { data: session, status } = useSession();
   const [bidAmount, setBidAmount] = useState<number>(0);
+  const [bidderName, setBidderName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { data: session, status } = useSession();
   const supabase = createClient();
 
-  // item이 변경될 때마다 bidAmount를 안전하게 초기화
   useEffect(() => {
-    if (item && typeof item.current_bid === 'number' && !isNaN(item.current_bid)) {
-      setBidAmount(item.current_bid + 1);
-    } else {
-      setBidAmount(1); // 기본값
+    if (item) {
+      setBidAmount(item.current_bid + 1 || 1);
     }
   }, [item]);
 
-  // 로그인 상태 확인
   if (status === 'loading') {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
@@ -46,7 +43,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     );
   }
 
-  // 로그인되지 않은 경우
   if (!session) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
@@ -74,27 +70,30 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handlePlaceBid = async () => {
     setError(null);
-    setIsLoading(true);
     
-    // 유효성 검사
-    if (!bidAmount || isNaN(bidAmount) || bidAmount <= item.current_bid) {
-      setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
-      setIsLoading(false);
+    if (!bidderName.trim()) {
+      setError('입찰자 닉네임을 입력해주세요.');
       return;
     }
+    if (!bidAmount || isNaN(bidAmount) || bidAmount <= item.current_bid) {
+      setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       console.log('🔄 입찰 시도:', { 
         itemId: item.id, 
         bidAmount, 
-        bidderNickname: session.user?.displayName || session.user?.name 
+        bidderNickname: bidderName 
       });
       
       const { data, error: updateError } = await supabase
         .from('items')
         .update({
           current_bid: bidAmount,
-          last_bidder_nickname: session.user?.displayName || session.user?.name,
+          last_bidder_nickname: bidderName,
         })
         .eq('id', item.id)
         .select();
@@ -113,12 +112,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
       console.log('✅ Supabase 업데이트 성공:', data);
       
-      // WebSocket으로 실시간 업데이트 알림
-      try {
-        await notifyItemUpdate('bid', item.id);
-      } catch (wsError) {
-        console.error('WebSocket 알림 실패:', wsError);
-      }
+      await notifyItemUpdate('bid', item.id);
       
       onClose();
       onBidSuccess?.();
@@ -132,7 +126,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // 콤마와 공백 제거하여 숫자만 추출
     const cleanValue = value.replace(/[,\s]/g, '');
     
     if (cleanValue === '') {
@@ -166,12 +159,14 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
           <label htmlFor="nicknameInput" className="block text-gray-700 text-sm font-medium mb-2">
             입찰자 닉네임
           </label>
-          <div className="bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700">
-            {session.user?.displayName || session.user?.name || '알 수 없음'}
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            디스코드 로그인 정보에서 자동으로 가져옵니다
-          </p>
+          <input
+            id="nicknameInput"
+            type="text"
+            value={bidderName}
+            onChange={(e) => setBidderName(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            placeholder="닉네임을 입력하세요"
+          />
         </div>
         
         <div>
@@ -220,5 +215,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     </Modal>
   );
 };
+
 
 export default BidModal;
