@@ -22,7 +22,6 @@ type ItemCardProps = {
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
-  onModalStateChange?: (isOpen: boolean) => void;
 };
 
 interface ExtendedUser {
@@ -32,7 +31,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
+const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
   const {
     id,
     name,
@@ -70,12 +69,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
     setImageError(false);
   }, [id, name]);
 
-  // 모달 상태 변경 시 부모 컴포넌트에 알림
-  useEffect(() => {
-    if (onModalStateChange) {
-      onModalStateChange(isBidModalOpen);
-    }
-  }, [isBidModalOpen, onModalStateChange]);
+
 
   // 남은 시간 계산
   useEffect(() => {
@@ -148,7 +142,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 ${
+    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 z-10 ${
       isAuctionEnded 
         ? 'bg-gray-50 border-gray-300 opacity-75' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
