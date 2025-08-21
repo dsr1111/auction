@@ -23,6 +23,7 @@ type ItemCardProps = {
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
   onModalStateChange?: (isOpen: boolean) => void;
+  isAnyModalOpen?: boolean; // 다른 모달이 열려있는지 확인
 };
 
 interface ExtendedUser {
@@ -32,7 +33,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
+const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange, isAnyModalOpen }: ItemCardProps) => {
   const {
     id,
     name,
@@ -152,7 +153,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
       isAuctionEnded 
         ? 'bg-gray-50 border-gray-300 opacity-75' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
-    } h-48 flex flex-col z-10`}>
+    } h-48 flex flex-col ${isAnyModalOpen ? 'z-0' : 'z-10'}`}>
       
       {/* 관리자용 삭제 버튼 */}
       {isAdmin && (

@@ -28,6 +28,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
   const { data: session } = useSession();
   const supabase = createClient();
 
@@ -139,6 +140,8 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           item={item} 
           onBidSuccess={fetchItems} 
           onItemDeleted={fetchItems}
+          onModalStateChange={(isOpen) => setIsAnyModalOpen(isOpen)}
+          isAnyModalOpen={isAnyModalOpen}
         />
       ))}
       
