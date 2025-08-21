@@ -22,9 +22,6 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
       <div className="flex flex-col gap-6">
         <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">로그인</h2>
         <div className="text-center">
-          <p className="text-gray-600 text-sm mb-6">
-            디스코드 닉네임을 인게임 닉네임으로 설정해 주세요.
-          </p>
         </div>
         
         <button
