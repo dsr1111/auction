@@ -16,6 +16,7 @@ type BidHistoryModalProps = {
 type BidHistory = {
   id: number;
   bid_amount: number;
+  bid_quantity: number;
   bidder_nickname: string;
   created_at: string;
 };
@@ -109,10 +110,18 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
                      <p className="text-xs text-gray-500 mt-1">
                        {formatDate(bid.created_at)}
                      </p>
+                     <p className="text-xs text-gray-400 mt-1">
+                       {bid.bid_quantity}개 × {bid.bid_amount.toLocaleString()}
+                       <img 
+                         src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
+                         alt="bit" 
+                         className="inline w-3 h-3 object-contain ml-1"
+                       />
+                     </p>
                    </div>
                    <div className="flex items-center space-x-2">
                      <span className="text-lg font-bold text-gray-900">
-                       {bid.bid_amount.toLocaleString()}
+                       {(bid.bid_amount * bid.bid_quantity).toLocaleString()}
                      </span>
                      <img 
                        src="https://media.dsrwiki.com/dsrwiki/bit.webp" 

@@ -19,6 +19,8 @@ type ItemCardProps = {
     current_bid: number;
     last_bidder_nickname: string | null;
     end_time: string | null;
+    quantity?: number;
+    remaining_quantity?: number;
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
@@ -172,22 +174,43 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
               className="rounded-[10px] p-1 relative"
               style={{ backgroundColor: '#1a202c' }}
             >
-              <img 
-                src={imageError ? getDefaultImageUrl() : getImageUrl()} 
-                alt={name} 
-                width={56} 
-                height={56} 
-                className="rounded-xl object-cover w-14 h-14"
-                style={{ 
-                  width: '56px', 
-                  height: '56px',
-                  minWidth: '56px',
-                  minHeight: '56px',
-                  maxWidth: '56px',
-                  maxHeight: '56px'
-                }}
-                onError={handleImageError}
-              />
+              <div className="relative overflow-visible">
+                <img 
+                  src={imageError ? getDefaultImageUrl() : getImageUrl()} 
+                  alt={name} 
+                  width={56} 
+                  height={56} 
+                  className="rounded-xl object-cover w-14 h-14"
+                  style={{ 
+                    width: '56px', 
+                    height: '56px',
+                    minWidth: '56px',
+                    minHeight: '56px',
+                    maxWidth: '56px',
+                    maxHeight: '56px'
+                  }}
+                  onError={handleImageError}
+                />
+                {/* 수량 표시 */}
+                {true && (  // 테스트용으로 항상 표시
+                  <span 
+                    className="absolute text-white text-xs font-bold text-center"
+                    style={{
+                      fontSize: '14px',
+                      lineHeight: '1',
+                      color: 'white',
+                      textShadow: '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black',
+                      zIndex: 9999,
+                      bottom: '0px',
+                      right: '0px',
+                      fontWeight: 'bold',
+                      padding: '1px 3px'
+                    }}
+                  >
+                    {item.quantity || 1}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -266,7 +289,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
       <BidModal
         isOpen={isBidModalOpen}
         onClose={() => setIsBidModalOpen(false)}
-        item={{ id, name, current_bid }}
+        item={{ id, name, current_bid, remaining_quantity: item.remaining_quantity }}
         onBidSuccess={onBidSuccess}
       />
       

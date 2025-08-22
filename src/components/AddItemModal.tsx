@@ -14,6 +14,7 @@ type AddItemModalProps = {
 const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
   const [itemName, setItemName] = useState('');
   const [itemPrice, setItemPrice] = useState('');
+  const [itemQuantity, setItemQuantity] = useState('1');
   const [duration, setDuration] = useState('24'); // 24시간 또는 48시간
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,13 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
     const price = itemPrice.trim() === '' ? 0 : parseFloat(itemPrice);
     if (isNaN(price) || price < 0) {
       setError('유효한 가격을 입력해주세요. (0원 이상)');
+      return;
+    }
+
+    // 수량 검증
+    const quantity = parseInt(itemQuantity);
+    if (isNaN(quantity) || quantity < 1) {
+      setError('유효한 수량을 입력해주세요. (1개 이상)');
       return;
     }
 
@@ -60,6 +68,8 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
             current_bid: price,
             last_bidder_nickname: null,
             end_time: endTime.toISOString(),
+            quantity: quantity,
+            remaining_quantity: quantity,
           }
         ]);
 
@@ -92,6 +102,7 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
     if (!isLoading) {
       setItemName('');
       setItemPrice('');
+      setItemQuantity('1');
       setError(null);
       onClose();
     }
@@ -123,7 +134,7 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
 
         <div>
           <label htmlFor="itemPrice" className="block text-gray-700 text-sm font-medium mb-2">
-            시작 가격
+            시작 가격 (개당)
           </label>
           <div className="relative">
             <input
@@ -141,6 +152,25 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
               className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 object-contain"
             />
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="itemQuantity" className="block text-gray-700 text-sm font-medium mb-2">
+            아이템 수량
+          </label>
+          <input
+            id="itemQuantity"
+            type="number"
+            value={itemQuantity}
+            onChange={(e) => setItemQuantity(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            placeholder="1"
+            min="1"
+            disabled={isLoading}
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            경매할 아이템의 총 수량을 입력하세요
+          </p>
         </div>
 
         <div>
