@@ -93,15 +93,19 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
+      let timeString = '';
+      
       if (days > 0) {
-        setTimeLeft(`${days}일 ${hours}시간`);
+        timeString = `${days}일 ${hours}시간`;
       } else if (hours > 0) {
-        setTimeLeft(`${hours}시간 ${minutes}분`);
+        timeString = `${hours}시간 ${minutes}분`;
       } else if (minutes > 0) {
-        setTimeLeft(`${minutes}분 ${seconds}초`);
+        timeString = `${minutes}분 ${seconds}초`;
       } else {
-        setTimeLeft(`${seconds}초`);
+        timeString = `${seconds}초`;
       }
+
+      setTimeLeft(timeString);
     };
 
     calculateTimeLeft();
@@ -192,7 +196,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
                   onError={handleImageError}
                 />
                 {/* 수량 표시 */}
-                {true && (  // 테스트용으로 항상 표시
+                {item.quantity && item.quantity > 1 && (
                   <span 
                     className="absolute text-white text-xs font-bold text-center"
                     style={{
@@ -207,7 +211,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
                       padding: '1px 3px'
                     }}
                   >
-                    {item.quantity || 1}
+                    {item.remaining_quantity || item.quantity}
                   </span>
                 )}
               </div>

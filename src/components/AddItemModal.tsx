@@ -15,7 +15,8 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
   const [itemName, setItemName] = useState('');
   const [itemPrice, setItemPrice] = useState('');
   const [itemQuantity, setItemQuantity] = useState('1');
-  const [duration, setDuration] = useState('24'); // 24시간 또는 48시간
+  const [endDate, setEndDate] = useState('');
+  const [endTime, setEndTime] = useState('23:59');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -43,20 +44,27 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
       return;
     }
 
+    // 마감 시간 검증
+    if (!endDate.trim()) {
+      setError('경매 마감 날짜를 선택해주세요.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // 마감 시간 계산 (현재 시간 + 선택된 시간)
-      const now = new Date();
-      let endTime;
+      // 마감 시간 계산 (선택된 날짜 + 시간)
+      const [year, month, day] = endDate.split('-').map(Number);
+      const [hour, minute] = endTime.split(':').map(Number);
+      const endDateTime = new Date(year, month - 1, day, hour, minute);
       
-      if (duration === '2') {
-        // 2분은 분 단위로 계산
-        endTime = new Date(now.getTime() + 2 * 60 * 1000);
-      } else {
-        // 24시간, 48시간은 시간 단위로 계산
-        endTime = new Date(now.getTime() + parseInt(duration) * 60 * 60 * 1000);
+      // 현재 시간과 비교
+      const now = new Date();
+      if (endDateTime <= now) {
+        setError('경매 마감 시간은 현재 시간보다 늦어야 합니다.');
+        setIsLoading(false);
+        return;
       }
 
       const { error: insertError } = await supabase
@@ -67,7 +75,7 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
             price: price,
             current_bid: price,
             last_bidder_nickname: null,
-            end_time: endTime.toISOString(),
+            end_time: endDateTime.toISOString(),
             quantity: quantity,
             remaining_quantity: quantity,
           }
@@ -103,10 +111,15 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
       setItemName('');
       setItemPrice('');
       setItemQuantity('1');
+      setEndDate('');
+      setEndTime('23:59');
       setError(null);
       onClose();
     }
   };
+
+  // 오늘 날짜를 최소값으로 설정
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="새 경매 아이템 추가">
@@ -173,21 +186,35 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
           </p>
         </div>
 
-        <div>
-          <label htmlFor="duration" className="block text-gray-700 text-sm font-medium mb-2">
-            경매 마감 시간
-          </label>
-          <select
-            id="duration"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            disabled={isLoading}
-          >
-            <option value="2">2분 (테스트용)</option>
-            <option value="24">24시간</option>
-            <option value="48">48시간</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="endDate" className="block text-gray-700 text-sm font-medium mb-2">
+              경매 마감 날짜
+            </label>
+            <input
+              id="endDate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={today}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              disabled={isLoading}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="endTime" className="block text-gray-700 text-sm font-medium mb-2">
+              경매 마감 시간
+            </label>
+            <input
+              id="endTime"
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              disabled={isLoading}
+            />
+          </div>
         </div>
 
         <div className="flex space-x-3 pt-4">
