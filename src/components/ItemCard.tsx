@@ -227,7 +227,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">현재 입찰가</span>
+                <span className="text-xs text-gray-500">
+                  {last_bidder_nickname ? '현재 입찰가' : '입찰 시작가'}
+                </span>
                 <div className="flex items-center space-x-1">
                   <span className="text-sm font-semibold text-blue-600">
                     {current_bid.toLocaleString()}
