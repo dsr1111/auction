@@ -46,7 +46,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   useEffect(() => {
     if (item) {
-      setBidAmount(item.current_bid + 1 || 1);
+      setBidAmount(item.current_bid + 10000 || 10000);
       setBidQuantity(1);
       setBidQuantityInput('1');
     }
@@ -101,9 +101,9 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       return;
     }
     
-    // 10 단위 검증
-    if (bidAmount % 10 !== 0) {
-      setError('입찰 금액은 10bit 단위로만 가능합니다.');
+    // 10000 단위 검증
+    if (bidAmount % 10000 !== 0) {
+      setError('입찰 금액은 10,000bit 단위로만 가능합니다.');
       return;
     }
     if (bidAmount <= item.current_bid) {
@@ -281,16 +281,17 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
             value={bidAmount || ''}
             onChange={handleBidAmountChange}
             className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            placeholder="10"
+            placeholder="10000"
+            step="10000"
           />
           <p className="text-xs text-gray-500 mt-2">
-            최소 입찰가: {(item.current_bid + 1).toLocaleString()}
+            최소 입찰가: {(item.current_bid + 10000).toLocaleString()}
             <img 
               src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
               alt="bit" 
               className="inline w-3 h-3 object-contain ml-1"
             />
-            <span className="ml-2 text-blue-600">• 10원 단위로만 입찰 가능</span>
+            <span className="ml-2 text-blue-600">• 10,000원 단위로만 입찰 가능</span>
           </p>
         </div>
 

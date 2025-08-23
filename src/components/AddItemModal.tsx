@@ -30,10 +30,16 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
       return;
     }
 
-    // 가격이 비워져있으면 10원으로 설정
-    const price = itemPrice.trim() === '' ? 10 : parseFloat(itemPrice);
-    if (isNaN(price) || price < 10) {
-      setError('유효한 가격을 입력해주세요. (10원 이상)');
+    // 가격이 비워져있으면 10,000원으로 설정
+    const price = itemPrice.trim() === '' ? 10000 : parseFloat(itemPrice);
+    if (isNaN(price) || price < 10000) {
+      setError('유효한 가격을 입력해주세요. (10,000원 이상)');
+      return;
+    }
+    
+    // 10,000원 단위 검증
+    if (price % 10000 !== 0) {
+      setError('시작 가격은 10,000원 단위로만 가능합니다.');
       return;
     }
 
@@ -156,8 +162,8 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
               value={itemPrice}
               onChange={(e) => setItemPrice(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 pr-12"
-              placeholder="10"
-              min="10"
+              placeholder="10000"
+              min="10000"
               disabled={isLoading}
             />
             <img 
@@ -184,6 +190,10 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
           />
           <p className="text-xs text-gray-500 mt-2">
             경매할 아이템의 총 수량을 입력하세요
+          </p>
+          
+          <p className="text-xs text-blue-600 mt-1">
+            • 시작 가격은 10,000원 단위로만 가능합니다
           </p>
         </div>
 
