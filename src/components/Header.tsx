@@ -50,6 +50,11 @@ const Header = () => {
                 )}
                 <span className="text-sm font-medium text-gray-700">
                   {(session.user as ExtendedUser).displayName || session.user.name}
+                  {(session.user as ExtendedUser).isAdmin && (
+                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
+                      관리자
+                    </span>
+                  )}
                 </span>
                 <button
                   onClick={handleSignOut}

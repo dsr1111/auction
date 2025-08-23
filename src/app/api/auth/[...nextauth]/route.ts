@@ -27,22 +27,36 @@ const handler = NextAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'identify guilds guilds.members.read', // 필요한 스코프 모두 포함
+          scope: 'identify guilds guilds.members.read',
         },
       },
     }),
   ],
+  debug: process.env.NODE_ENV === 'development', // 개발 환경에서 디버그 활성화
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === 'discord') {
         try {
           // 환경 변수 디버깅
-          console.log('환경 변수 확인:', {
-            clientId: process.env.DISCORD_CLIENT_ID,
-            guildId: process.env.DISCORD_GUILD_ID,
-            adminRoleId: process.env.DISCORD_ADMIN_ROLE_ID,
-            hasBotToken: !!process.env.DISCORD_BOT_TOKEN
+          console.log('🔍 Discord 로그인 시도:', {
+            userId: user.id,
+            username: user.name,
+            hasClientId: !!process.env.DISCORD_CLIENT_ID,
+            hasClientSecret: !!process.env.DISCORD_CLIENT_SECRET,
+            hasGuildId: !!process.env.DISCORD_GUILD_ID,
+            hasBotToken: !!process.env.DISCORD_BOT_TOKEN,
+            clientIdLength: process.env.DISCORD_CLIENT_ID?.length,
+            clientSecretLength: process.env.DISCORD_CLIENT_SECRET?.length,
           });
+
+          // 필수 환경 변수 확인
+          if (!process.env.DISCORD_GUILD_ID || !process.env.DISCORD_BOT_TOKEN) {
+            console.error('❌ 필수 환경 변수 누락:', {
+              hasGuildId: !!process.env.DISCORD_GUILD_ID,
+              hasBotToken: !!process.env.DISCORD_BOT_TOKEN,
+            });
+            return false;
+          }
 
           // Discord Guild API로 사용자의 서버 멤버 정보 가져오기
           const guildResponse = await fetch(
@@ -64,11 +78,16 @@ const handler = NextAuth({
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
             (user as ExtendedUser).isAdmin = isAdmin;
             
-            console.log('Discord 로그인 성공:', { userId: user.id, isAdmin, displayName: (user as ExtendedUser).displayName });
-            return isAdmin; // 관리자 역할이 있는 사용자만 로그인 허용
+            console.log('✅ Discord 로그인 성공:', { 
+              userId: user.id, 
+              isAdmin, 
+              displayName: (user as ExtendedUser).displayName,
+              roles: member.roles
+            });
+            return true; // 모든 Discord 사용자 로그인 허용 (테스트용)
           } else {
             const errorText = await guildResponse.text();
-            console.error('Discord Guild API 오류:', {
+            console.error('❌ Discord Guild API 오류:', {
               status: guildResponse.status,
               statusText: guildResponse.statusText,
               error: errorText,
@@ -78,7 +97,7 @@ const handler = NextAuth({
             return false; // API 호출 실패 시 로그인 거부
           }
         } catch (error) {
-          console.error('Discord API 호출 중 오류:', {
+          console.error('❌ Discord API 호출 중 오류:', {
             error: error instanceof Error ? error.message : error,
             guildId: process.env.DISCORD_GUILD_ID,
             userId: user.id
@@ -103,7 +122,10 @@ const handler = NextAuth({
       return session;
     },
   },
-
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/error',
+  },
 });
 
 export { handler as GET, handler as POST };

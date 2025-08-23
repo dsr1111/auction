@@ -1,9 +1,10 @@
 
 "use client"; // Make it a client component
 
-import Image from 'next/image';
+
 import { useState, useEffect } from 'react'; // Import useState and useEffect
 import BidModal from './BidModal'; // Import BidModal
+import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
@@ -18,10 +19,11 @@ type ItemCardProps = {
     current_bid: number;
     last_bidder_nickname: string | null;
     end_time: string | null;
+    quantity?: number;
+    remaining_quantity?: number;
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
-  onModalStateChange?: (isOpen: boolean) => void;
 };
 
 interface ExtendedUser {
@@ -31,7 +33,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: ItemCardProps) => {
+const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
   const {
     id,
     name,
@@ -41,42 +43,35 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   } = item;
   const { data: session } = useSession();
   const supabase = createClient();
-  const cdnBaseUrl = "https://media.dsrwiki.com/dsrwiki/item/";
-  const processedItemName = name.replace(/%/g, '^');
-  const constructedImageUrl = `${cdnBaseUrl}${processedItemName}.webp`;
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
+  const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isAuctionEnded, setIsAuctionEnded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-
-  // 이미지 로드 성공 시
-  const handleImageLoad = () => {
-    setImageLoading(false);
-    setImageError(false);
-  };
-
-  // 이미지 로드 실패 시
+  
+  // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
-    setImageLoading(false);
     setImageError(true);
   };
 
-  // 이미지 URL 결정 (에러 시 기본 이미지 사용)
+  // 이미지 URL 생성
   const getImageUrl = () => {
-    if (imageError) {
-      return "https://media.dsrwiki.com/dsrwiki/default.webp"; // 기본 이미지
-    }
-    return constructedImageUrl;
+    const processedItemName = name.replace(/%/g, '^');
+    return `https://media.dsrwiki.com/dsrwiki/item/${processedItemName}.webp`;
   };
 
-  // 모달 상태 변경 시 부모 컴포넌트에 알림
+  // 기본 이미지 URL
+  const getDefaultImageUrl = () => {
+    return "https://media.dsrwiki.com/dsrwiki/item/default.webp";
+  };
+
+  // 아이템이 변경될 때마다 이미지 상태 초기화
   useEffect(() => {
-    if (onModalStateChange) {
-      onModalStateChange(isBidModalOpen);
-    }
-  }, [isBidModalOpen, onModalStateChange]);
+    setImageError(false);
+  }, [id, name]);
+
+
 
   // 남은 시간 계산
   useEffect(() => {
@@ -98,15 +93,19 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
+      let timeString = '';
+      
       if (days > 0) {
-        setTimeLeft(`${days}일 ${hours}시간`);
+        timeString = `${days}일 ${hours}시간`;
       } else if (hours > 0) {
-        setTimeLeft(`${hours}시간 ${minutes}분`);
+        timeString = `${hours}시간 ${minutes}분`;
       } else if (minutes > 0) {
-        setTimeLeft(`${minutes}분 ${seconds}초`);
+        timeString = `${minutes}분 ${seconds}초`;
       } else {
-        setTimeLeft(`${seconds}초`);
+        timeString = `${seconds}초`;
       }
+
+      setTimeLeft(timeString);
     };
 
     calculateTimeLeft();
@@ -149,18 +148,19 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 ${
+    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 item-card ${
       isAuctionEnded 
-        ? 'bg-gray-50 border-gray-300 opacity-75' 
+        ? 'bg-gray-100 border-gray-400 opacity-90' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
-    } h-48 flex flex-col`}>
+    } h-48 flex flex-col`}
+    style={{ zIndex: 0, position: 'relative' }}>
       
       {/* 관리자용 삭제 버튼 */}
       {isAdmin && (
         <button
           onClick={handleDelete}
           disabled={isDeleting}
-          className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-red-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 disabled:opacity-50 z-10 group"
+          className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-red-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 disabled:opacity-50 z-20 group"
           title="아이템 삭제"
         >
           {isDeleting ? (
@@ -178,40 +178,58 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
               className="rounded-[10px] p-1 relative"
               style={{ backgroundColor: '#1a202c' }}
             >
-              {imageLoading && (
-                <div className="w-14 h-14 bg-gray-200 rounded-xl animate-pulse flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-              <Image 
-                src={getImageUrl()} 
-                alt={name} 
-                width={56} 
-                height={56} 
-                className={`rounded-xl object-cover ${imageLoading ? 'hidden' : 'block'}`}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-              />
-              {imageError && (
-                <div className="absolute inset-0 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              )}
+              <div className="relative overflow-visible">
+                <img 
+                  src={imageError ? getDefaultImageUrl() : getImageUrl()} 
+                  alt={name} 
+                  width={56} 
+                  height={56} 
+                  className="rounded-xl object-cover w-14 h-14"
+                  style={{ 
+                    width: '56px', 
+                    height: '56px',
+                    minWidth: '56px',
+                    minHeight: '56px',
+                    maxWidth: '56px',
+                    maxHeight: '56px'
+                  }}
+                  onError={handleImageError}
+                />
+                {/* 수량 표시 */}
+                {item.quantity && item.quantity > 1 && (
+                  <span 
+                    className="absolute text-white text-xs font-bold text-center"
+                    style={{
+                      fontSize: '14px',
+                      lineHeight: '1',
+                      color: 'white',
+                      textShadow: '-1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black',
+                      zIndex: 9999,
+                      bottom: '0px',
+                      right: '0px',
+                      fontWeight: 'bold',
+                      padding: '1px 3px'
+                    }}
+                  >
+                    {item.quantity}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col h-full justify-center">
-            <CustomTooltip content={name} delay={50}>
-              <h3 className="text-sm font-bold text-gray-900 truncate mb-3 cursor-help hover:text-blue-600 transition-colors w-full">
+            <CustomTooltip content={name}>
+              <h3 className="text-sm font-bold text-gray-900 truncate mb-3 cursor-pointer hover:text-blue-600 transition-colors w-full">
                 {name}
               </h3>
             </CustomTooltip>
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">현재 입찰가</span>
+                <span className="text-xs text-gray-500">
+                  {last_bidder_nickname ? '현재 입찰가' : '입찰 시작가'}
+                </span>
                 <div className="flex items-center space-x-1">
                   <span className="text-sm font-semibold text-blue-600">
                     {current_bid.toLocaleString()}
@@ -249,24 +267,42 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, onModalStateChange }: Ite
       </div>
 
       <div className="px-4 pb-4 mt-auto">
-        <button
-          onClick={() => setIsBidModalOpen(true)}
-          disabled={isAuctionEnded}
-          className={`w-full text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-            isAuctionEnded
-              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
-          }`}
-        >
-          {isAuctionEnded ? '경매 마감' : '입찰하기'}
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setIsBidModalOpen(true)}
+            disabled={isAuctionEnded}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
+              isAuctionEnded
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
+            }`}
+          >
+            {isAuctionEnded ? '경매 마감' : '입찰하기'}
+          </button>
+          <button
+            onClick={() => setIsBidHistoryModalOpen(true)}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
+              isAuctionEnded
+                ? 'bg-gray-500 hover:bg-gray-600 text-white hover:shadow-md'
+                : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
+            }`}
+          >
+            입찰 내역
+          </button>
+        </div>
       </div>
 
       <BidModal
         isOpen={isBidModalOpen}
         onClose={() => setIsBidModalOpen(false)}
-        item={{ id, name, current_bid }}
+        item={{ id, name, current_bid, remaining_quantity: item.remaining_quantity }}
         onBidSuccess={onBidSuccess}
+      />
+      
+      <BidHistoryModal
+        isOpen={isBidHistoryModalOpen}
+        onClose={() => setIsBidHistoryModalOpen(false)}
+        item={{ id, name }}
       />
     </div>
   );

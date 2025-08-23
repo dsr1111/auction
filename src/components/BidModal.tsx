@@ -14,27 +14,27 @@ type BidModalProps = {
     id: number;
     name: string;
     current_bid: number;
+    remaining_quantity?: number;
   };
   onBidSuccess?: () => void;
 };
 
 const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
+  const { data: session, status } = useSession();
   const [bidAmount, setBidAmount] = useState<number>(0);
+  const [bidQuantity, setBidQuantity] = useState<number>(1);
+  const [bidderName, setBidderName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { data: session, status } = useSession();
   const supabase = createClient();
 
-  // item이 변경될 때마다 bidAmount를 안전하게 초기화
   useEffect(() => {
-    if (item && typeof item.current_bid === 'number' && !isNaN(item.current_bid)) {
-      setBidAmount(item.current_bid + 1);
-    } else {
-      setBidAmount(1); // 기본값
+    if (item) {
+      setBidAmount(item.current_bid + 1 || 1);
+      setBidQuantity(1);
     }
   }, [item]);
 
-  // 로그인 상태 확인
   if (status === 'loading') {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
@@ -46,7 +46,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     );
   }
 
-  // 로그인되지 않은 경우
   if (!session) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
@@ -74,27 +73,48 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handlePlaceBid = async () => {
     setError(null);
-    setIsLoading(true);
+    const MAX_BID_AMOUNT = 2000000000;
+
+    if (!bidderName.trim()) {
+      setError('입찰자 닉네임을 입력해주세요.');
+      return;
+    }
+    if (!bidAmount || isNaN(bidAmount) || bidAmount <= 0) {
+      setError('유효한 입찰 금액을 입력해주세요.');
+      return;
+    }
     
-    // 유효성 검사
-    if (!bidAmount || isNaN(bidAmount) || bidAmount <= item.current_bid) {
+    // 10 단위 검증
+    if (bidAmount % 10 !== 0) {
+      setError('입찰 금액은 10bit 단위로만 가능합니다.');
+      return;
+    }
+    if (bidAmount <= item.current_bid) {
       setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
-      setIsLoading(false);
+      return;
+    }
+    if (bidAmount > MAX_BID_AMOUNT) {
+      setError('입찰 금액은 최대 20억을 초과할 수 없습니다.');
+      return;
+    }
+    if (!bidQuantity || isNaN(bidQuantity) || bidQuantity < 1) {
+      setError('유효한 수량을 입력해주세요. (1개 이상)');
+      return;
+    }
+    if (item.remaining_quantity && bidQuantity > item.remaining_quantity) {
+      setError(`입찰 수량은 남은 수량(${item.remaining_quantity}개)을 초과할 수 없습니다.`);
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      console.log('🔄 입찰 시도:', { 
-        itemId: item.id, 
-        bidAmount, 
-        bidderNickname: session.user?.displayName || session.user?.name 
-      });
-      
+      // 아이템 업데이트
       const { data, error: updateError } = await supabase
         .from('items')
         .update({
           current_bid: bidAmount,
-          last_bidder_nickname: session.user?.displayName || session.user?.name,
+          last_bidder_nickname: bidderName,
         })
         .eq('id', item.id)
         .select();
@@ -105,21 +125,31 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         return;
       }
 
+      // 입찰 내역 저장
+      const { error: historyError } = await supabase
+        .from('bid_history')
+        .insert({
+          item_id: item.id,
+          bid_amount: bidAmount,
+          bid_quantity: bidQuantity,
+          bidder_nickname: bidderName,
+          bidder_discord_id: session?.user?.id || null,
+          bidder_discord_name: session?.user?.name || null,
+        });
+
+      if (historyError) {
+        console.error('❌ 입찰 내역 저장 실패:', historyError);
+        // 입찰 내역 저장 실패해도 입찰은 성공한 것으로 처리
+      }
+
       if (!data || data.length === 0) {
         console.error('❌ 업데이트된 데이터가 없음');
         setError('입찰 업데이트에 실패했습니다.');
         return;
       }
 
-      console.log('✅ Supabase 업데이트 성공:', data);
-      
-      // WebSocket으로 실시간 업데이트 알림
-      try {
-        await notifyItemUpdate('bid', item.id);
-      } catch (wsError) {
-        console.error('WebSocket 알림 실패:', wsError);
-      }
-      
+      await notifyItemUpdate('bid', item.id);
+
       onClose();
       onBidSuccess?.();
     } catch (err) {
@@ -132,24 +162,34 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // 콤마와 공백 제거하여 숫자만 추출
-    const cleanValue = value.replace(/[,\s]/g, '');
-    
-    if (cleanValue === '') {
+
+    if (value === '') {
       setBidAmount(0);
-    } else {
-      const numValue = parseFloat(cleanValue);
-      if (!isNaN(numValue) && numValue > 0) {
-        setBidAmount(numValue);
-      }
+      return;
+    }
+
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return;
+    }
+
+    setBidAmount(numValue);
+  };
+
+  const handleBidQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    if (!isNaN(value) && value > 0) {
+      setBidQuantity(value);
     }
   };
+
+  const totalBidAmount = bidAmount * bidQuantity;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
       <div className="flex flex-col gap-4">
         <div className="bg-gray-50 p-3 rounded-md">
-          <p className="text-sm text-gray-600">현재 입찰가</p>
+          <p className="text-sm text-gray-600">현재 입찰가 (개당)</p>
           <div className="flex items-center space-x-2">
             <p className="text-lg font-semibold text-gray-900">
               {item.current_bid?.toLocaleString() || 0}
@@ -160,31 +200,57 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
               className="w-5 h-5 object-contain"
             />
           </div>
+          {item.remaining_quantity !== undefined && (
+            <p className="text-xs text-gray-500 mt-1">
+              남은 수량: {item.remaining_quantity}개
+            </p>
+          )}
         </div>
         
         <div>
           <label htmlFor="nicknameInput" className="block text-gray-700 text-sm font-medium mb-2">
             입찰자 닉네임
           </label>
-          <div className="bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700">
-            {session.user?.displayName || session.user?.name || '알 수 없음'}
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            디스코드 로그인 정보에서 자동으로 가져옵니다
+          <input
+            id="nicknameInput"
+            type="text"
+            value={bidderName}
+            onChange={(e) => setBidderName(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            placeholder="닉네임을 입력하세요"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="bidQuantityInput" className="block text-gray-700 text-sm font-medium mb-2">
+            입찰 수량
+          </label>
+          <input
+            id="bidQuantityInput"
+            type="number"
+            value={bidQuantity}
+            onChange={handleBidQuantityChange}
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            placeholder="1"
+            min="1"
+            max={item.remaining_quantity || 1}
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            구매하고 싶은 아이템의 수량을 입력하세요
           </p>
         </div>
         
         <div>
           <label htmlFor="bidInput" className="block text-gray-700 text-sm font-medium mb-2">
-            입찰 금액
+            입찰 금액 (개당)
           </label>
           <input
             id="bidInput"
-            type="text"
-            value={bidAmount ? bidAmount.toLocaleString() : ''}
+            type="number"
+            value={bidAmount || ''}
             onChange={handleBidAmountChange}
             className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            placeholder="예: 1,000"
+            placeholder="10"
           />
           <p className="text-xs text-gray-500 mt-2">
             최소 입찰가: {(item.current_bid + 1).toLocaleString()}
@@ -193,6 +259,27 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
               alt="bit" 
               className="inline w-3 h-3 object-contain ml-1"
             />
+            <span className="ml-2 text-blue-600">• 10원 단위로만 입찰 가능</span>
+          </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <p className="text-sm text-blue-600 font-medium">총 입찰 금액 (수수료 포함)</p>
+          <div className="flex items-center space-x-2">
+            <p className="text-lg font-semibold text-blue-700">
+              {(totalBidAmount * 1.1).toLocaleString()}
+            </p>
+            <img 
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
+              alt="bit" 
+              className="w-5 h-5 object-contain"
+            />
+            <span className="text-sm text-blue-600">
+              ({bidQuantity}개 × {bidAmount.toLocaleString()} + 수수료 10%)
+            </span>
+          </div>
+          <p className="text-xs text-blue-500 mt-2">
+            수수료: {(totalBidAmount * 0.1).toLocaleString()} bit
           </p>
         </div>
         

@@ -41,11 +41,29 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         .select('*')
         .order('created_at', { ascending: false });
 
+      // 마감된 아이템을 뒤로 보내기 위한 정렬
+      if (data) {
+        const now = new Date().getTime();
+        const sortedData = data.sort((a, b) => {
+          const aEnded = a.end_time ? new Date(a.end_time).getTime() <= now : false;
+          const bEnded = b.end_time ? new Date(b.end_time).getTime() <= now : false;
+          
+          // 마감되지 않은 아이템을 앞으로, 마감된 아이템을 뒤로
+          if (aEnded && !bEnded) return 1;
+          if (!aEnded && bEnded) return -1;
+          
+          // 둘 다 마감되었거나 둘 다 진행 중인 경우, 생성일 기준으로 정렬
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        
+        setItems(sortedData);
+      } else {
+        setItems([]);
+      }
+
       if (error) {
         throw error;
       }
-
-      setItems(data || []);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';
       setError(errorMessage);
@@ -73,11 +91,23 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       }
 
       if (data) {
-        setItems(prevItems => 
-          prevItems.map(item => 
+        setItems(prevItems => {
+          const updatedItems = prevItems.map(item => 
             item.id === itemId ? data : item
-          )
-        );
+          );
+          
+          // 업데이트 후에도 마감된 아이템을 뒤로 보내기
+          const now = new Date().getTime();
+          return updatedItems.sort((a, b) => {
+            const aEnded = a.end_time ? new Date(a.end_time).getTime() <= now : false;
+            const bEnded = b.end_time ? new Date(b.end_time).getTime() <= now : false;
+            
+            if (aEnded && !bEnded) return 1;
+            if (!aEnded && bEnded) return -1;
+            
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+        });
         console.log('✅ 아이템 개별 업데이트 성공:', data);
       }
     } catch (err) {
@@ -132,7 +162,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative items-grid" style={{ zIndex: 0, position: 'relative' }}>
       {items.map((item) => (
         <ItemCard 
           key={item.id} 
