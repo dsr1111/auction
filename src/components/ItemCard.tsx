@@ -295,7 +295,13 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
       <BidModal
         isOpen={isBidModalOpen}
         onClose={() => setIsBidModalOpen(false)}
-        item={{ id, name, current_bid, quantity: item.quantity, remaining_quantity: item.remaining_quantity }}
+        item={{ 
+          id, 
+          name, 
+          current_bid, 
+          quantity: item.quantity, 
+          remaining_quantity: item.remaining_quantity || item.quantity 
+        }}
         onBidSuccess={onBidSuccess}
       />
       
