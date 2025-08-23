@@ -12,20 +12,15 @@ const pusher = new Pusher({
 export async function POST(request: NextRequest) {
   try {
     // 환경 변수 확인
-    console.log('Pusher 환경 변수 확인:', {
-      appId: process.env.PUSHER_APP_ID,
-      key: process.env.NEXT_PUBLIC_PUSHER_APP_KEY,
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-      hasSecret: !!process.env.PUSHER_SECRET
-    });
+    
 
     const { channel, event, data } = await request.json();
     
-    console.log('Pusher 트리거 요청:', { channel, event, data });
+
     
     await pusher.trigger(channel, event, data);
     
-    console.log('✅ Pusher 트리거 성공');
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('❌ Pusher 트리거 오류:', error);

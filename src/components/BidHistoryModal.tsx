@@ -49,7 +49,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
         return;
       }
 
-      console.log('🔍 데이터베이스에서 가져온 입찰 내역:', data);
+
       setBidHistory(data || []);
     } catch (err) {
       console.error('예상치 못한 오류:', err);
@@ -104,15 +104,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
           <div className="max-h-96 overflow-y-auto">
             <div className="space-y-3">
               {bidHistory.map((bid) => {
-                console.log('🔍 개별 입찰 데이터:', {
-                  id: bid.id,
-                  nickname: bid.bidder_nickname,
-                  discord_id: bid.bidder_discord_id,
-                  discord_name: bid.bidder_discord_name,
-                  hasDiscordId: !!bid.bidder_discord_id,
-                  hasDiscordName: !!bid.bidder_discord_name,
-                  condition: !!(bid.bidder_discord_id && bid.bidder_discord_name)
-                });
+
                 return (
                   <div
                     key={bid.id}

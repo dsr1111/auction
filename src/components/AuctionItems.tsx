@@ -108,7 +108,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           });
         });
-        console.log('✅ 아이템 개별 업데이트 성공:', data);
+
       }
     } catch (err) {
       console.error('아이템 업데이트 중 오류:', err);
@@ -118,15 +118,11 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
     const unsubscribe = subscribeToAuctionChannel((data: { action: string; itemId?: number; timestamp: number }) => {
-      console.log('📨 Pusher 메시지 수신:', data);
-      
       if (data.action === 'bid' && data.itemId) {
         // 입찰 업데이트: 해당 아이템만 업데이트 (깜빡임 없음)
-        console.log('🔄 입찰 업데이트 - 아이템', data.itemId, '만 업데이트');
         updateSingleItem(data.itemId);
       } else if (data.action === 'added' || data.action === 'deleted') {
         // 추가/삭제: 전체 목록 새로고침 (필요한 경우만)
-        console.log('🔄 아이템', data.action, '- 전체 목록 새로고침');
         fetchItems();
       }
     });

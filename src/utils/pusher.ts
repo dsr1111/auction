@@ -51,7 +51,7 @@ export const notifyItemUpdate = async (action: 'bid' | 'added' | 'deleted', item
       throw new Error('Pusher 알림 전송 실패');
     }
     
-    console.log('✅ Pusher 알림 전송 성공:', { action, itemId });
+
   } catch (error) {
     console.error('❌ Pusher 알림 전송 실패:', error);
   }

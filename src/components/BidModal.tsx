@@ -145,14 +145,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       }
 
       // 세션 정보 디버깅
-      console.log('🔍 세션 정보:', {
-        session: session,
-        userId: session?.user?.id,
-        userName: session?.user?.name,
-        userEmail: session?.user?.email,
-        displayName: session?.user?.displayName,
-        isAdmin: session?.user?.isAdmin
-      });
+
 
       // 입찰 내역 저장
       const { error: historyError } = await supabase

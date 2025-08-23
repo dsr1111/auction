@@ -19,12 +19,12 @@ export async function middleware(request: NextRequest) {
     
     if (!token) {
       // 로그인되지 않은 경우 길드 가입 안내 페이지로 리다이렉트
-      console.log('🔒 보호된 경로 접근 차단:', pathname);
+
       return NextResponse.redirect(new URL('/guild-access-denied', request.url));
     }
     
     // 토큰이 있지만 길드 멤버가 아닌 경우도 처리할 수 있습니다
-    console.log('✅ 보호된 경로 접근 허용:', pathname);
+
   }
   
   return NextResponse.next();
