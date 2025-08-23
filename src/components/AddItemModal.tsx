@@ -30,10 +30,10 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
       return;
     }
 
-    // 가격이 비워져있으면 0원으로 설정
-    const price = itemPrice.trim() === '' ? 0 : parseFloat(itemPrice);
-    if (isNaN(price) || price < 0) {
-      setError('유효한 가격을 입력해주세요. (0원 이상)');
+    // 가격이 비워져있으면 10원으로 설정
+    const price = itemPrice.trim() === '' ? 10 : parseFloat(itemPrice);
+    if (isNaN(price) || price < 10) {
+      setError('유효한 가격을 입력해주세요. (10원 이상)');
       return;
     }
 
@@ -156,7 +156,8 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
               value={itemPrice}
               onChange={(e) => setItemPrice(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 pr-12"
-              placeholder="0"
+              placeholder="10"
+              min="10"
               disabled={isLoading}
             />
             <img 

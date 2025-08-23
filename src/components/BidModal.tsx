@@ -79,7 +79,17 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       setError('입찰자 닉네임을 입력해주세요.');
       return;
     }
-    if (!bidAmount || isNaN(bidAmount) || bidAmount <= item.current_bid) {
+    if (!bidAmount || isNaN(bidAmount) || bidAmount <= 0) {
+      setError('유효한 입찰 금액을 입력해주세요.');
+      return;
+    }
+    
+    // 10 단위 검증
+    if (bidAmount % 10 !== 0) {
+      setError('입찰 금액은 10bit 단위로만 가능합니다.');
+      return;
+    }
+    if (bidAmount <= item.current_bid) {
       setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
       return;
     }
@@ -151,20 +161,18 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    const cleanValue = value.replace(/[,\s]/g, '');
-    const MAX_BID_AMOUNT = 2000000000;
 
-    if (cleanValue === '') {
+    if (value === '') {
       setBidAmount(0);
-    } else {
-      let numValue = parseFloat(cleanValue);
-      if (!isNaN(numValue)) {
-        if (numValue > MAX_BID_AMOUNT) {
-          numValue = MAX_BID_AMOUNT;
-        }
-        setBidAmount(numValue);
-      }
+      return;
     }
+
+    let numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return;
+    }
+
+    setBidAmount(numValue);
   };
 
   const handleBidQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,11 +245,11 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
           </label>
           <input
             id="bidInput"
-            type="text"
-            value={bidAmount ? bidAmount.toLocaleString() : ''}
+            type="number"
+            value={bidAmount || ''}
             onChange={handleBidAmountChange}
             className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            placeholder="예: 1,000"
+            placeholder="10"
           />
           <p className="text-xs text-gray-500 mt-2">
             최소 입찰가: {(item.current_bid + 1).toLocaleString()}
@@ -250,14 +258,15 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
               alt="bit" 
               className="inline w-3 h-3 object-contain ml-1"
             />
+            <span className="ml-2 text-blue-600">• 10원 단위로만 입찰 가능</span>
           </p>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-          <p className="text-sm text-blue-600 font-medium">총 입찰 금액</p>
+          <p className="text-sm text-blue-600 font-medium">총 입찰 금액 (수수료 포함)</p>
           <div className="flex items-center space-x-2">
             <p className="text-lg font-semibold text-blue-700">
-              {totalBidAmount.toLocaleString()}
+              {(totalBidAmount * 1.1).toLocaleString()}
             </p>
             <img 
               src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
@@ -265,9 +274,12 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
               className="w-5 h-5 object-contain"
             />
             <span className="text-sm text-blue-600">
-              ({bidQuantity}개 × {bidAmount.toLocaleString()})
+              ({bidQuantity}개 × {bidAmount.toLocaleString()} + 수수료 10%)
             </span>
           </div>
+          <p className="text-xs text-blue-500 mt-2">
+            수수료: {(totalBidAmount * 0.1).toLocaleString()} bit
+          </p>
         </div>
         
         {error && (

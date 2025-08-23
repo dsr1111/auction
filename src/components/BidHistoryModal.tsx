@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
+import { useSession } from 'next-auth/react';
 
 type BidHistoryModalProps = {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: session } = useSession();
   const supabase = createClient();
 
   useEffect(() => {
@@ -106,6 +108,16 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
                        <span className="text-sm font-medium text-gray-700">
                          {bid.bidder_nickname}
                        </span>
+                       {session?.user?.image && session?.user?.name && (
+                         <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center space-x-1">
+                           <img 
+                             src={session.user.image} 
+                             alt="Discord Profile" 
+                             className="w-3 h-3 rounded-full object-cover"
+                           />
+                           <span>{session.user.name}</span>
+                         </span>
+                       )}
                      </div>
                      <p className="text-xs text-gray-500 mt-1">
                        {formatDate(bid.created_at)}
