@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
 
@@ -14,9 +14,10 @@ type Item = {
 export default function TotalBidSummary() {
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
   const supabase = createClient();
 
-    const calculateTotalBidAmount = (items: Item[], bidHistoryMap: Map<number, number[]>) => {
+  const calculateTotalBidAmount = useCallback((items: Item[], bidHistoryMap: Map<number, number[]>) => {
     return items.reduce((total, item) => {
       // 아이템의 수량만 사용
       const actualQuantity = item.quantity;
@@ -44,23 +45,23 @@ export default function TotalBidSummary() {
         return total + itemTotal;
       }
     }, 0);
-  };
+  }, []);
 
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
       
-                    // 아이템과 입찰내역을 병렬로 조회
-       const [itemsResult, bidHistoryResult] = await Promise.all([
-         supabase
-           .from('items')
-           .select('id, name, current_bid, quantity')
-           .order('current_bid', { ascending: false }),
-         supabase
-           .from('bid_history')
-           .select('item_id, bid_amount, bid_quantity')
-           .order('bid_amount', { ascending: false })
-       ]);
+      // 아이템과 입찰내역을 병렬로 조회
+      const [itemsResult, bidHistoryResult] = await Promise.all([
+        supabase
+          .from('items')
+          .select('id, name, current_bid, quantity')
+          .order('current_bid', { ascending: false }),
+        supabase
+          .from('bid_history')
+          .select('item_id, bid_amount, bid_quantity')
+          .order('bid_amount', { ascending: false })
+      ]);
 
       if (itemsResult.error) {
         console.error('아이템 조회 실패:', itemsResult.error);
@@ -76,17 +77,17 @@ export default function TotalBidSummary() {
         // 입찰내역을 아이템별로 그룹화하고 높은 가격순으로 정렬
         const bidHistoryMap = new Map<number, number[]>();
         
-                 if (bidHistoryResult.data) {
-           bidHistoryResult.data.forEach(bid => {
-             if (!bidHistoryMap.has(bid.item_id)) {
-               bidHistoryMap.set(bid.item_id, []);
-             }
-             // bid_quantity만큼 bid_amount를 반복해서 추가
-             for (let i = 0; i < bid.bid_quantity; i++) {
-               bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
-             }
-           });
-         }
+        if (bidHistoryResult.data) {
+          bidHistoryResult.data.forEach(bid => {
+            if (!bidHistoryMap.has(bid.item_id)) {
+              bidHistoryMap.set(bid.item_id, []);
+            }
+            // bid_quantity만큼 bid_amount를 반복해서 추가
+            for (let i = 0; i < bid.bid_quantity; i++) {
+              bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
+            }
+          });
+        }
         
         // 각 아이템의 입찰내역을 높은 가격순으로 정렬
         bidHistoryMap.forEach((bids, itemId) => {
@@ -94,35 +95,43 @@ export default function TotalBidSummary() {
         });
 
         const total = calculateTotalBidAmount(itemsResult.data, bidHistoryMap);
-        setTotalBidAmount(total);
+        
+        // 값이 실제로 변경되었을 때만 상태 업데이트
+        setTotalBidAmount(prevTotal => {
+          if (prevTotal !== total) {
+            setLastUpdateTime(Date.now());
+            return total;
+          }
+          return prevTotal;
+        });
       }
     } catch (err) {
       console.error('총 입찰가 계산 중 오류:', err);
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, calculateTotalBidAmount]);
 
-  // Pusher로 실시간 업데이트
+  // Pusher로 실시간 업데이트 (값이 변할 때만)
   useEffect(() => {
     const unsubscribe = subscribeToAuctionChannel((data: { action: string; itemId?: number; timestamp: number }) => {
-      if (data.action === 'bid' || data.action === 'added' || data.action === 'deleted') {
-        // 입찰, 추가, 삭제 시 총 입찰가 재계산
-        fetchItems();
+      // 마지막 업데이트 이후 1초가 지났을 때만 업데이트 (중복 방지)
+      const timeSinceLastUpdate = Date.now() - lastUpdateTime;
+      if (timeSinceLastUpdate > 1000) {
+        if (data.action === 'bid' || data.action === 'added' || data.action === 'deleted') {
+          // 입찰, 추가, 삭제 시 총 입찰가 재계산
+          fetchItems();
+        }
       }
     });
     
     return unsubscribe;
-  }, []);
+  }, [fetchItems, lastUpdateTime]);
 
+  // 초기 로드만 실행 (자동 새로고침 제거)
   useEffect(() => {
     fetchItems();
-    
-    // 30초마다 자동 새로고침 (백업)
-    const interval = setInterval(fetchItems, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchItems]);
 
   if (loading) {
     return (
@@ -136,9 +145,11 @@ export default function TotalBidSummary() {
   }
 
   return (
-         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 mb-2">
+    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 mb-2">
       <div className="flex items-center justify-between">
-        <span className="text-gray-700 text-sm">총 입찰 금액:</span>
+        <div className="flex flex-col">
+          <span className="text-gray-700 text-sm">총 입찰 금액:</span>
+        </div>
         <div className="flex items-center space-x-2">
           <span className="text-base font-semibold text-blue-600">
             {totalBidAmount.toLocaleString()}
