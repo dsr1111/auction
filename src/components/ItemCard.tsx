@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'; // Import useState and useEffect
 import BidModal from './BidModal'; // Import BidModal
 import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
+import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
@@ -45,9 +46,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
   const supabase = createClient();
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isAuctionEnded, setIsAuctionEnded] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [imageError, setImageError] = useState(false);
   
   // 이미지 로드 실패 시 기본 이미지 사용
@@ -114,36 +115,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
     return () => clearInterval(timer);
   }, [end_time]);
 
-  // 아이템 삭제 함수
-  const handleDelete = async () => {
-    if (!confirm('정말로 이 아이템을 삭제하시겠습니까?')) return;
-    
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', id);
 
-      if (error) throw error;
-      
-      // WebSocket으로 실시간 업데이트 알림
-      try {
-        notifyItemUpdate('deleted', id);
-      } catch (wsError) {
-        console.error('WebSocket 알림 실패:', wsError);
-      }
-      
-      if (onItemDeleted) {
-        onItemDeleted();
-      }
-    } catch (err) {
-      console.error('아이템 삭제 실패:', err);
-      alert('아이템 삭제에 실패했습니다.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
@@ -155,21 +127,16 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
     } h-48 flex flex-col`}
     style={{ zIndex: 0, position: 'relative' }}>
       
-      {/* 관리자용 삭제 버튼 */}
-      {isAdmin && (
-        <button
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-red-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 disabled:opacity-50 z-20 group"
-          title="아이템 삭제"
-        >
-          {isDeleting ? (
-            <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-          ) : (
-            <span className="group-hover:scale-110 transition-transform duration-200">×</span>
-          )}
-        </button>
-      )}
+                     {/* 관리자용 수정 버튼 */}
+        {isAdmin && (
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-blue-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 z-10 group"
+            title="아이템 수정"
+          >
+            <span className="group-hover:scale-110 transition-transform duration-200">✎</span>
+          </button>
+        )}
 
       <div className="p-4 flex-1">
         <div className="flex items-center justify-center h-full">
@@ -309,6 +276,20 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
         isOpen={isBidHistoryModalOpen}
         onClose={() => setIsBidHistoryModalOpen(false)}
         item={{ id, name }}
+      />
+      
+      <ItemEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        item={{ 
+          id, 
+          name, 
+          current_bid, 
+          quantity: item.quantity || 1, 
+          end_time: end_time 
+        }}
+        onItemUpdated={onBidSuccess}
+        onItemDeleted={onItemDeleted}
       />
     </div>
   );
