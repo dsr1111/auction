@@ -14,6 +14,7 @@ type BidModalProps = {
     id: number;
     name: string;
     current_bid: number;
+    quantity: number;
     remaining_quantity?: number;
   };
   onBidSuccess?: () => void;
@@ -101,8 +102,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       setError('유효한 수량을 입력해주세요. (1개 이상)');
       return;
     }
-    if (item.remaining_quantity && bidQuantity > item.remaining_quantity) {
-      setError(`입찰 수량은 남은 수량(${item.remaining_quantity}개)을 초과할 수 없습니다.`);
+    if (bidQuantity > item.quantity) {
+      setError(`입찰 수량은 아이템 수량(${item.quantity}개)을 초과할 수 없습니다.`);
       return;
     }
 
@@ -124,6 +125,16 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         setError(`입찰에 실패했습니다: ${updateError.message}`);
         return;
       }
+
+      // 세션 정보 디버깅
+      console.log('🔍 세션 정보:', {
+        session: session,
+        userId: session?.user?.id,
+        userName: session?.user?.name,
+        userEmail: session?.user?.email,
+        displayName: (session?.user as any)?.displayName,
+        isAdmin: (session?.user as any)?.isAdmin
+      });
 
       // 입찰 내역 저장
       const { error: historyError } = await supabase
@@ -178,7 +189,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
   const handleBidQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0) {
+    if (!isNaN(value) && value > 0 && value <= item.quantity) {
       setBidQuantity(value);
     }
   };
@@ -200,11 +211,9 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
               className="w-5 h-5 object-contain"
             />
           </div>
-          {item.remaining_quantity !== undefined && (
-            <p className="text-xs text-gray-500 mt-1">
-              남은 수량: {item.remaining_quantity}개
-            </p>
-          )}
+          <p className="text-xs text-gray-500 mt-1">
+            수량: {item.quantity}개
+          </p>
         </div>
         
         <div>
@@ -233,7 +242,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
             className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             placeholder="1"
             min="1"
-            max={item.remaining_quantity || 1}
+            max={item.quantity || 1}
           />
           <p className="text-xs text-gray-500 mt-2">
             구매하고 싶은 아이템의 수량을 입력하세요
