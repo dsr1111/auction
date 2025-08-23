@@ -24,6 +24,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   const { data: session, status } = useSession();
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [bidQuantity, setBidQuantity] = useState<number>(1);
+  const [bidQuantityInput, setBidQuantityInput] = useState<string>('1');
   const [bidderName, setBidderName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +34,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     if (item) {
       setBidAmount(item.current_bid + 1 || 1);
       setBidQuantity(1);
+      setBidQuantityInput('1');
     }
   }, [item]);
 
@@ -98,11 +100,13 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       setError('입찰 금액은 최대 20억을 초과할 수 없습니다.');
       return;
     }
-    if (!bidQuantity || isNaN(bidQuantity) || bidQuantity < 1) {
+    // 수량 검증 - bidQuantityInput에서 파싱
+    const quantityToBid = parseInt(bidQuantityInput);
+    if (!quantityToBid || isNaN(quantityToBid) || quantityToBid < 1) {
       setError('유효한 수량을 입력해주세요. (1개 이상)');
       return;
     }
-    if (bidQuantity > item.quantity) {
+    if (quantityToBid > item.quantity) {
       setError(`입찰 수량은 아이템 수량(${item.quantity}개)을 초과할 수 없습니다.`);
       return;
     }
@@ -132,8 +136,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         userId: session?.user?.id,
         userName: session?.user?.name,
         userEmail: session?.user?.email,
-        displayName: (session?.user as any)?.displayName,
-        isAdmin: (session?.user as any)?.isAdmin
+        displayName: (session?.user as { displayName?: string })?.displayName,
+        isAdmin: (session?.user as { isAdmin?: boolean })?.isAdmin
       });
 
       // 입찰 내역 저장
@@ -142,7 +146,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         .insert({
           item_id: item.id,
           bid_amount: bidAmount,
-          bid_quantity: bidQuantity,
+          bid_quantity: quantityToBid,
           bidder_nickname: bidderName,
           bidder_discord_id: session?.user?.id || null,
           bidder_discord_name: session?.user?.name || null,
@@ -188,13 +192,24 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   };
 
   const handleBidQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0 && value <= item.quantity) {
-      setBidQuantity(value);
+    const value = e.target.value;
+    setBidQuantityInput(value);
+    
+    // 빈 문자열이면 1로 설정
+    if (value === '') {
+      setBidQuantity(1);
+      return;
+    }
+    
+    const numValue = parseInt(value);
+    
+    // 유효한 숫자이고 범위 내에 있으면 설정
+    if (!isNaN(numValue) && numValue > 0 && numValue <= item.quantity) {
+      setBidQuantity(numValue);
     }
   };
 
-  const totalBidAmount = bidAmount * bidQuantity;
+  const totalBidAmount = bidAmount * (parseInt(bidQuantityInput) || 1);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
@@ -237,7 +252,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
           <input
             id="bidQuantityInput"
             type="number"
-            value={bidQuantity}
+            value={bidQuantityInput}
             onChange={handleBidQuantityChange}
             className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             placeholder="1"

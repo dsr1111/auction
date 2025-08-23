@@ -42,7 +42,7 @@ const handler = NextAuth({
   ],
   debug: process.env.NODE_ENV === 'development', // 개발 환경에서 디버그 활성화
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account }: { user: any; account: any }) {
       if (account?.provider === 'discord') {
         try {
           // 환경 변수 디버깅
@@ -115,15 +115,17 @@ const handler = NextAuth({
       }
       return false; // Discord가 아닌 경우 로그인 거부
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: any; user: any }) {
       if (user) {
+        token.id = user.id;
         token.displayName = (user as ExtendedUser).displayName;
         token.isAdmin = (user as ExtendedUser).isAdmin;
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: any }) {
       if (token) {
+        (session.user as ExtendedUser).id = token.id as string;
         (session.user as ExtendedUser).displayName = token.displayName as string;
         (session.user as ExtendedUser).isAdmin = token.isAdmin as boolean;
       }

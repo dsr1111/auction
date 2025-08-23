@@ -28,7 +28,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { data: session } = useSession();
+
   const supabase = createClient();
 
   const fetchBidHistory = useCallback(async () => {
