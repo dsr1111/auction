@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import NextAuth from 'next-auth/next';
 import DiscordProvider from 'next-auth/providers/discord';
 
@@ -42,7 +43,7 @@ const handler = NextAuth({
   ],
   debug: process.env.NODE_ENV === 'development',
   callbacks: {
-    async signIn({ user, account }: { user: any; account: any }) {
+    async signIn({ user, account }: { user: ExtendedUser; account: { provider: string } | null }) {
       if (account?.provider === 'discord') {
         try {
           // 환경 변수 디버깅
