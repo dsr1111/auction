@@ -41,7 +41,7 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: 
 
     setIsLoading(true);
     try {
-      const updateData: any = { quantity };
+      const updateData: { quantity: number; end_time?: string } = { quantity };
       
       if (endTime) {
         updateData.end_time = new Date(endTime).toISOString();
