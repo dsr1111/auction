@@ -30,6 +30,14 @@ const handler = NextAuth({
           scope: 'identify guilds guilds.members.read',
         },
       },
+      profile(profile) {
+        return {
+          id: profile.id,
+          name: profile.username,
+          email: profile.email,
+          image: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.webp` : null,
+        };
+      },
     }),
   ],
   debug: process.env.NODE_ENV === 'development', // 개발 환경에서 디버그 활성화
