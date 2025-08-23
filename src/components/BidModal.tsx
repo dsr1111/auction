@@ -115,7 +115,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         .update({
           current_bid: bidAmount,
           last_bidder_nickname: bidderName,
-          remaining_quantity: (item.remaining_quantity || 1) - bidQuantity,
         })
         .eq('id', item.id)
         .select();
@@ -134,6 +133,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
           bid_amount: bidAmount,
           bid_quantity: bidQuantity,
           bidder_nickname: bidderName,
+          bidder_discord_id: session?.user?.id || null,
+          bidder_discord_name: session?.user?.name || null,
         });
 
       if (historyError) {

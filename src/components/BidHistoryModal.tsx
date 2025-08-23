@@ -19,6 +19,8 @@ type BidHistory = {
   bid_amount: number;
   bid_quantity: number;
   bidder_nickname: string;
+  bidder_discord_id: string | null;
+  bidder_discord_name: string | null;
   created_at: string;
 };
 
@@ -108,14 +110,17 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
                        <span className="text-sm font-medium text-gray-700">
                          {bid.bidder_nickname}
                        </span>
-                       {session?.user?.image && session?.user?.name && (
+                       {bid.bidder_discord_name && (
                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center space-x-1">
                            <img 
-                             src={session.user.image} 
+                             src={`https://cdn.discordapp.com/avatars/${bid.bidder_discord_id}/${bid.bidder_discord_name}.png`}
                              alt="Discord Profile" 
                              className="w-3 h-3 rounded-full object-cover"
+                             onError={(e) => {
+                               e.currentTarget.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+                             }}
                            />
-                           <span>{session.user.name}</span>
+                           <span>{bid.bidder_discord_name}</span>
                          </span>
                        )}
                      </div>

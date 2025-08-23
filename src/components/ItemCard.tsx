@@ -211,7 +211,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
                       padding: '1px 3px'
                     }}
                   >
-                    {item.remaining_quantity || item.quantity}
+                    {item.quantity}
                   </span>
                 )}
               </div>
