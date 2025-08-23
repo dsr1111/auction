@@ -11,9 +11,7 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    console.log('NoticePopup useEffect - isOpen:', isOpen);
     if (isOpen) {
-      console.log('NoticePopup - setting isVisible to true');
       setIsVisible(true);
     }
   }, [isOpen]);
@@ -25,9 +23,7 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
     }, 200);
   };
 
-  console.log('NoticePopup render - isOpen:', isOpen, 'isVisible:', isVisible);
   if (!isOpen) {
-    console.log('NoticePopup - not rendering (isOpen is false)');
     return null;
   }
 
