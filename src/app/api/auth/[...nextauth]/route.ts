@@ -1,4 +1,4 @@
-import NextAuth from 'next-auth';
+import NextAuth from 'next-auth/next';
 import DiscordProvider from 'next-auth/providers/discord';
 
 interface DiscordGuildMember {
@@ -40,7 +40,7 @@ const handler = NextAuth({
       },
     }),
   ],
-  debug: process.env.NODE_ENV === 'development', // 개발 환경에서 디버그 활성화
+  debug: process.env.NODE_ENV === 'development',
   callbacks: {
     async signIn({ user, account }: { user: any; account: any }) {
       if (account?.provider === 'discord') {
@@ -107,7 +107,7 @@ const handler = NextAuth({
         } catch (error) {
           console.error('❌ Discord API 호출 중 오류:', {
             error: error instanceof Error ? error.message : error,
-            guildId: process.env.DISCORD_GUILD_ID,
+            guildId: process.env.DISCORD_CLIENT_ID,
             userId: user.id
           });
           return false; // 오류 발생 시 로그인 거부

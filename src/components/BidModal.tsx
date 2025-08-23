@@ -7,6 +7,20 @@ import { notifyItemUpdate } from '@/utils/pusher';
 import { useSession } from 'next-auth/react';
 import { signIn } from 'next-auth/react';
 
+// NextAuth 세션 타입 확장
+interface ExtendedUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  displayName?: string;
+  isAdmin?: boolean;
+}
+
+interface ExtendedSession {
+  user: ExtendedUser;
+}
+
 type BidModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -21,7 +35,7 @@ type BidModalProps = {
 };
 
 const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession() as { data: ExtendedSession | null; status: string };
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [bidQuantity, setBidQuantity] = useState<number>(1);
   const [bidQuantityInput, setBidQuantityInput] = useState<string>('1');
@@ -136,8 +150,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         userId: session?.user?.id,
         userName: session?.user?.name,
         userEmail: session?.user?.email,
-        displayName: (session?.user as { displayName?: string })?.displayName,
-        isAdmin: (session?.user as { isAdmin?: boolean })?.isAdmin
+        displayName: session?.user?.displayName,
+        isAdmin: session?.user?.isAdmin
       });
 
       // 입찰 내역 저장
