@@ -110,10 +110,10 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
                        <span className="text-sm font-medium text-gray-700">
                          {bid.bidder_nickname}
                        </span>
-                       {bid.bidder_discord_name && (
+                       {bid.bidder_discord_id && bid.bidder_discord_name && (
                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center space-x-1">
                            <img 
-                             src={`https://cdn.discordapp.com/avatars/${bid.bidder_discord_id}/${bid.bidder_discord_name}.png`}
+                             src={`https://cdn.discordapp.com/avatars/${bid.bidder_discord_id}.webp`}
                              alt="Discord Profile" 
                              className="w-3 h-3 rounded-full object-cover"
                              onError={(e) => {
