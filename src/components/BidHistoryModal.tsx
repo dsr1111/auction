@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
 import { useSession } from 'next-auth/react';
@@ -29,13 +29,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   const { data: session } = useSession();
   const supabase = createClient();
 
-  useEffect(() => {
-    if (isOpen && item.id) {
-      fetchBidHistory();
-    }
-  }, [isOpen, item.id]);
-
-  const fetchBidHistory = async () => {
+  const fetchBidHistory = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -60,7 +54,13 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [item.id, supabase]);
+
+  useEffect(() => {
+    if (isOpen && item.id) {
+      fetchBidHistory();
+    }
+  }, [isOpen, item.id, fetchBidHistory]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

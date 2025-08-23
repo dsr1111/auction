@@ -167,7 +167,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       return;
     }
 
-    let numValue = parseFloat(value);
+    const numValue = parseFloat(value);
     if (isNaN(numValue)) {
       return;
     }

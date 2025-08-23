@@ -53,7 +53,7 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
                  <p className="text-sm text-yellow-800 font-medium">
                     <span className="font-semibold">입찰 금액 입력 시 주의사항:</span><br />
                    &nbsp;&nbsp;&nbsp;&nbsp;입찰 금액(개당)만 입력하면 수수료 10%가<br />
-                   &nbsp;&nbsp;&nbsp;&nbsp;자동으로 계산되어 "총 입찰 금액"에 표시됩니다.
+                                       &nbsp;&nbsp;&nbsp;&nbsp;자동으로 계산되어 &quot;총 입찰 금액&quot;에 표시됩니다.
                  </p>
                  <p className="text-sm text-yellow-800 font-medium mt-3">
                     <span className="font-semibold">현재 입찰가 안내:</span><br />
