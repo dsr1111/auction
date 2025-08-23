@@ -225,12 +225,12 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
               </h3>
             </CustomTooltip>
             
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">
-                  {last_bidder_nickname ? '현재 입찰가' : '입찰 시작가'}
-                </span>
-                <div className="flex items-center space-x-1">
+                          <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
+                    {last_bidder_nickname ? '개당 입찰가' : '입찰 시작가'}
+                  </span>
+                  <div className="flex items-center space-x-1 ml-2">
                   <span className="text-sm font-semibold text-blue-600">
                     {current_bid.toLocaleString()}
                   </span>
