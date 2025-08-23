@@ -64,9 +64,9 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
                   &nbsp;&nbsp;&nbsp;&nbsp;자동으로 계산되어 &quot;총 입찰 금액&quot;에 표시됩니다.
                 </p>
                 <p className="text-sm text-yellow-800 font-medium mt-3">
-                  <span className="font-semibold">현재 입찰가 안내:</span><br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;표시되는 현재 입찰가는 수수료를 제외한<br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;순수 입찰 금액입니다.
+                  <span className="font-semibold">개당 입찰가 안내:</span><br />
+                  &nbsp;&nbsp;&nbsp;&nbsp;표시되는 개당 입찰가는 수수료를 제외한<br />
+                  &nbsp;&nbsp;&nbsp;&nbsp;순수 개당 입찰 금액입니다.
                 </p>
               </div>
               <div className="border-t border-blue-200 pt-3">
