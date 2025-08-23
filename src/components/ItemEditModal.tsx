@@ -56,7 +56,7 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: 
 
       // WebSocket으로 실시간 업데이트 알림
       try {
-        notifyItemUpdate('updated', item.id);
+        notifyItemUpdate('added', item.id);
       } catch (wsError) {
         console.error('WebSocket 알림 실패:', wsError);
       }
