@@ -21,7 +21,9 @@ export const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY!, {
 export const subscribeToAuctionChannel = (callback: (data: ItemUpdateData) => void) => {
   const channel = pusher.subscribe('auction-updates');
   
-  channel.bind('item-updated', callback);
+  channel.bind('item-updated', (data: ItemUpdateData) => {
+    callback(data);
+  });
   
   return () => {
     pusher.unsubscribe('auction-updates');
@@ -50,7 +52,6 @@ export const notifyItemUpdate = async (action: 'bid' | 'added' | 'deleted', item
     if (!response.ok) {
       throw new Error('Pusher 알림 전송 실패');
     }
-    
 
   } catch (error) {
     console.error('❌ Pusher 알림 전송 실패:', error);
