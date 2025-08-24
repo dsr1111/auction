@@ -13,13 +13,9 @@ export async function POST(request: NextRequest) {
   try {
     // 환경 변수 확인
     
-
     const { channel, event, data } = await request.json();
     
-
-    
     await pusher.trigger(channel, event, data);
-    
 
     return NextResponse.json({ success: true });
   } catch (error) {
