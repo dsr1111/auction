@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
@@ -15,6 +15,7 @@ type Item = {
   last_bidder_nickname: string | null;
   created_at: string;
   end_time: string | null;
+  quantity?: number;
 };
 
 interface ExtendedUser {
@@ -28,8 +29,89 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
   const { data: session } = useSession();
   const supabase = createClient();
+
+  // 총 입찰 금액 계산
+  const calculateTotalBidAmount = useCallback(async () => {
+    try {
+      console.log('🔄 총 입찰 금액 계산 시작');
+      console.log('📊 현재 아이템 목록:', items);
+      
+      const { data: bidHistoryData, error } = await supabase
+        .from('bid_history')
+        .select('item_id, bid_amount, bid_quantity')
+        .order('bid_amount', { ascending: false });
+
+      if (error) {
+        console.error('입찰내역 조회 실패:', error);
+        return 0;
+      }
+
+      // 입찰내역을 아이템별로 그룹화
+      const bidHistoryMap = new Map<number, number[]>();
+      
+      if (bidHistoryData) {
+        bidHistoryData.forEach(bid => {
+          if (!bidHistoryMap.has(bid.item_id)) {
+            bidHistoryMap.set(bid.item_id, []);
+          }
+          // bid_quantity만큼 bid_amount를 반복해서 추가
+          for (let i = 0; i < bid.bid_quantity; i++) {
+            bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
+          }
+        });
+      }
+
+      // 각 아이템의 입찰내역을 높은 가격순으로 정렬
+      bidHistoryMap.forEach((bids, itemId) => {
+        bids.sort((a, b) => b - a);
+      });
+
+      console.log('📋 입찰 내역 맵:', bidHistoryMap);
+
+      const total = items.reduce((total, item) => {
+        console.log(`\n📦 아이템 "${item.name}" (ID: ${item.id}) 분석:`);
+        console.log(`   - 현재 입찰가: ${item.current_bid?.toLocaleString()} bit`);
+        console.log(`   - 수량: ${item.quantity || 1}개`);
+        
+        // 해당 아이템의 입찰내역 가져오기
+        const itemBids = bidHistoryMap.get(item.id);
+        
+        if (itemBids && itemBids.length > 0) {
+          // 수량 기반으로 입찰가 계산 (남은 수량만큼만)
+          let remainingQuantity = item.quantity || 1;
+          let itemTotal = 0;
+          
+          for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
+            const bidAmount = itemBids[i];
+            const quantityToUse = Math.min(remainingQuantity, 1); // 각 입찰은 1개씩
+            
+            itemTotal += bidAmount * quantityToUse;
+            remainingQuantity -= quantityToUse;
+          }
+          
+          console.log(`   ✅ 입찰내역 있음 → 총액에 포함: ${itemTotal.toLocaleString()} bit`);
+          console.log(`   📈 누적 총액: ${(total + itemTotal).toLocaleString()} bit`);
+          return total + itemTotal;
+        } else {
+          console.log(`   ❌ 입찰내역 없음 → 총액에서 제외`);
+          console.log(`   📊 누적 총액: ${total.toLocaleString()} bit (변화 없음)`);
+          return total;
+        }
+      }, 0);
+      
+      console.log(`\n🎯 최종 총 입찰 금액: ${total.toLocaleString()} bit`);
+      console.log('='.repeat(50));
+      
+      setTotalBidAmount(total);
+      return total;
+    } catch (err) {
+      console.error('총 입찰가 계산 중 오류:', err);
+      return 0;
+    }
+  }, []); // 의존성 배열을 비워서 함수가 새로 생성되지 않도록 함
 
   const fetchItems = useCallback(async () => {
     try {
@@ -38,7 +120,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       
       const { data, error } = await supabase
         .from('items')
-        .select('*')
+        .select('*, quantity')
         .order('created_at', { ascending: false });
 
       // 마감된 아이템을 뒤로 보내기 위한 정렬
@@ -57,8 +139,14 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         });
         
         setItems(sortedData);
+        
+        // 아이템 목록이 업데이트된 후 총 입찰 금액 계산
+        setTimeout(() => {
+          calculateTotalBidAmount();
+        }, 100);
       } else {
         setItems([]);
+        setTotalBidAmount(0);
       }
 
       if (error) {
@@ -70,7 +158,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase]); // calculateTotalBidAmount 의존성 제거
 
   useEffect(() => {
     fetchItems();
@@ -81,12 +169,14 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     try {
       const { data, error } = await supabase
         .from('items')
-        .select('*')
+        .select('*, quantity')
         .eq('id', itemId)
         .single();
 
       if (error) {
         console.error('아이템 개별 업데이트 실패:', error);
+        // 에러 발생 시 전체 목록을 새로고침
+        fetchItems();
         return;
       }
 
@@ -108,19 +198,43 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           });
         });
-
+        
+        // 개별 아이템 업데이트 후 총 입찰 금액 재계산
+        setTimeout(() => {
+          calculateTotalBidAmount();
+        }, 100);
+      } else {
+        // 업데이트된 데이터가 없으면 전체 목록 새로고침
+        fetchItems();
       }
     } catch (err) {
       console.error('아이템 업데이트 중 오류:', err);
+      // 에러 발생 시 전체 목록을 새로고침
+      fetchItems();
     }
-  }, [supabase]);
+  }, [supabase, fetchItems]); // calculateTotalBidAmount 의존성 제거
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
+    let lastUpdateTime = 0;
+    const UPDATE_THROTTLE = 1000; // 1초 내 중복 업데이트 방지
+    
     const unsubscribe = subscribeToAuctionChannel((data: { action: string; itemId?: number; timestamp: number }) => {
+      // 중복 업데이트 방지
+      const now = Date.now();
+      if (now - lastUpdateTime < UPDATE_THROTTLE) {
+        return;
+      }
+      lastUpdateTime = now;
+      
       if (data.action === 'bid' && data.itemId) {
         // 입찰 업데이트: 해당 아이템만 업데이트 (깜빡임 없음)
-        updateSingleItem(data.itemId);
+        
+        // 약간의 지연을 두어 데이터베이스 업데이트가 완료된 후 처리
+        setTimeout(() => {
+          updateSingleItem(data.itemId!);
+        }, 100);
+        
       } else if (data.action === 'added' || data.action === 'deleted') {
         // 추가/삭제: 전체 목록 새로고침 (필요한 경우만)
         fetchItems();
@@ -136,6 +250,10 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       fetchItems();
     }
   }, [onItemAdded, fetchItems]);
+
+  useEffect(() => {
+    calculateTotalBidAmount();
+  }, [items]); // calculateTotalBidAmount 의존성 제거
 
   if (loading) {
     return (
@@ -158,20 +276,41 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative items-grid" style={{ zIndex: 0, position: 'relative' }}>
-      {items.map((item) => (
-        <ItemCard 
-          key={item.id} 
-          item={item} 
-          onBidSuccess={fetchItems} 
-          onItemDeleted={fetchItems}
-        />
-      ))}
-      
-      {/* 관리자일 때만 아이템 추가 카드 표시 */}
-      {isAdmin && (
-        <AddItemCard onItemAdded={fetchItems} />
-      )}
+    <div>
+      {/* 총 입찰 금액 표시 */}
+      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-gray-700 text-sm">총 입찰 금액:</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-base font-semibold text-blue-600">
+              {totalBidAmount.toLocaleString()}
+            </span>
+            <img 
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
+              alt="bit" 
+              className="w-3 h-3 object-contain"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative items-grid" style={{ zIndex: 0, position: 'relative' }}>
+        {items.map((item) => (
+          <ItemCard 
+            key={item.id} 
+            item={item} 
+            onBidSuccess={fetchItems} 
+            onItemDeleted={fetchItems}
+          />
+        ))}
+        
+        {/* 관리자일 때만 아이템 추가 카드 표시 */}
+        {isAdmin && (
+          <AddItemCard onItemAdded={fetchItems} />
+        )}
+      </div>
     </div>
   );
 }
