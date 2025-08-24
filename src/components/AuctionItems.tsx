@@ -36,8 +36,13 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
     try {
-      console.log('🔄 총 입찰 금액 계산 시작');
-      console.log('📊 현재 아이템 목록:', items);
+      // 로딩 중이거나 아이템이 없으면 계산하지 않음
+      if (loading || !items || items.length === 0) {
+        if (!loading) {
+          setTotalBidAmount(0);
+        }
+        return 0;
+      }
       
       const { data: bidHistoryData, error } = await supabase
         .from('bid_history')
@@ -49,10 +54,14 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         return 0;
       }
 
+      if (!bidHistoryData) {
+        return 0;
+      }
+
       // 입찰내역을 아이템별로 그룹화
       const bidHistoryMap = new Map<number, number[]>();
       
-      if (bidHistoryData) {
+      if (bidHistoryData && bidHistoryData.length > 0) {
         bidHistoryData.forEach(bid => {
           if (!bidHistoryMap.has(bid.item_id)) {
             bidHistoryMap.set(bid.item_id, []);
@@ -69,13 +78,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         bids.sort((a, b) => b - a);
       });
 
-      console.log('📋 입찰 내역 맵:', bidHistoryMap);
-
       const total = items.reduce((total, item) => {
-        console.log(`\n📦 아이템 "${item.name}" (ID: ${item.id}) 분석:`);
-        console.log(`   - 현재 입찰가: ${item.current_bid?.toLocaleString()} bit`);
-        console.log(`   - 수량: ${item.quantity || 1}개`);
-        
         // 해당 아이템의 입찰내역 가져오기
         const itemBids = bidHistoryMap.get(item.id);
         
@@ -92,18 +95,11 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             remainingQuantity -= quantityToUse;
           }
           
-          console.log(`   ✅ 입찰내역 있음 → 총액에 포함: ${itemTotal.toLocaleString()} bit`);
-          console.log(`   📈 누적 총액: ${(total + itemTotal).toLocaleString()} bit`);
           return total + itemTotal;
         } else {
-          console.log(`   ❌ 입찰내역 없음 → 총액에서 제외`);
-          console.log(`   📊 누적 총액: ${total.toLocaleString()} bit (변화 없음)`);
           return total;
         }
       }, 0);
-      
-      console.log(`\n🎯 최종 총 입찰 금액: ${total.toLocaleString()} bit`);
-      console.log('='.repeat(50));
       
       setTotalBidAmount(total);
       return total;
@@ -111,7 +107,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       console.error('총 입찰가 계산 중 오류:', err);
       return 0;
     }
-  }, []); // 의존성 배열을 비워서 함수가 새로 생성되지 않도록 함
+  }, [items, supabase, loading]);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -139,11 +135,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         });
         
         setItems(sortedData);
-        
-        // 아이템 목록이 업데이트된 후 총 입찰 금액 계산
-        setTimeout(() => {
-          calculateTotalBidAmount();
-        }, 100);
       } else {
         setItems([]);
         setTotalBidAmount(0);
@@ -158,7 +149,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } finally {
       setLoading(false);
     }
-  }, [supabase]); // calculateTotalBidAmount 의존성 제거
+  }, [supabase]);
 
   useEffect(() => {
     fetchItems();
@@ -200,6 +191,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         });
         
         // 개별 아이템 업데이트 후 총 입찰 금액 재계산
+        // 약간의 지연을 두어 상태 업데이트가 완료된 후 계산
         setTimeout(() => {
           calculateTotalBidAmount();
         }, 100);
@@ -212,7 +204,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       // 에러 발생 시 전체 목록을 새로고침
       fetchItems();
     }
-  }, [supabase, fetchItems]); // calculateTotalBidAmount 의존성 제거
+  }, [supabase, fetchItems, calculateTotalBidAmount]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
@@ -251,9 +243,12 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     }
   }, [onItemAdded, fetchItems]);
 
+  // items가 변경될 때마다 총 입찰 금액 계산 (fetchItems 완료 후)
   useEffect(() => {
-    calculateTotalBidAmount();
-  }, [items]); // calculateTotalBidAmount 의존성 제거
+    if (items.length > 0) {
+      calculateTotalBidAmount();
+    }
+  }, [items.length, calculateTotalBidAmount]); // calculateTotalBidAmount 의존성 추가
 
   if (loading) {
     return (
