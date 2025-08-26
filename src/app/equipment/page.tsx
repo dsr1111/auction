@@ -165,7 +165,7 @@ export default function EquipmentPage() {
 
       setEditingItem(itemWithOptions);
       setIsEditModalOpen(true);
-    } catch (error) {
+    } catch {
       setEditingItem(item);
       setIsEditModalOpen(true);
     }
@@ -255,7 +255,7 @@ export default function EquipmentPage() {
     option3_value: string;
   }) => {
     
-    if (!session?.user?.id) {
+    if (!(session?.user as { id?: string })?.id) {
       alert('로그인이 필요합니다.');
       return;
     }
@@ -274,7 +274,7 @@ export default function EquipmentPage() {
             current_bid: 0,
             seller_nickname: itemData.seller_nickname,
             comment: itemData.comment,
-            user_id: session.user.id,
+            user_id: (session?.user as { id?: string })?.id,
             is_active: true
           }
         ])
@@ -349,8 +349,6 @@ export default function EquipmentPage() {
   const handleAddBuyItemSubmit = async (itemData: {
     base_equipment_name: string;
     enhancement_level: number;
-    option_type: string;
-    price: number;
     seller_nickname: string;
     comment: string;
     option1_type: string;
@@ -361,7 +359,7 @@ export default function EquipmentPage() {
     option3_value: string;
   }) => {
     
-    if (!session?.user?.id) {
+    if (!(session?.user as { id?: string })?.id) {
       alert('로그인이 필요합니다.');
       return;
     }
@@ -379,7 +377,7 @@ export default function EquipmentPage() {
             buy_price: itemData.price,
             buyer_nickname: itemData.seller_nickname,
             comment: itemData.comment,
-            user_id: session.user.id,
+            user_id: (session?.user as { id?: string })?.id,
             is_active: true
           }
         ])
@@ -466,7 +464,7 @@ export default function EquipmentPage() {
     option3_type: string;
     option3_value: string;
   }) => {
-    if (!editingItem || !session?.user?.id) {
+    if (!editingItem || !(session?.user as { id?: string })?.id) {
       alert('수정할 아이템이 없거나 로그인이 필요합니다.');
       return;
     }
@@ -546,7 +544,7 @@ export default function EquipmentPage() {
       setIsEditModalOpen(false);
       setEditingItem(null);
       alert('아이템이 성공적으로 수정되었습니다.');
-    } catch (error) {
+    } catch {
       alert('아이템 수정 중 오류가 발생했습니다.');
     }
   };
@@ -570,7 +568,7 @@ export default function EquipmentPage() {
       setIsEditModalOpen(false);
       setEditingItem(null);
       alert('아이템이 성공적으로 삭제되었습니다.');
-    } catch (error) {
+    } catch {
       alert('아이템 삭제 중 오류가 발생했습니다.');
     }
   };
@@ -590,7 +588,7 @@ export default function EquipmentPage() {
     option3_type: string;
     option3_value: string;
   }) => {
-    if (!editingBuyItem || !session?.user?.id) {
+    if (!editingBuyItem || !(session?.user as { id?: string })?.id) {
       alert('수정할 아이템이 없거나 로그인이 필요합니다.');
       return;
     }
@@ -670,7 +668,7 @@ export default function EquipmentPage() {
       setIsEditBuyModalOpen(false);
       setEditingBuyItem(null);
       alert('구매 아이템이 성공적으로 수정되었습니다.');
-    } catch (error) {
+    } catch {
       alert('구매 아이템 수정 중 오류가 발생했습니다.');
     }
   };
