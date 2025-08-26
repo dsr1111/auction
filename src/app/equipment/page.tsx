@@ -330,7 +330,8 @@ export default function EquipmentPage() {
           seller_nickname: data[0].seller_nickname,
           comment: data[0].comment,
           created_at: data[0].created_at,
-          is_active: data[0].is_active
+          is_active: data[0].is_active,
+          user_id: data[0].user_id
         };
         
         setSellItems(prevItems => [savedItem, ...prevItems]);
@@ -349,6 +350,8 @@ export default function EquipmentPage() {
   const handleAddBuyItemSubmit = async (itemData: {
     base_equipment_name: string;
     enhancement_level: number;
+    option_type: string;
+    price: number;
     seller_nickname: string;
     comment: string;
     option1_type: string;
