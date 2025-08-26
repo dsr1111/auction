@@ -552,8 +552,14 @@ export default function EquipmentPage() {
       }
 
       // 로컬 상태 업데이트
+      const existingItem = sellItems.find(item => item.id === editingItemId);
+      if (!existingItem) {
+        alert('수정할 아이템을 찾을 수 없습니다.');
+        return;
+      }
+      
       const updatedItem: EquipmentItem = {
-        ...editingItem,
+        ...existingItem,
         base_equipment_name: itemData.base_equipment_name,
         enhancement_level: itemData.enhancement_level,
         option_type: itemData.option_type,
