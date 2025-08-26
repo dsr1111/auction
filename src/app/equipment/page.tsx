@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import TradeItemCard from '@/components/TradeItemCard';
 import BuyItemCard from '@/components/BuyItemCard';
@@ -70,7 +69,7 @@ export default function EquipmentPage() {
         } else {
           setSellItems(data || getMockEquipmentItems());
         }
-      } catch (error) {
+      } catch {
         setSellItems(getMockEquipmentItems());
       } finally {
         setLoading(false);
@@ -95,7 +94,7 @@ export default function EquipmentPage() {
         } else {
           setBuyItems(data || []);
         }
-      } catch (error) {
+      } catch {
         setBuyItems([]);
       }
     };
@@ -135,10 +134,7 @@ export default function EquipmentPage() {
     ];
   };
 
-  // 구매하기 버튼 클릭 처리
-  const handleBuyClick = (item: EquipmentItem) => {
-    // 구매 로직 구현
-  };
+
 
   // 아이템 추가 모달 열기
   const handleAddItemClick = () => {
@@ -164,15 +160,11 @@ export default function EquipmentPage() {
   const handleEditItemClick = async (item: EquipmentItem) => {
     try {
       // 기존 옵션들을 가져와서 editingItem에 추가
-      const { data: options, error } = await supabase
-        .from('timer_equipment_options')
-        .select('*')
-        .eq('item_id', item.id)
-        .order('option_line', { ascending: true });
-
-      if (error) {
-        console.error('옵션 가져오기 오류:', error);
-      }
+              const { data: options } = await supabase
+          .from('timer_equipment_options')
+          .select('*')
+          .eq('item_id', item.id)
+          .order('option_line', { ascending: true });
 
       // 옵션 데이터를 파싱하여 item에 추가
       const itemWithOptions = {
@@ -228,15 +220,11 @@ export default function EquipmentPage() {
       const handleEditBuyItemClick = async (item: BuyEquipmentItem) => {
         try {
           // 기존 옵션들을 가져와서 editingBuyItem에 추가
-          const { data: options, error } = await supabase
-            .from('timer_equipment_buy_options')
-            .select('*')
-            .eq('item_id', item.id)
-            .order('option_line', { ascending: true });
-
-          if (error) {
-            // 구매 옵션 가져오기 오류
-          }
+                  const { data: options } = await supabase
+          .from('timer_equipment_buy_options')
+          .select('*')
+          .eq('item_id', item.id)
+          .order('option_line', { ascending: true });
 
           // 옵션 데이터를 파싱하여 item에 추가
           const itemWithOptions = {
@@ -278,8 +266,7 @@ export default function EquipmentPage() {
 
       setEditingBuyItem(itemWithOptions);
       setIsEditBuyModalOpen(true);
-    } catch (error) {
-      console.error('구매 수정 모달 열기 오류:', error);
+    } catch {
       setEditingBuyItem(item);
       setIsEditBuyModalOpen(true);
     }
@@ -292,7 +279,20 @@ export default function EquipmentPage() {
   };
 
   // 아이템 추가 제출 처리
-  const handleAddItemSubmit = async (itemData: any) => {
+  const handleAddItemSubmit = async (itemData: {
+    base_equipment_name: string;
+    enhancement_level: number;
+    option_type: string;
+    price: number;
+    seller_nickname: string;
+    comment: string;
+    option1_type: string;
+    option1_value: string;
+    option2_type: string;
+    option2_value: string;
+    option3_type: string;
+    option3_value: string;
+  }) => {
     
     if (!session?.user?.id) {
       alert('로그인이 필요합니다.');
@@ -359,14 +359,9 @@ export default function EquipmentPage() {
         
         // 옵션 저장
         if (optionsToInsert.length > 0) {
-          const { error: optionsError } = await supabase
+          await supabase
             .from('timer_equipment_options')
             .insert(optionsToInsert);
-            
-          if (optionsError) {
-            // 옵션 저장 실패해도 아이템은 저장되었으므로 경고만 표시
-            alert('아이템은 저장되었지만 옵션 저장에 실패했습니다.');
-          }
         }
         
         // 저장된 아이템을 sellItems 배열에 추가
@@ -391,14 +386,26 @@ export default function EquipmentPage() {
       // 모달 닫기
       setIsAddModalOpen(false);
       
-    } catch (error) {
-      console.error('아이템 저장 오류:', error);
-      alert('아이템 저장 중 오류가 발생했습니다. 자세한 내용은 개발자 도구를 확인해주세요.');
+    } catch {
+      alert('아이템 저장 중 오류가 발생했습니다.');
     }
   };
 
   // 구매 아이템 추가 제출 처리
-  const handleAddBuyItemSubmit = async (itemData: any) => {
+  const handleAddBuyItemSubmit = async (itemData: {
+    base_equipment_name: string;
+    enhancement_level: number;
+    option_type: string;
+    price: number;
+    seller_nickname: string;
+    comment: string;
+    option1_type: string;
+    option1_value: string;
+    option2_type: string;
+    option2_value: string;
+    option3_type: string;
+    option3_value: string;
+  }) => {
     
     if (!session?.user?.id) {
       alert('로그인이 필요합니다.');
@@ -464,13 +471,9 @@ export default function EquipmentPage() {
         
         // 옵션 저장
         if (optionsToInsert.length > 0) {
-          const { error: optionsError } = await supabase
+          await supabase
             .from('timer_equipment_buy_options')
             .insert(optionsToInsert);
-            
-          if (optionsError) {
-            alert('구매 아이템은 저장되었지만 옵션 저장에 실패했습니다.');
-          }
         }
         
         // 저장된 아이템을 buyItems 배열에 추가
@@ -493,14 +496,26 @@ export default function EquipmentPage() {
       // 모달 닫기
       setIsAddBuyModalOpen(false);
       
-    } catch (error) {
-      console.error('구매 아이템 저장 오류:', error);
-      alert('구매 아이템 저장 중 오류가 발생했습니다. 자세한 내용은 개발자 도구를 확인해주세요.');
+    } catch {
+      alert('구매 아이템 저장 중 오류가 발생했습니다.');
     }
   };
 
   // 아이템 수정 제출 처리
-  const handleEditItemSubmit = async (itemData: any) => {
+  const handleEditItemSubmit = async (itemData: {
+    base_equipment_name: string;
+    enhancement_level: number;
+    option_type: string;
+    price: number;
+    seller_nickname: string;
+    comment: string;
+    option1_type: string;
+    option1_value: string;
+    option2_type: string;
+    option2_value: string;
+    option3_type: string;
+    option3_value: string;
+  }) => {
     if (!editingItem || !session?.user?.id) {
       alert('수정할 아이템이 없거나 로그인이 필요합니다.');
       return;
@@ -525,15 +540,11 @@ export default function EquipmentPage() {
         return;
       }
 
-      // 기존 옵션 삭제
-      const { error: deleteError } = await supabase
-        .from('timer_equipment_options')
-        .delete()
-        .eq('item_id', editingItem.id);
-
-      if (deleteError) {
-        // 기존 옵션 삭제 오류
-      }
+              // 기존 옵션 삭제
+        await supabase
+          .from('timer_equipment_options')
+          .delete()
+          .eq('item_id', editingItem.id);
 
       // 새 옵션 저장
       const optionsToInsert = [];
@@ -560,13 +571,9 @@ export default function EquipmentPage() {
       }
 
       if (optionsToInsert.length > 0) {
-        const { error: optionsError } = await supabase
+        await supabase
           .from('timer_equipment_options')
           .insert(optionsToInsert);
-
-        if (optionsError) {
-          alert('아이템은 수정되었지만 옵션 수정에 실패했습니다.');
-        }
       }
 
       // 로컬 상태 업데이트
@@ -624,7 +631,20 @@ export default function EquipmentPage() {
   };
 
   // 구매 아이템 수정 제출 처리
-  const handleEditBuyItemSubmit = async (itemData: any) => {
+  const handleEditBuyItemSubmit = async (itemData: {
+    base_equipment_name: string;
+    enhancement_level: number;
+    option_type: string;
+    price: number;
+    seller_nickname: string;
+    comment: string;
+    option1_type: string;
+    option1_value: string;
+    option2_type: string;
+    option2_value: string;
+    option3_type: string;
+    option3_value: string;
+  }) => {
     if (!editingBuyItem || !session?.user?.id) {
       alert('수정할 아이템이 없거나 로그인이 필요합니다.');
       return;
@@ -649,15 +669,11 @@ export default function EquipmentPage() {
         return;
       }
 
-      // 기존 옵션 삭제
-      const { error: deleteError } = await supabase
-        .from('timer_equipment_buy_options')
-        .delete()
-        .eq('item_id', editingBuyItem.id);
-
-      if (deleteError) {
-        // 기존 옵션 삭제 오류
-      }
+              // 기존 옵션 삭제
+        await supabase
+          .from('timer_equipment_buy_options')
+          .delete()
+          .eq('item_id', editingBuyItem.id);
 
       // 새 옵션 저장
       const optionsToInsert = [];
@@ -684,13 +700,9 @@ export default function EquipmentPage() {
       }
 
       if (optionsToInsert.length > 0) {
-        const { error: optionsError } = await supabase
+        await supabase
           .from('timer_equipment_buy_options')
           .insert(optionsToInsert);
-
-        if (optionsError) {
-          alert('구매 아이템은 수정되었지만 옵션 수정에 실패했습니다.');
-        }
       }
 
       // 로컬 상태 업데이트
@@ -857,7 +869,6 @@ export default function EquipmentPage() {
                       <TradeItemCard
                         key={item.id}
                         item={item}
-                        onBuyClick={handleBuyClick}
                         onEditClick={handleEditItemClick}
                       />
                     ))}
@@ -882,7 +893,6 @@ export default function EquipmentPage() {
                       <BuyItemCard
                         key={item.id}
                         item={item}
-                        onBuyClick={handleBuyClick}
                         onEditClick={handleEditBuyItemClick}
                       />
                     ))}

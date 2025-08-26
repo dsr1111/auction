@@ -57,14 +57,14 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: 
       // WebSocket으로 실시간 업데이트 알림
       try {
         notifyItemUpdate('added', item.id);
-      } catch (wsError) {
+      } catch {
         // WebSocket 알림 실패
       }
 
       alert('아이템이 성공적으로 수정되었습니다.');
       onItemUpdated?.();
       onClose();
-    } catch (err) {
+    } catch {
       alert('아이템 수정에 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -86,14 +86,14 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: 
       // WebSocket으로 실시간 업데이트 알림
       try {
         notifyItemUpdate('deleted', item.id);
-      } catch (wsError) {
+      } catch {
         // WebSocket 알림 실패
       }
       
       alert('아이템이 성공적으로 삭제되었습니다.');
       onItemDeleted?.();
       onClose();
-    } catch (err) {
+    } catch {
       alert('아이템 삭제에 실패했습니다.');
     } finally {
       setIsDeleting(false);

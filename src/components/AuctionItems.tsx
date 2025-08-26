@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
-import { useSession } from 'next-auth/react';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
 
 type Item = {
@@ -18,19 +17,11 @@ type Item = {
   quantity?: number;
 };
 
-interface ExtendedUser {
-  name?: string | null;
-  image?: string | null;
-  displayName?: string;
-  isAdmin?: boolean;
-}
-
 export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
-  const { data: session } = useSession();
   const supabase = createClient();
 
   // 총 입찰 금액 계산
@@ -72,10 +63,10 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         });
       }
 
-      // 각 아이템의 입찰내역을 높은 가격순으로 정렬
-      bidHistoryMap.forEach((bids, itemId) => {
-        bids.sort((a, b) => b - a);
-      });
+             // 각 아이템의 입찰내역을 높은 가격순으로 정렬
+       bidHistoryMap.forEach((bids) => {
+         bids.sort((a, b) => b - a);
+       });
 
       const total = items.reduce((total, item) => {
         // 해당 아이템의 입찰내역 가져오기
@@ -102,9 +93,9 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       
       setTotalBidAmount(total);
       return total;
-    } catch (err) {
-      return 0;
-    }
+         } catch {
+       return 0;
+     }
   }, [items, supabase, loading]);
 
   const fetchItems = useCallback(async () => {
@@ -192,10 +183,10 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         // 업데이트된 데이터가 없으면 전체 목록 새로고침
         fetchItems();
       }
-    } catch (err) {
-      // 에러 발생 시 전체 목록을 새로고침
-      fetchItems();
-    }
+         } catch {
+       // 에러 발생 시 전체 목록을 새로고침
+       fetchItems();
+     }
   }, [supabase, fetchItems, calculateTotalBidAmount]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
@@ -281,9 +272,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-            </svg>
             <span className="text-blue-800 font-medium">총 입찰 금액</span>
           </div>
           <div className="flex items-center space-x-2">

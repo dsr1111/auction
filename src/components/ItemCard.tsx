@@ -8,7 +8,7 @@ import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
-import { createClient } from '@/lib/supabase/client';
+
 
 type ItemCardProps = {
   item: {
@@ -41,7 +41,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
     end_time,
   } = item;
   const { data: session } = useSession();
-  const supabase = createClient();
+
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);

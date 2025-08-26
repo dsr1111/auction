@@ -33,7 +33,7 @@ const mockSellingItems = [
 
 export default function EquipmentSellPage() {
   const [activeTab, setActiveTab] = useState<'list' | 'register'>('list');
-  const [showRegisterForm, setShowRegisterForm] = useState(false);
+
   
   // 등록 폼 상태
   const [formData, setFormData] = useState({
@@ -77,7 +77,7 @@ export default function EquipmentSellPage() {
     return price.toLocaleString() + ' 골드';
   };
 
-  const handleFormChange = (field: string, value: any) => {
+  const handleFormChange = (field: string, value: string | number) => {
     if (field.startsWith('stats.')) {
       const statField = field.split('.')[1];
       setFormData(prev => ({

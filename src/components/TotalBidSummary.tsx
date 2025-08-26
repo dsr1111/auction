@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
 
@@ -88,9 +88,9 @@ export default function TotalBidSummary() {
         }
         
         // 각 아이템의 입찰내역을 높은 가격순으로 정렬
-        bidHistoryMap.forEach((bids, itemId) => {
-          bids.sort((a, b) => b - a);
-        });
+               bidHistoryMap.forEach((bids) => {
+         bids.sort((a, b) => b - a);
+       });
 
         const total = calculateTotalBidAmount(itemsResult.data, bidHistoryMap);
         
@@ -103,7 +103,7 @@ export default function TotalBidSummary() {
           return prevTotal;
         });
       }
-    } catch (err) {
+    } catch {
       // 총 입찰가 계산 중 오류
     } finally {
       setLoading(false);

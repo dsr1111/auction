@@ -19,7 +19,6 @@ type BuyItemCardProps = {
     is_active: boolean;
     user_id: string;
   };
-  onBuyClick?: (item: any) => void;
   onEditClick?: (item: any) => void;
 };
 
@@ -30,7 +29,7 @@ type BuyEquipmentOption = {
   option_text: string;
 };
 
-const BuyItemCard = ({ item, onBuyClick, onEditClick }: BuyItemCardProps) => {
+const BuyItemCard = ({ item, onEditClick }: BuyItemCardProps) => {
   const {
     id,
     base_equipment_name,
@@ -84,12 +83,8 @@ const BuyItemCard = ({ item, onBuyClick, onEditClick }: BuyItemCardProps) => {
           .eq('item_id', id)
           .order('option_line', { ascending: true });
 
-        if (error) {
-          setOptions([]);
-        } else {
-          setOptions(data || []);
-        }
-      } catch (error) {
+        setOptions(data || []);
+      } catch {
         setOptions([]);
       } finally {
         setLoadingOptions(false);
@@ -131,7 +126,7 @@ const BuyItemCard = ({ item, onBuyClick, onEditClick }: BuyItemCardProps) => {
     style={{ zIndex: 0, position: 'relative' }}>
       
       {/* 수정 버튼 - 관리자 또는 해당 아이템 등록자에게만 표시 */}
-      {((session?.user as any)?.id === user_id || (session?.user as any)?.isAdmin) && (
+              {((session?.user as { id?: string; isAdmin?: boolean })?.id === user_id || (session?.user as { id?: string; isAdmin?: boolean })?.isAdmin) && (
         <button
           onClick={() => onEditClick?.(item)}
           className="absolute top-2 right-2 z-10 p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"

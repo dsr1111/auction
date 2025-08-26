@@ -13,15 +13,12 @@ type TradeItemCardProps = {
     enhancement_level: number;
     option_type: string;
     price: number;
-    current_bid: number;
     seller_nickname: string | null;
     comment: string | null;
     created_at: string;
-    end_time: string | null;
     is_active: boolean;
     user_id: string;
   };
-  onBuyClick?: (item: any) => void;
   onEditClick?: (item: any) => void;
 };
 
@@ -33,18 +30,16 @@ type EquipmentOption = {
   created_at: string;
 };
 
-const TradeItemCard = ({ item, onBuyClick, onEditClick }: TradeItemCardProps) => {
+const TradeItemCard = ({ item, onEditClick }: TradeItemCardProps) => {
   const {
     id,
     base_equipment_name,
     enhancement_level,
     option_type,
     price,
-    current_bid,
     seller_nickname,
     comment,
     created_at,
-    end_time,
     is_active,
     user_id
   } = item;
@@ -136,7 +131,7 @@ const TradeItemCard = ({ item, onBuyClick, onEditClick }: TradeItemCardProps) =>
     style={{ zIndex: 0, position: 'relative' }}>
       
       {/* 수정 버튼 - 관리자 또는 해당 아이템 등록자에게만 표시 */}
-      {((session?.user as any)?.id === user_id || (session?.user as any)?.isAdmin) && (
+              {((session?.user as { id?: string; isAdmin?: boolean })?.id === user_id || (session?.user as { id?: string; isAdmin?: boolean })?.isAdmin) && (
         <button
           onClick={() => onEditClick?.(item)}
           className="absolute top-2 right-2 z-10 p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"

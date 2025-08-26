@@ -171,7 +171,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
       onClose();
       onBidSuccess?.();
-    } catch (err) {
+    } catch {
       setError('예상치 못한 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);

@@ -12,7 +12,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
   const handleDiscordLogin = async () => {
     try {
       await signIn('discord', { callbackUrl: '/' });
-    } catch (error) {
+    } catch {
       // 로그인 실패
     }
   };

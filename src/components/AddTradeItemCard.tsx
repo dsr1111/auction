@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+
 
 type AddTradeItemCardProps = {
   onAddClick: () => void;

@@ -94,7 +94,7 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
       // WebSocket으로 실시간 업데이트 알림
       try {
         notifyItemUpdate('added');
-      } catch (wsError) {
+      } catch {
         // WebSocket 알림 실패
       }
 

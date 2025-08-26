@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
-import { useSession } from 'next-auth/react';
 
 type BidHistoryModalProps = {
   isOpen: boolean;
@@ -50,9 +49,9 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
 
 
       setBidHistory(data || []);
-    } catch (err) {
-      setError('입찰 내역을 불러오는데 실패했습니다.');
-    } finally {
+          } catch {
+        setError('입찰 내역을 불러오는데 실패했습니다.');
+      } finally {
       setIsLoading(false);
     }
   }, [item.id, supabase]);
