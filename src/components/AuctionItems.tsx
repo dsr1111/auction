@@ -229,6 +229,11 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     return unsubscribe;
   }, [fetchItems, updateSingleItem]);
 
+  // 컴포넌트 마운트 시 아이템 로드
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
   useEffect(() => {
     if (onItemAdded) {
       fetchItems();
