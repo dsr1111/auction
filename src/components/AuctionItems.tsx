@@ -149,11 +149,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     }
   }, [supabase]);
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-  // 스마트 업데이트: 특정 아이템만 업데이트
+  // 개별 아이템 업데이트 (깜빡임 없음)
   const updateSingleItem = useCallback(async (itemId: number) => {
     try {
       const { data, error } = await supabase
@@ -257,50 +253,60 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   if (error) {
     return (
       <div className="text-center py-12">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md mx-auto">
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="text-red-600 mb-4">
+          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
         </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">오류가 발생했습니다</h3>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <button
+          onClick={fetchItems}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+        >
+          다시 시도
+        </button>
       </div>
     );
   }
 
-  const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
-
   return (
-    <div>
-      {/* 총 입찰 금액 표시 */}
-      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 mb-6">
+    <div className="space-y-6">
+      {/* 총 입찰 금액 요약 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-gray-700 text-sm">총 입찰 금액:</span>
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+            </svg>
+            <span className="text-blue-800 font-medium">총 입찰 금액</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-base font-semibold text-blue-600">
+            <span className="text-2xl font-bold text-blue-600">
               {totalBidAmount.toLocaleString()}
             </span>
             <img 
               src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
               alt="bit" 
-              className="w-3 h-3 object-contain"
+              className="w-6 h-6 object-contain"
             />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative items-grid" style={{ zIndex: 0, position: 'relative' }}>
+      {/* 아이템 그리드 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {items.map((item) => (
-          <ItemCard 
-            key={item.id} 
-            item={item} 
-            onBidSuccess={fetchItems} 
-            onItemDeleted={fetchItems}
+          <ItemCard
+            key={item.id}
+            item={item}
+            onBidSuccess={() => {
+              // 입찰 성공 시 해당 아이템만 업데이트
+              updateSingleItem(item.id);
+            }}
           />
         ))}
-        
-        {/* 관리자일 때만 아이템 추가 카드 표시 */}
-        {isAdmin && (
-          <AddItemCard onItemAdded={fetchItems} />
-        )}
+        <AddItemCard onItemAdded={fetchItems} />
       </div>
     </div>
   );

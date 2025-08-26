@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     await pusher.trigger(channel, event, data);
 
     return NextResponse.json({ success: true });
-      } catch (error) {
-      return NextResponse.json({ error: '트리거 실패' }, { status: 500 });
-    }
+  } catch (error) {
+    return NextResponse.json({ error: '트리거 실패' }, { status: 500 });
+  }
 }
