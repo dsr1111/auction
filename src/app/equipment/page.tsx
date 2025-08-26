@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import TradeItemCard from '@/components/TradeItemCard';
 import BuyItemCard from '@/components/BuyItemCard';
 import AddTradeItemCard from '@/components/AddTradeItemCard';
-import AddTradeItemModal from '@/components/AddTradeItemModal';
+import AddTradeItemModal, { TradeItemData } from '@/components/AddTradeItemModal';
 import { createClient } from '@/lib/supabase/client';
 
 // 판매 아이템 데이터 타입 정의
@@ -45,7 +45,7 @@ export default function EquipmentPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddBuyModalOpen, setIsAddBuyModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<EquipmentItem | null>(null);
+  const [editingItem, setEditingItem] = useState<TradeItemData | null>(null);
   const [isEditBuyModalOpen, setIsEditBuyModalOpen] = useState(false);
   const [editingBuyItem, setEditingBuyItem] = useState<BuyEquipmentItem | null>(null);
 
@@ -130,6 +130,7 @@ export default function EquipmentPage() {
       // 옵션 데이터를 파싱하여 item에 추가
       const itemWithOptions = {
         ...item,
+        price: item.price, // price 속성 추가
         option1_type: '',
         option1_value: '',
         option2_type: '',

@@ -13,7 +13,7 @@ type AddTradeItemModalProps = {
   onComplete?: () => void; // 판매완료/구매완료 처리 함수
 };
 
-type TradeItemData = {
+export type TradeItemData = {
   enhancement_level: number;
   base_equipment_name: string;
   option_type: string;
