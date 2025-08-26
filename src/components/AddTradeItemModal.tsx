@@ -44,7 +44,7 @@ const AddTradeItemModal = ({ isOpen, onClose, onSubmit, initialData, isEditMode 
     comment: ''
   });
 
-  const [errors, setErrors] = useState<Partial<TradeItemData>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof TradeItemData, string>>>({});
 
   // 모달이 열릴 때마다 폼 초기화
   useEffect(() => {
@@ -113,7 +113,7 @@ const AddTradeItemModal = ({ isOpen, onClose, onSubmit, initialData, isEditMode 
     e.preventDefault();
     
     // 유효성 검사
-    const newErrors: Partial<TradeItemData> = {};
+    const newErrors: Partial<Record<keyof TradeItemData, string>> = {};
     
     if (!formData.base_equipment_name.trim()) {
       newErrors.base_equipment_name = '아이템 이름을 입력해주세요';
