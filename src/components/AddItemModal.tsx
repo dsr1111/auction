@@ -95,7 +95,7 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
       try {
         notifyItemUpdate('added');
       } catch (wsError) {
-        console.error('WebSocket 알림 실패:', wsError);
+        // WebSocket 알림 실패
       }
 
       // 즉시 모달 닫기 및 콜백 호출

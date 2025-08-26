@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(authResponse);
   } catch (error) {
-    console.error('Pusher 인증 오류:', error);
     return NextResponse.json({ error: '인증 실패' }, { status: 500 });
   }
 }

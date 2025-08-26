@@ -2,41 +2,25 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-interface CustomTooltipProps {
+interface CommentTooltipProps {
   content: string;
   children: React.ReactNode;
   delay?: number;
 }
 
-const CustomTooltip = ({ 
+const CommentTooltip = ({ 
   content, 
   children, 
-  delay = 500 
-}: CustomTooltipProps) => {
+  delay = 300 
+}: CommentTooltipProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  // 텍스트가 실제로 짤렸는지 확인하는 함수
-  const isTextTruncated = () => {
-    if (!triggerRef.current) return false;
-    
-    // truncate 클래스가 적용된 실제 텍스트 요소 찾기
-    const textElement = triggerRef.current.querySelector('.truncate') as HTMLElement;
-    if (!textElement) return false;
-    
-    return textElement.scrollWidth > textElement.clientWidth;
-  };
-
   const showTooltip = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
-    }
-    
-    // 텍스트가 짤렸을 때만 툴팁 표시
-    if (!isTextTruncated()) {
-      return;
     }
     
     timeoutRef.current = setTimeout(() => {
@@ -62,19 +46,19 @@ const CustomTooltip = ({
   }, []);
 
   return (
-    <div className="relative w-full">
+    <div className="relative inline-block">
       <div 
         ref={triggerRef}
         onMouseEnter={showTooltip}
         onMouseLeave={hideTooltip}
-        className="w-full"
+        className="inline-block"
       >
         {children}
       </div>
       
       {shouldShow && isVisible && (
         <div
-          className="absolute left-1/2 bottom-full mb-2 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap pointer-events-none z-[9999999]"
+          className="absolute left-1/2 bottom-full mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-xl shadow-lg whitespace-normal pointer-events-none z-[9999999] max-w-[200px] min-w-[110px]"
           style={{
             transform: 'translateX(-50%)',
           }}
@@ -96,6 +80,4 @@ const CustomTooltip = ({
   );
 };
 
-export default CustomTooltip;
-
-
+export default CommentTooltip;

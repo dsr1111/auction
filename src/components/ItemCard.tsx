@@ -9,8 +9,6 @@ import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
-import { notifyItemUpdate } from '@/utils/pusher';
-// No import needed for a plain HTML button
 
 type ItemCardProps = {
   item: {

@@ -64,12 +64,10 @@ export default function TotalBidSummary() {
       ]);
 
       if (itemsResult.error) {
-        console.error('아이템 조회 실패:', itemsResult.error);
         return;
       }
 
       if (bidHistoryResult.error) {
-        console.error('입찰내역 조회 실패:', bidHistoryResult.error);
         return;
       }
 
@@ -106,7 +104,7 @@ export default function TotalBidSummary() {
         });
       }
     } catch (err) {
-      console.error('총 입찰가 계산 중 오류:', err);
+      // 총 입찰가 계산 중 오류
     } finally {
       setLoading(false);
     }

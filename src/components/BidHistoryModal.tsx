@@ -44,7 +44,6 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
         .order('created_at', { ascending: false });
 
       if (fetchError) {
-        console.error('입찰 내역 조회 실패:', fetchError);
         setError('입찰 내역을 불러오는데 실패했습니다.');
         return;
       }
@@ -52,7 +51,6 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
 
       setBidHistory(data || []);
     } catch (err) {
-      console.error('예상치 못한 오류:', err);
       setError('입찰 내역을 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);

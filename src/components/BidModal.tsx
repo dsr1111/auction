@@ -139,7 +139,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         .select();
 
       if (updateError) {
-        console.error('❌ Supabase 업데이트 실패:', updateError);
         setError(`입찰에 실패했습니다: ${updateError.message}`);
         return;
       }
@@ -160,12 +159,10 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
         });
 
       if (historyError) {
-        console.error('❌ 입찰 내역 저장 실패:', historyError);
         // 입찰 내역 저장 실패해도 입찰은 성공한 것으로 처리
       }
 
       if (!data || data.length === 0) {
-        console.error('❌ 업데이트된 데이터가 없음');
         setError('입찰 업데이트에 실패했습니다.');
         return;
       }
@@ -175,7 +172,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       onClose();
       onBidSuccess?.();
     } catch (err) {
-      console.error('❌ 예상치 못한 오류:', err);
       setError('예상치 못한 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);

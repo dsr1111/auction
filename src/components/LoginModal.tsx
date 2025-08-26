@@ -13,7 +13,7 @@ const LoginModal = ({ isOpen, onClose }: LoginModalProps) => {
     try {
       await signIn('discord', { callbackUrl: '/' });
     } catch (error) {
-      console.error('로그인 실패:', error);
+      // 로그인 실패
     }
   };
 
