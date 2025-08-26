@@ -128,9 +128,13 @@ export default function EquipmentPage() {
           .order('option_line', { ascending: true });
 
       // 옵션 데이터를 파싱하여 item에 추가
-      const itemWithOptions = {
-        ...item,
-        price: item.price, // price 속성 추가
+      const itemWithOptions: TradeItemData = {
+        enhancement_level: item.enhancement_level,
+        base_equipment_name: item.base_equipment_name,
+        option_type: item.option_type,
+        price: item.price,
+        seller_nickname: item.seller_nickname || '',
+        comment: item.comment || '',
         option1_type: '',
         option1_value: '',
         option2_type: '',
@@ -167,7 +171,22 @@ export default function EquipmentPage() {
       setEditingItem(itemWithOptions);
       setIsEditModalOpen(true);
     } catch {
-      setEditingItem(item);
+      // item을 TradeItemData 타입에 맞게 변환
+      const fallbackItem: TradeItemData = {
+        enhancement_level: item.enhancement_level,
+        base_equipment_name: item.base_equipment_name,
+        option_type: item.option_type,
+        price: item.price,
+        seller_nickname: item.seller_nickname || '',
+        comment: item.comment || '',
+        option1_type: '',
+        option1_value: '',
+        option2_type: '',
+        option2_value: '',
+        option3_type: '',
+        option3_value: ''
+      };
+      setEditingItem(fallbackItem);
       setIsEditModalOpen(true);
     }
   };
