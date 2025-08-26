@@ -48,7 +48,8 @@ export default function EquipmentPage() {
   const [editingItem, setEditingItem] = useState<TradeItemData | null>(null);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [isEditBuyModalOpen, setIsEditBuyModalOpen] = useState(false);
-  const [editingBuyItem, setEditingBuyItem] = useState<BuyEquipmentItem | null>(null);
+  const [editingBuyItem, setEditingBuyItem] = useState<TradeItemData | null>(null);
+  const [editingBuyItemId, setEditingBuyItemId] = useState<number | null>(null);
 
   // Supabase 클라이언트
   const supabase = createClient();
@@ -250,9 +251,26 @@ export default function EquipmentPage() {
       }
 
       setEditingBuyItem(itemWithOptions);
+      setEditingBuyItemId(item.id);
       setIsEditBuyModalOpen(true);
     } catch {
-      setEditingBuyItem(item);
+      // item을 TradeItemData 타입에 맞게 변환
+      const fallbackBuyItem: TradeItemData = {
+        enhancement_level: item.enhancement_level,
+        base_equipment_name: item.base_equipment_name,
+        option_type: item.option_type,
+        price: item.buy_price,
+        seller_nickname: item.buyer_nickname,
+        comment: item.comment || '',
+        option1_type: '',
+        option1_value: '',
+        option2_type: '',
+        option2_value: '',
+        option3_type: '',
+        option3_value: ''
+      };
+      setEditingBuyItem(fallbackBuyItem);
+      setEditingBuyItemId(item.id);
       setIsEditBuyModalOpen(true);
     }
   };
@@ -261,6 +279,7 @@ export default function EquipmentPage() {
   const handleCloseEditBuyModal = () => {
     setIsEditBuyModalOpen(false);
     setEditingBuyItem(null);
+    setEditingBuyItemId(null);
   };
 
   // 아이템 추가 제출 처리
@@ -638,7 +657,7 @@ export default function EquipmentPage() {
           buyer_nickname: itemData.seller_nickname,
           comment: itemData.comment,
         })
-        .eq('id', editingBuyItem.id);
+        .eq('id', editingBuyItemId);
 
       if (itemError) {
         alert('구매 아이템 수정에 실패했습니다.');
@@ -649,27 +668,27 @@ export default function EquipmentPage() {
         await supabase
           .from('timer_equipment_buy_options')
           .delete()
-          .eq('item_id', editingBuyItem.id);
+          .eq('item_id', editingBuyItemId);
 
       // 새 옵션 저장
       const optionsToInsert = [];
       if (itemData.option1_type && itemData.option1_value) {
         optionsToInsert.push({
-          item_id: editingBuyItem.id,
+          item_id: editingBuyItemId,
           option_line: 1,
           option_text: `${itemData.option1_type} +${itemData.option1_value}`
         });
       }
       if (itemData.option2_type && itemData.option2_value) {
         optionsToInsert.push({
-          item_id: editingBuyItem.id,
+          item_id: editingBuyItemId,
           option_line: 2,
           option_text: `${itemData.option2_type} +${itemData.option2_value}`
         });
       }
       if (itemData.option3_type && itemData.option3_value) {
         optionsToInsert.push({
-          item_id: editingBuyItem.id,
+          item_id: editingBuyItemId,
           option_line: 3,
           option_text: `${itemData.option3_type} +${itemData.option3_value}%`
         });
@@ -682,8 +701,14 @@ export default function EquipmentPage() {
       }
 
       // 로컬 상태 업데이트
+      const existingBuyItem = buyItems.find(item => item.id === editingBuyItemId);
+      if (!existingBuyItem) {
+        alert('수정할 구매 아이템을 찾을 수 없습니다.');
+        return;
+      }
+      
       const updatedItem: BuyEquipmentItem = {
-        ...editingBuyItem,
+        ...existingBuyItem,
         base_equipment_name: itemData.base_equipment_name,
         enhancement_level: itemData.enhancement_level,
         option_type: itemData.option_type,
@@ -694,7 +719,7 @@ export default function EquipmentPage() {
 
       setBuyItems(prevItems => 
         prevItems.map(item => 
-          item.id === editingBuyItem.id ? updatedItem : item
+          item.id === editingBuyItemId ? updatedItem : item
         )
       );
 
@@ -715,11 +740,11 @@ export default function EquipmentPage() {
       await supabase
         .from('timer_equipment_buy_items')
         .delete()
-        .eq('id', editingBuyItem.id);
+        .eq('id', editingBuyItemId);
 
       // 로컬 상태에서 제거
       setBuyItems(prevItems => 
-        prevItems.filter(item => item.id !== editingBuyItem.id)
+        prevItems.filter(item => item.id !== editingBuyItemId)
       );
 
       setIsEditBuyModalOpen(false);
@@ -766,17 +791,18 @@ export default function EquipmentPage() {
       await supabase
         .from('timer_equipment_buy_items')
         .update({ is_active: false })
-        .eq('id', editingBuyItem.id);
+        .eq('id', editingBuyItemId);
 
       // 로컬 상태 업데이트
       setBuyItems(prevItems => 
         prevItems.map(item => 
-          item.id === editingBuyItem.id ? { ...item, is_active: false } : item
+          item.id === editingBuyItemId ? { ...item, is_active: false } : item
         )
       );
 
       setIsEditBuyModalOpen(false);
       setEditingBuyItem(null);
+      setEditingBuyItemId(null);
       alert('구매완료 처리되었습니다.');
     } catch (error) {
       alert('구매완료 처리 중 오류가 발생했습니다.');
