@@ -213,10 +213,13 @@ export default function EquipmentPage() {
           .order('option_line', { ascending: true });
 
           // 옵션 데이터를 파싱하여 item에 추가
-          const itemWithOptions = {
-            ...item,
+          const itemWithOptions: TradeItemData = {
+            enhancement_level: item.enhancement_level,
+            base_equipment_name: item.base_equipment_name,
+            option_type: item.option_type,
             price: item.buy_price, // buy_price를 price로 매핑
             seller_nickname: item.buyer_nickname, // buyer_nickname을 seller_nickname으로 매핑
+            comment: item.comment || '', // null을 빈 문자열로 변환
             option1_type: '',
             option1_value: '',
             option2_type: '',
