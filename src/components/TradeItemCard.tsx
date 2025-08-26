@@ -19,7 +19,18 @@ type TradeItemCardProps = {
     is_active: boolean;
     user_id: string;
   };
-  onEditClick?: (item: any) => void;
+  onEditClick?: (item: {
+    id: number;
+    base_equipment_name: string;
+    enhancement_level: number;
+    option_type: string;
+    price: number;
+    seller_nickname: string | null;
+    comment: string | null;
+    created_at: string;
+    is_active: boolean;
+    user_id: string;
+  }) => void;
 };
 
 type EquipmentOption = {
@@ -84,11 +95,7 @@ const TradeItemCard = ({ item, onEditClick }: TradeItemCardProps) => {
           .eq('item_id', id)
           .order('option_line', { ascending: true });
 
-        if (error) {
-          setOptions([]);
-        } else {
-          setOptions(data || []);
-        }
+        setOptions(data || []);
       } catch (error) {
         setOptions([]);
       } finally {

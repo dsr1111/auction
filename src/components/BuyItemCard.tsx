@@ -19,7 +19,18 @@ type BuyItemCardProps = {
     is_active: boolean;
     user_id: string;
   };
-  onEditClick?: (item: any) => void;
+  onEditClick?: (item: {
+    id: number;
+    base_equipment_name: string;
+    enhancement_level: number;
+    option_type: string;
+    buy_price: number;
+    buyer_nickname: string;
+    comment: string | null;
+    created_at: string;
+    is_active: boolean;
+    user_id: string;
+  }) => void;
 };
 
 type BuyEquipmentOption = {
@@ -77,7 +88,7 @@ const BuyItemCard = ({ item, onEditClick }: BuyItemCardProps) => {
     const fetchOptions = async () => {
       setLoadingOptions(true);
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('timer_equipment_buy_options')
           .select('*')
           .eq('item_id', id)

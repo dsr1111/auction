@@ -15,11 +15,9 @@ type EquipmentItem = {
   enhancement_level: number;
   option_type: string;
   price: number;
-  current_bid: number;
   seller_nickname: string | null;
   comment: string | null;
   created_at: string;
-  end_time: string | null;
   is_active: boolean;
   user_id: string;
 };
@@ -35,6 +33,7 @@ type BuyEquipmentItem = {
   comment: string | null;
   created_at: string;
   is_active: boolean;
+  user_id: string;
 };
 
 export default function EquipmentPage() {
@@ -58,19 +57,15 @@ export default function EquipmentPage() {
     const fetchSellItems = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('timer_equipment_items')
           .select('*, user_id')
           .order('created_at', { ascending: false })
           .limit(8);
 
-        if (error) {
-          setSellItems(getMockEquipmentItems());
-        } else {
-          setSellItems(data || getMockEquipmentItems());
-        }
+        setSellItems(data || []);
       } catch {
-        setSellItems(getMockEquipmentItems());
+        setSellItems([]);
       } finally {
         setLoading(false);
       }
@@ -83,17 +78,13 @@ export default function EquipmentPage() {
   useEffect(() => {
     const fetchBuyItems = async () => {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('timer_equipment_buy_items')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(8);
 
-        if (error) {
-          setBuyItems([]);
-        } else {
-          setBuyItems(data || []);
-        }
+        setBuyItems(data || []);
       } catch {
         setBuyItems([]);
       }
@@ -102,37 +93,7 @@ export default function EquipmentPage() {
     fetchBuyItems();
   }, [supabase]);
 
-  // 임시 장비 아이템 데이터
-  const getMockEquipmentItems = (): EquipmentItem[] => {
-    return [
-      {
-        id: 1,
-        base_equipment_name: '완벽한 속임수 반지',
-        enhancement_level: 6,
-        option_type: 'A',
-        price: 555555555,
-        current_bid: 0,
-        seller_nickname: 'dmirty',
-        comment: '귓 메일 주삼',
-        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        end_time: null,
-        is_active: true
-      },
-      {
-        id: 2,
-        base_equipment_name: '전설의 검',
-        enhancement_level: 15,
-        option_type: 'B',
-        price: 1234567890,
-        current_bid: 0,
-        seller_nickname: 'swordmaster',
-        comment: '최고급 검입니다',
-        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        end_time: null,
-        is_active: true
-      }
-    ];
-  };
+
 
 
 
@@ -301,7 +262,7 @@ export default function EquipmentPage() {
     
     try {
       // 데이터베이스에 아이템 저장
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('timer_equipment_items')
         .insert([
           {
@@ -318,11 +279,6 @@ export default function EquipmentPage() {
           }
         ])
         .select();
-
-      if (error) {
-        alert('아이템 저장에 실패했습니다.');
-        return;
-      }
 
       if (data && data.length > 0) {
         const savedItemId = data[0].id;
@@ -371,11 +327,9 @@ export default function EquipmentPage() {
           enhancement_level: data[0].enhancement_level,
           option_type: data[0].option_type,
           price: data[0].price,
-          current_bid: data[0].current_bid || 0,
           seller_nickname: data[0].seller_nickname,
           comment: data[0].comment,
           created_at: data[0].created_at,
-          end_time: data[0].end_time,
           is_active: data[0].is_active
         };
         
@@ -414,7 +368,7 @@ export default function EquipmentPage() {
     
     try {
       // 데이터베이스에 구매 아이템 저장
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('timer_equipment_buy_items')
         .insert([
           {
@@ -430,11 +384,6 @@ export default function EquipmentPage() {
           }
         ])
         .select();
-
-      if (error) {
-        alert('구매 아이템 저장에 실패했습니다.');
-        return;
-      }
 
       if (data && data.length > 0) {
         const savedItemId = data[0].id;
@@ -486,7 +435,8 @@ export default function EquipmentPage() {
           buyer_nickname: data[0].buyer_nickname,
           comment: data[0].comment,
           created_at: data[0].created_at,
-          is_active: data[0].is_active
+          is_active: data[0].is_active,
+          user_id: data[0].user_id
         };
         
         setBuyItems(prevItems => [savedItem, ...prevItems]);
@@ -607,15 +557,10 @@ export default function EquipmentPage() {
 
     try {
       // 아이템 삭제 (CASCADE로 옵션도 자동 삭제됨)
-      const { error } = await supabase
+      await supabase
         .from('timer_equipment_items')
         .delete()
         .eq('id', editingItem.id);
-
-      if (error) {
-        alert('아이템 삭제에 실패했습니다.');
-        return;
-      }
 
       // 로컬 상태에서 제거
       setSellItems(prevItems => 
@@ -736,15 +681,10 @@ export default function EquipmentPage() {
 
     try {
       // 아이템 삭제 (CASCADE로 옵션도 자동 삭제됨)
-      const { error } = await supabase
+      await supabase
         .from('timer_equipment_buy_items')
         .delete()
         .eq('id', editingBuyItem.id);
-
-      if (error) {
-        alert('구매 아이템 삭제에 실패했습니다.');
-        return;
-      }
 
       // 로컬 상태에서 제거
       setBuyItems(prevItems => 
@@ -765,15 +705,10 @@ export default function EquipmentPage() {
 
     try {
       // 아이템을 비활성화로 변경
-      const { error } = await supabase
+      await supabase
         .from('timer_equipment_items')
         .update({ is_active: false })
         .eq('id', editingItem.id);
-
-      if (error) {
-        alert('판매완료 처리에 실패했습니다.');
-        return;
-      }
 
       // 로컬 상태 업데이트
       setSellItems(prevItems => 
@@ -796,15 +731,10 @@ export default function EquipmentPage() {
 
     try {
       // 아이템을 비활성화로 변경
-      const { error } = await supabase
+      await supabase
         .from('timer_equipment_buy_items')
         .update({ is_active: false })
         .eq('id', editingBuyItem.id);
-
-      if (error) {
-        alert('구매완료 처리에 실패했습니다.');
-        return;
-      }
 
       // 로컬 상태 업데이트
       setBuyItems(prevItems => 
