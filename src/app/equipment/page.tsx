@@ -62,8 +62,7 @@ export default function EquipmentPage() {
         const { data } = await supabase
           .from('timer_equipment_items')
           .select('*, user_id')
-          .order('created_at', { ascending: false })
-          .limit(8);
+          .order('created_at', { ascending: false });
 
         setSellItems(data || []);
       } catch {
@@ -83,8 +82,7 @@ export default function EquipmentPage() {
         const { data } = await supabase
           .from('timer_equipment_buy_items')
           .select('*')
-          .order('created_at', { ascending: false })
-          .limit(8);
+          .order('created_at', { ascending: false });
 
         setBuyItems(data || []);
       } catch {

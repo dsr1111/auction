@@ -261,7 +261,7 @@ const TradeItemCard = ({ item, onEditClick }: TradeItemCardProps) => {
             {/* 코멘트 - 활성 아이템에만 표시 */}
             {is_active && comment && (
               <div className="flex justify-start w-full">
-                <CommentTooltip content={comment}>
+                <CommentTooltip content={comment} maxLength={15}>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 cursor-pointer">
                     {comment.length > 15 ? `${comment.substring(0, 15)}...` : comment}
                   </span>
