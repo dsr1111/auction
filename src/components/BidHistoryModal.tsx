@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
-import * as XLSX from 'xlsx';
 
 type BidHistoryModalProps = {
   isOpen: boolean;

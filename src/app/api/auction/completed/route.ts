@@ -115,7 +115,16 @@ export async function GET(request: NextRequest) {
           }
 
           // 낙찰 정보 계산 (총 입찰 금액 계산 방식과 동일)
-          let winningBids: any[] = [];
+          const winningBids: Array<{
+            id: number;
+            bid_amount: number;
+            bid_quantity: number;
+            bidder_nickname: string;
+            bidder_discord_id: string | null;
+            bidder_discord_name: string | null;
+            created_at: string;
+            quantity_used: number;
+          }> = [];
           if (bidHistory && bidHistory.length > 0) {
             let remainingQuantity = item.quantity || 1;
             

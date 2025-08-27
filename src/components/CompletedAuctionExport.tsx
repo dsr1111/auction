@@ -77,7 +77,14 @@ const CompletedAuctionExport = () => {
       console.log(`${completedItems.length}개의 아이템을 엑셀로 변환 중... (테이블: ${sourceTable})`);
 
       // 엑셀 데이터 준비 - 핵심 정보만 포함
-      const excelData: any[] = [];
+      const excelData: Array<{
+        '아이템명': string;
+        '입찰자 닉네임': string;
+        'Discord 닉네임': string;
+        '갯수': number | string;
+        '개당 입찰가(10%포함)': string;
+        '총 입찰가(10%포함)': string;
+      }> = [];
       
       completedItems.forEach((item: CompletedAuctionItem) => {
         if (item.winning_bids && item.winning_bids.length > 0) {
