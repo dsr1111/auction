@@ -69,6 +69,41 @@ const TradeItemCard = ({ item, onEditClick, onContactClick }: TradeItemCardProps
     setImageError(true);
   };
 
+  // 카카오톡 오픈톡으로 연결
+  const handleKakaoClick = async () => {
+    try {
+      // 판매자의 연락처 정보 가져오기
+      const { data, error } = await supabase
+        .from('user_contacts')
+        .select('kakao_openchat_url')
+        .eq('user_id', user_id)
+        .single();
+
+      if (error || !data?.kakao_openchat_url) {
+        alert('판매자의 카카오톡 오픈톡 정보가 없습니다.');
+        return;
+      }
+
+      // 카카오톡 오픈톡 열기
+      window.open(data.kakao_openchat_url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('카카오톡 오픈톡 연결 실패:', error);
+      alert('카카오톡 오픈톡 연결에 실패했습니다.');
+    }
+  };
+
+  // Discord 프로필으로 연결
+  const handleDiscordClick = () => {
+    try {
+      // Discord 프로필 링크 열기
+      const discordUrl = `discord://discord.com/users/${user_id}`;
+      window.open(discordUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Discord 프로필 연결 실패:', error);
+      alert('Discord 프로필 연결에 실패했습니다.');
+    }
+  };
+
   // 이미지 URL 생성
   const getImageUrl = () => {
     const processedItemName = base_equipment_name.replace(/%/g, '^');
@@ -224,9 +259,9 @@ const TradeItemCard = ({ item, onEditClick, onContactClick }: TradeItemCardProps
             <div className="flex items-center justify-between w-full">
               <span className="text-xs text-gray-500">가격</span>
               <div className="flex items-center space-x-1">
-                <span className="text-xs font-semibold text-green-600">
-                  {price.toLocaleString()}
-                </span>
+                              <span className="text-xs font-semibold text-blue-600">
+                {price.toLocaleString()}
+              </span>
                 <img 
                   src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
                   alt="bit" 
@@ -238,13 +273,9 @@ const TradeItemCard = ({ item, onEditClick, onContactClick }: TradeItemCardProps
             {/* 판매자 정보 */}
             <div className="flex items-center justify-between w-full">
               <span className="text-xs text-gray-500">판매자</span>
-              <button
-                onClick={() => onContactClick?.(user_id, seller_nickname || '알 수 없음')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 truncate max-w-[80px] cursor-pointer transition-colors"
-                title="클릭하여 연락처 정보 보기"
-              >
+              <span className="text-xs font-semibold text-gray-700 truncate max-w-[80px]">
                 {seller_nickname || '알 수 없음'}
-              </button>
+              </span>
             </div>
             
             {/* 등록 시간 또는 거래 상태 */}
@@ -265,12 +296,42 @@ const TradeItemCard = ({ item, onEditClick, onContactClick }: TradeItemCardProps
 
             {/* 코멘트 - 활성 아이템에만 표시 */}
             {is_active && comment && (
-              <div className="flex justify-start w-full">
+              <div className="flex justify-between items-center w-full">
                 <CommentTooltip content={comment} maxLength={15}>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 cursor-pointer">
                     {comment.length > 15 ? `${comment.substring(0, 15)}...` : comment}
                   </span>
                 </CommentTooltip>
+                {/* 연락처 아이콘들 */}
+                <div className="flex items-center space-x-1">
+                  {/* 카카오톡 아이콘 */}
+                  <button
+                    onClick={() => handleKakaoClick()}
+                    className="inline-flex items-center justify-center w-6 h-6 hover:opacity-80 transition-opacity cursor-pointer"
+                    title="카카오톡 오픈톡으로 연락하기"
+                  >
+                    <img 
+                      src="https://media.dsrwiki.com/dsrwiki/kakao.svg" 
+                      alt="카카오톡" 
+                      className="w-5 h-5"
+                    />
+                  </button>
+                  
+                  {/* Discord 아이콘 */}
+                  <button
+                    onClick={() => handleDiscordClick()}
+                    className="inline-flex items-center justify-center w-6 h-6 hover:opacity-80 transition-opacity cursor-pointer"
+                    title="Discord 프로필으로 연락하기"
+                  >
+                    <img 
+                      width="20" 
+                      height="20" 
+                      src="https://img.icons8.com/color/20/discord--v2.png" 
+                      alt="discord--v2"
+                      className="w-5 h-5"
+                    />
+                  </button>
+                </div>
               </div>
             )}
           </div>
