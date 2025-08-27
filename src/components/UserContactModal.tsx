@@ -30,20 +30,21 @@ export default function UserContactModal({ isOpen, onClose }: UserContactModalPr
 
   // 현재 사용자의 연락처 정보 불러오기
   useEffect(() => {
-    if (isOpen && (session?.user as { id?: string })?.id) {
+    if (isOpen && session?.user && (session.user as { id?: string }).id) {
       fetchUserContact();
     }
-  }, [isOpen, session?.user?.id]);
+  }, [isOpen, session?.user]);
 
   const fetchUserContact = async () => {
-    if (!(session?.user as { id?: string })?.id) return;
+    if (!session?.user || !(session.user as { id?: string }).id) return;
     
+    const userId = (session.user as { id?: string }).id;
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('user_contacts')
         .select('*')
-        .eq('user_id', (session.user as { id?: string }).id)
+        .eq('user_id', userId)
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116는 데이터가 없는 경우
@@ -56,7 +57,7 @@ export default function UserContactModal({ isOpen, onClose }: UserContactModalPr
       } else {
         // 새로운 사용자인 경우 기본값 설정
         setContact({
-          user_id: (session.user as { id?: string }).id!,
+          user_id: userId!,
           kakao_openchat_url: '',
           updated_at: new Date().toISOString()
         });
@@ -65,7 +66,7 @@ export default function UserContactModal({ isOpen, onClose }: UserContactModalPr
       console.error('연락처 정보를 불러오는데 실패했습니다:', error);
       // 에러 메시지를 표시하지 않고 기본값으로 설정
       setContact({
-        user_id: (session.user as { id?: string }).id!,
+        user_id: userId!,
         kakao_openchat_url: '',
         updated_at: new Date().toISOString()
       });
@@ -76,15 +77,16 @@ export default function UserContactModal({ isOpen, onClose }: UserContactModalPr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user?.id) return;
+    if (!session?.user || !(session.user as { id?: string }).id) return;
 
+    const userId = (session.user as { id?: string }).id;
     setSaving(true);
     setMessage('');
 
     try {
       const contactData = {
         ...contact,
-        user_id: (session.user as { id?: string }).id!,
+        user_id: userId!,
         updated_at: new Date().toISOString()
       };
 
