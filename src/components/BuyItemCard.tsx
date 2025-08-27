@@ -294,21 +294,14 @@ const BuyItemCard = ({ item, onEditClick, onContactClick }: BuyItemCardProps) =>
             </div>
 
             {/* 코멘트 - 활성 아이템에만 표시 */}
-            {is_active && (
+            {is_active && comment && (
               <div className="flex justify-between items-center w-full">
-                {/* 코멘트가 있을 때만 표시 */}
-                {comment && (
-                  <CommentTooltip content={comment} maxLength={15}>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 cursor-pointer">
-                      {comment.length > 15 ? `${comment.substring(0, 15)}...` : comment}
-                    </span>
-                  </CommentTooltip>
-                )}
-                
-                {/* 코멘트가 없을 때는 빈 공간으로 처리 */}
-                {!comment && <div></div>}
-                
-                {/* 연락처 아이콘들 - 코멘트 유무와 관계없이 표시 */}
+                <CommentTooltip content={comment} maxLength={15}>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 cursor-pointer">
+                    {comment.length > 15 ? `${comment.substring(0, 15)}...` : comment}
+                  </span>
+                </CommentTooltip>
+                {/* 연락처 아이콘들 */}
                 <div className="flex items-center space-x-1">
                   {/* 카카오톡 아이콘 */}
                   <button
@@ -327,7 +320,7 @@ const BuyItemCard = ({ item, onEditClick, onContactClick }: BuyItemCardProps) =>
                   <button
                     onClick={() => handleDiscordClick()}
                     className="inline-flex items-center justify-center w-6 h-6 hover:opacity-80 transition-opacity cursor-pointer"
-                    title="Discord 프로필로 연락하기"
+                    title="Discord 프로필으로 연락하기"
                   >
                     <img 
                       width="20" 

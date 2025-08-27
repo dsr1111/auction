@@ -80,6 +80,9 @@ export default function EquipmentPage() {
     option3MinValue: '' // 3번 옵션 최소 수치
   });
 
+  // 상태별 필터 상태 관리
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
+
   // 필터링된 아이템들
   const [filteredSellItems, setFilteredSellItems] = useState<EquipmentItem[]>([]);
   const [filteredBuyItems, setFilteredBuyItems] = useState<BuyEquipmentItem[]>([]);
@@ -253,20 +256,58 @@ export default function EquipmentPage() {
           return true;
         }) || [];
 
-        setFilteredSellItems(filteredSell);
-        setFilteredBuyItems(filteredBuy);
+        // 완료된 아이템들을 맨 뒤로 보내기
+        const sortedFilteredSell = filteredSell.sort((a, b) => {
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        
+        const sortedFilteredBuy = filteredBuy.sort((a, b) => {
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        setFilteredSellItems(sortedFilteredSell);
+        setFilteredBuyItems(sortedFilteredBuy);
       } else {
         // 옵션 필터링이 없는 경우 기본 쿼리 실행
         const { data: sellData } = await sellQuery.order('created_at', { ascending: false });
         const { data: buyData } = await buyQuery.order('created_at', { ascending: false });
         
-        setFilteredSellItems(sellData || []);
-        setFilteredBuyItems(buyData || []);
+        // 완료된 아이템들을 맨 뒤로 보내기
+        const sortedSellData = (sellData || []).sort((a, b) => {
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        
+        const sortedBuyData = (buyData || []).sort((a, b) => {
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          return new Date(b.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        
+        setFilteredSellItems(sortedSellData);
+        setFilteredBuyItems(sortedBuyData);
       }
     } catch (error) {
       console.error('필터링 실패:', error);
     }
   }, [filters, supabase]);
+
+  // 상태별 필터링 함수
+  const getFilteredItemsByStatus = <T extends { is_active: boolean }>(items: T[]) => {
+    switch (statusFilter) {
+      case 'active':
+        return items.filter(item => item.is_active);
+      case 'completed':
+        return items.filter(item => !item.is_active);
+      default:
+        return items;
+    }
+  };
 
   // 필터 초기화
   const resetFilters = () => {
@@ -293,7 +334,16 @@ export default function EquipmentPage() {
           .select('*, user_id')
           .order('created_at', { ascending: false });
 
-        setSellItems(data || []);
+        // 완료된 아이템들을 맨 뒤로 보내기
+        const sortedData = (data || []).sort((a, b) => {
+          // 활성 아이템이 먼저, 비활성(완료된) 아이템이 나중에
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          // 둘 다 활성이거나 둘 다 비활성인 경우 생성일 기준으로 정렬
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        setSellItems(sortedData);
       } catch {
         setSellItems([]);
       } finally {
@@ -313,7 +363,16 @@ export default function EquipmentPage() {
           .select('*')
           .order('created_at', { ascending: false });
 
-        setBuyItems(data || []);
+        // 완료된 아이템들을 맨 뒤로 보내기
+        const sortedData = (data || []).sort((a, b) => {
+          // 활성 아이템이 먼저, 비활성(완료된) 아이템이 나중에
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          // 둘 다 활성이거나 둘 다 비활성인 경우 생성일 기준으로 정렬
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        setBuyItems(sortedData);
       } catch {
         setBuyItems([]);
       }
@@ -1281,6 +1340,42 @@ export default function EquipmentPage() {
           {activeTab === 'buy' ? (
             // 판매 탭 내용 (첫 번째 탭) - TradeItemCard로 판매 매물 표시
             <div>
+              {/* 상태별 필터 버튼 */}
+              <div className="flex justify-center mb-6">
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      statusFilter === 'all'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    전체
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('active')}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      statusFilter === 'active'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    판매중
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('completed')}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      statusFilter === 'completed'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    판매완료
+                  </button>
+                </div>
+              </div>
+
               {/* 판매용 매물 목록 (TradeItemCard로 표시) */}
               <div>
 
@@ -1305,7 +1400,11 @@ export default function EquipmentPage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue ? filteredSellItems : sellItems).map((item) => (
+                        {/* 로그인한 유저에게만 새 아이템 추가 카드를 맨 앞에 표시 */}
+                        {session?.user && (
+                          <AddTradeItemCard onAddClick={handleAddItemClick} />
+                        )}
+                        {getFilteredItemsByStatus(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue ? filteredSellItems : sellItems).map((item) => (
                           <TradeItemCard
                             key={item.id}
                             item={item}
@@ -1313,10 +1412,6 @@ export default function EquipmentPage() {
                             onContactClick={openContactModal}
                           />
                         ))}
-                        {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
-                        {session?.user && (
-                          <AddTradeItemCard onAddClick={handleAddItemClick} />
-                        )}
                       </div>
                     )}
                   </div>
@@ -1326,6 +1421,42 @@ export default function EquipmentPage() {
           ) : (
             // 구매 탭 내용 (두 번째 탭) - 구매 관련 기능
             <div>
+              {/* 상태별 필터 버튼 */}
+              <div className="flex justify-center mb-6">
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      statusFilter === 'all'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    전체
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('active')}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      statusFilter === 'active'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    구매중
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('completed')}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      statusFilter === 'completed'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    구매완료
+                  </button>
+                </div>
+              </div>
+
               {/* 구매용 매물 목록 (TradeItemCard로 표시) */}
               <div>
                 {loading ? (
@@ -1349,7 +1480,11 @@ export default function EquipmentPage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue ? filteredBuyItems : buyItems).map((item) => (
+                        {/* 로그인한 유저에게만 새 아이템 추가 카드를 맨 앞에 표시 */}
+                        {session?.user && (
+                          <AddTradeItemCard onAddClick={handleAddBuyItemClick} />
+                        )}
+                        {getFilteredItemsByStatus(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue ? filteredBuyItems : buyItems).map((item) => (
                           <BuyItemCard
                             key={item.id}
                             item={item}
@@ -1357,10 +1492,6 @@ export default function EquipmentPage() {
                             onContactClick={openContactModal}
                           />
                         ))}
-                        {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
-                        {session?.user && (
-                          <AddTradeItemCard onAddClick={handleAddBuyItemClick} />
-                        )}
                       </div>
                     )}
                   </div>
