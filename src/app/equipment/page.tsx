@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import TradeItemCard from '@/components/TradeItemCard';
 import BuyItemCard from '@/components/BuyItemCard';
@@ -37,6 +37,12 @@ type BuyEquipmentItem = {
   user_id: string;
 };
 
+// 옵션 데이터 타입 정의
+type EquipmentOption = {
+  option_line: number;
+  option_text: string;
+};
+
 export default function EquipmentPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
@@ -63,6 +69,24 @@ export default function EquipmentPage() {
     nickname: ''
   });
 
+  // 필터링 상태 관리
+  const [filters, setFilters] = useState({
+    equipmentType: '', // 장비 부위 (목걸이, 귀걸이, 팔찌, 반지)
+    option1Type: '', // 1번 옵션 종류
+    option1MinValue: '', // 1번 옵션 최소 수치
+    option2Type: '', // 2번 옵션 종류
+    option2MinValue: '', // 2번 옵션 최소 수치
+    option3Type: '', // 3번 옵션 종류
+    option3MinValue: '' // 3번 옵션 최소 수치
+  });
+
+  // 필터링된 아이템들
+  const [filteredSellItems, setFilteredSellItems] = useState<EquipmentItem[]>([]);
+  const [filteredBuyItems, setFilteredBuyItems] = useState<BuyEquipmentItem[]>([]);
+
+  // 필터링 창 토글 상태
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
   // Supabase 클라이언트
   const supabase = createClient();
 
@@ -82,6 +106,181 @@ export default function EquipmentPage() {
       userId: '',
       nickname: ''
     });
+  };
+
+  // 필터링 함수
+  const applyFilters = useCallback(async () => {
+    try {
+      // 판매 아이템 필터링
+      let sellQuery = supabase
+        .from('timer_equipment_items')
+        .select('*, user_id');
+
+      // 구매 아이템 필터링
+      let buyQuery = supabase
+        .from('timer_equipment_buy_items')
+        .select('*');
+
+      // 장비 부위 필터링
+      if (filters.equipmentType) {
+        sellQuery = sellQuery.ilike('base_equipment_name', `%${filters.equipmentType}%`);
+        buyQuery = buyQuery.ilike('base_equipment_name', `%${filters.equipmentType}%`);
+      }
+
+      // 옵션 필터링을 위해 옵션 테이블과 조인
+      if (filters.option1Type || filters.option1MinValue || 
+          filters.option2Type || filters.option2MinValue || 
+          filters.option3Type || filters.option3MinValue) {
+        
+        // 판매 아이템 옵션 조인
+        const { data: sellItemsWithOptions, error: sellError } = await supabase
+          .from('timer_equipment_items')
+          .select(`
+            *,
+            user_id,
+            timer_equipment_options!inner(
+              option_line,
+              option_text
+            )
+          `)
+          .ilike('base_equipment_name', filters.equipmentType ? `%${filters.equipmentType}%` : '%');
+
+        if (sellError) {
+          console.error('판매 아이템 옵션 조회 실패:', sellError);
+          return;
+        }
+
+        // 구매 아이템 옵션 조인
+        const { data: buyItemsWithOptions, error: buyError } = await supabase
+          .from('timer_equipment_buy_items')
+          .select(`
+            *,
+            timer_equipment_buy_options!inner(
+              option_line,
+              option_text
+            )
+          `)
+          .ilike('base_equipment_name', filters.equipmentType ? `%${filters.equipmentType}%` : '%');
+
+        if (buyError) {
+          console.error('구매 아이템 옵션 조회 실패:', buyError);
+          return;
+        }
+
+        // 옵션 조건에 맞는 아이템만 필터링
+        const filteredSell = sellItemsWithOptions?.filter(item => {
+          const options = item.timer_equipment_options || [];
+          
+          // 1번 옵션 필터링
+          if (filters.option1Type || filters.option1MinValue) {
+            const option1 = options.find((opt: EquipmentOption) => opt.option_line === 1);
+            if (!option1) return false;
+            
+            if (filters.option1Type && !option1.option_text.includes(filters.option1Type)) return false;
+            if (filters.option1MinValue) {
+              const value = parseFloat(option1.option_text.replace(/[^0-9.]/g, ''));
+              if (isNaN(value) || value < parseFloat(filters.option1MinValue)) return false;
+            }
+          }
+
+          // 2번 옵션 필터링
+          if (filters.option2Type || filters.option2MinValue) {
+            const option2 = options.find((opt: EquipmentOption) => opt.option_line === 2);
+            if (!option2) return false;
+            
+            if (filters.option2Type && !option2.option_text.includes(filters.option2Type)) return false;
+            if (filters.option2MinValue) {
+              const value = parseFloat(option2.option_text.replace(/[^0-9.]/g, ''));
+              if (isNaN(value) || value < parseFloat(filters.option2MinValue)) return false;
+            }
+          }
+
+          // 3번 옵션 필터링
+          if (filters.option3Type || filters.option3MinValue) {
+            const option3 = options.find((opt: EquipmentOption) => opt.option_line === 3);
+            if (!option3) return false;
+            
+            if (filters.option3Type && !option3.option_text.includes(filters.option3Type)) return false;
+            if (filters.option3MinValue) {
+              const value = parseFloat(option3.option_text.replace(/[^0-9.]/g, ''));
+              if (isNaN(value) || value < parseFloat(filters.option3MinValue)) return false;
+            }
+          }
+
+          return true;
+        }) || [];
+
+        const filteredBuy = buyItemsWithOptions?.filter(item => {
+          const options = item.timer_equipment_buy_options || [];
+          
+          // 동일한 옵션 필터링 로직 적용
+          // 1번 옵션 필터링
+          if (filters.option1Type || filters.option1MinValue) {
+            const option1 = options.find((opt: EquipmentOption) => opt.option_line === 1);
+            if (!option1) return false;
+            
+            if (filters.option1Type && !option1.option_text.includes(filters.option1Type)) return false;
+            if (filters.option1MinValue) {
+              const value = parseFloat(option1.option_text.replace(/[^0-9.]/g, ''));
+              if (isNaN(value) || value < parseFloat(filters.option1MinValue)) return false;
+            }
+          }
+
+          // 2번 옵션 필터링
+          if (filters.option2Type || filters.option2MinValue) {
+            const option2 = options.find((opt: EquipmentOption) => opt.option_line === 2);
+            if (!option2) return false;
+            
+            if (filters.option2Type && !option2.option_text.includes(filters.option2Type)) return false;
+            if (filters.option2MinValue) {
+              const value = parseFloat(option2.option_text.replace(/[^0-9.]/g, ''));
+              if (isNaN(value) || value < parseFloat(filters.option2MinValue)) return false;
+            }
+          }
+
+          // 3번 옵션 필터링
+          if (filters.option3Type || filters.option3MinValue) {
+            const option3 = options.find((opt: EquipmentOption) => opt.option_line === 3);
+            if (!option3) return false;
+            
+            if (filters.option3Type && !option3.option_text.includes(filters.option3Type)) return false;
+            if (filters.option3MinValue) {
+              const value = parseFloat(option3.option_text.replace(/[^0-9.]/g, ''));
+              if (isNaN(value) || value < parseFloat(filters.option3MinValue)) return false;
+            }
+          }
+
+          return true;
+        }) || [];
+
+        setFilteredSellItems(filteredSell);
+        setFilteredBuyItems(filteredBuy);
+      } else {
+        // 옵션 필터링이 없는 경우 기본 쿼리 실행
+        const { data: sellData } = await sellQuery.order('created_at', { ascending: false });
+        const { data: buyData } = await buyQuery.order('created_at', { ascending: false });
+        
+        setFilteredSellItems(sellData || []);
+        setFilteredBuyItems(buyData || []);
+      }
+    } catch (error) {
+      console.error('필터링 실패:', error);
+    }
+  }, [filters, supabase]);
+
+  // 필터 초기화
+  const resetFilters = () => {
+    setFilters({
+      equipmentType: '',
+      option1Type: '',
+      option1MinValue: '',
+      option2Type: '',
+      option2MinValue: '',
+      option3Type: '',
+      option3MinValue: ''
+    });
+    setFilteredSellItems([]);
+    setFilteredBuyItems([]);
   };
 
   // 판매 아이템 데이터 가져오기
@@ -845,6 +1044,214 @@ export default function EquipmentPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
 
+                {/* 필터링 섹션 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+          {/* 필터 헤더 (토글 가능) */}
+          <div 
+            className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">장비 필터링</h3>
+              <div className="flex items-center space-x-2">
+                {/* 화살표 아이콘 */}
+                <svg 
+                  className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                    isFilterOpen ? 'rotate-180' : ''
+                  }`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* 필터 내용 (토글 가능) */}
+          {isFilterOpen && (
+            <div className="px-6 pb-6 border-t border-gray-100">
+              {/* 필터 그룹별로 구분하여 배치 */}
+              <div className="space-y-6 pt-4">
+                {/* 장비 부위 필터 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3">장비 부위</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="equipmentType"
+                        value=""
+                        checked={filters.equipmentType === ''}
+                        onChange={(e) => setFilters(prev => ({ ...prev, equipmentType: e.target.value }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">전체</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="equipmentType"
+                        value="목걸이"
+                        checked={filters.equipmentType === '목걸이'}
+                        onChange={(e) => setFilters(prev => ({ ...prev, equipmentType: e.target.value }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">목걸이</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="equipmentType"
+                        value="귀걸이"
+                        checked={filters.equipmentType === '귀걸이'}
+                        onChange={(e) => setFilters(prev => ({ ...prev, equipmentType: e.target.value }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">귀걸이</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="equipmentType"
+                        value="팔찌"
+                        checked={filters.equipmentType === '팔찌'}
+                        onChange={(e) => setFilters(prev => ({ ...prev, equipmentType: e.target.value }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">팔찌</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="equipmentType"
+                        value="반지"
+                        checked={filters.equipmentType === '반지'}
+                        onChange={(e) => setFilters(prev => ({ ...prev, equipmentType: e.target.value }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">반지</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 1번 옵션 필터 그룹 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3">1번 옵션</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">옵션 종류</label>
+                      <select
+                        value={filters.option1Type}
+                        onChange={(e) => setFilters(prev => ({ ...prev, option1Type: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">전체</option>
+                        <option value="힘">힘</option>
+                        <option value="지능">지능</option>
+                        <option value="수비">수비</option>
+                        <option value="저항">저항</option>
+                        <option value="속도">속도</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">최소 수치</label>
+                      <input
+                        type="text"
+                        value={filters.option1MinValue ? `+${filters.option1MinValue}` : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          setFilters(prev => ({ ...prev, option1MinValue: value }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2번 옵션 필터 그룹 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3">2번 옵션</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">옵션 종류</label>
+                      <select
+                        value={filters.option2Type}
+                        onChange={(e) => setFilters(prev => ({ ...prev, option2Type: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">전체</option>
+                        <option value="힘">힘</option>
+                        <option value="지능">지능</option>
+                        <option value="수비">수비</option>
+                        <option value="저항">저항</option>
+                        <option value="속도">속도</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">최소 수치</label>
+                      <input
+                        type="text"
+                        value={filters.option2MinValue ? `+${filters.option2MinValue}` : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          setFilters(prev => ({ ...prev, option2MinValue: value }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3번 옵션 필터 그룹 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3">3번 옵션</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">옵션 종류</label>
+                      <input
+                        type="text"
+                        value={filters.option3Type}
+                        onChange={(e) => setFilters(prev => ({ ...prev, option3Type: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">최소 수치</label>
+                      <input
+                        type="text"
+                        value={filters.option3MinValue ? `+${filters.option3MinValue}%` : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          setFilters(prev => ({ ...prev, option3MinValue: value }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 필터 버튼들 */}
+              <div className="flex space-x-3 mt-4">
+                <button
+                  onClick={applyFilters}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                >
+                  필터 적용
+                </button>
+                <button
+                  onClick={resetFilters}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors"
+                >
+                  필터 초기화
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* 구매/판매 탭 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
@@ -883,18 +1290,34 @@ export default function EquipmentPage() {
                     <p className="text-gray-600">매물을 불러오는 중...</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {sellItems.map((item) => (
-                      <TradeItemCard
-                        key={item.id}
-                        item={item}
-                        onEditClick={handleEditItemClick}
-                        onContactClick={openContactModal}
-                      />
-                    ))}
-                    {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
-                    {session?.user && (
-                      <AddTradeItemCard onAddClick={handleAddItemClick} />
+                  <div>
+                    {/* 필터링 결과가 없을 때 메시지 표시 */}
+                    {(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue) && filteredSellItems.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="text-gray-500 text-lg mb-2">🔍</div>
+                        <p className="text-gray-600 mb-4">필터링 조건에 맞는 아이템이 없습니다.</p>
+                        <button
+                          onClick={resetFilters}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          필터 초기화
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue ? filteredSellItems : sellItems).map((item) => (
+                          <TradeItemCard
+                            key={item.id}
+                            item={item}
+                            onEditClick={handleEditItemClick}
+                            onContactClick={openContactModal}
+                          />
+                        ))}
+                        {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
+                        {session?.user && (
+                          <AddTradeItemCard onAddClick={handleAddItemClick} />
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -911,20 +1334,36 @@ export default function EquipmentPage() {
                     <p className="text-gray-600">매물을 불러오는 중...</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {buyItems.length > 0 && buyItems.map((item) => (
-                      <BuyItemCard
-                        key={item.id}
-                        item={item}
-                        onEditClick={handleEditBuyItemClick}
-                        onContactClick={openContactModal}
-                      />
-                    ))}
-                    {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
-                    {session?.user && (
-                      <AddTradeItemCard onAddClick={handleAddBuyItemClick} />
+                  <div>
+                    {/* 필터링 결과가 없을 때 메시지 표시 */}
+                    {(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue) && filteredBuyItems.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="text-gray-500 text-lg mb-2">🔍</div>
+                        <p className="text-gray-600 mb-4">필터링 조건에 맞는 아이템이 없습니다.</p>
+                        <button
+                          onClick={resetFilters}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          필터 초기화
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {(filters.equipmentType || filters.option1Type || filters.option1MinValue || filters.option2Type || filters.option2MinValue || filters.option3Type || filters.option3MinValue ? filteredBuyItems : buyItems).map((item) => (
+                          <BuyItemCard
+                            key={item.id}
+                            item={item}
+                            onEditClick={handleEditBuyItemClick}
+                            onContactClick={openContactModal}
+                          />
+                        ))}
+                        {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
+                        {session?.user && (
+                          <AddTradeItemCard onAddClick={handleAddBuyItemClick} />
+                        )}
+                      </div>
                     )}
-                </div>
+                  </div>
                 )}
               </div>
             </div>
