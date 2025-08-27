@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
@@ -18,6 +19,7 @@ type Item = {
 };
 
 export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void }) {
+  const { data: session } = useSession();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -299,7 +301,10 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             }}
           />
         ))}
-        <AddItemCard onItemAdded={fetchItems} />
+        {/* 관리자에게만 새 아이템 추가 카드 표시 */}
+        {(session?.user as { isAdmin?: boolean })?.isAdmin && (
+          <AddItemCard onItemAdded={fetchItems} />
+        )}
       </div>
     </div>
   );
