@@ -6,6 +6,7 @@ import TradeItemCard from '@/components/TradeItemCard';
 import BuyItemCard from '@/components/BuyItemCard';
 import AddTradeItemCard from '@/components/AddTradeItemCard';
 import AddTradeItemModal, { TradeItemData } from '@/components/AddTradeItemModal';
+import SellerContactModal from '@/components/SellerContactModal';
 import { createClient } from '@/lib/supabase/client';
 
 // 판매 아이템 데이터 타입 정의
@@ -50,9 +51,38 @@ export default function EquipmentPage() {
   const [isEditBuyModalOpen, setIsEditBuyModalOpen] = useState(false);
   const [editingBuyItem, setEditingBuyItem] = useState<TradeItemData | null>(null);
   const [editingBuyItemId, setEditingBuyItemId] = useState<number | null>(null);
+  
+  // 연락처 모달 상태 관리
+  const [contactModal, setContactModal] = useState<{
+    isOpen: boolean;
+    userId: string;
+    nickname: string;
+  }>({
+    isOpen: false,
+    userId: '',
+    nickname: ''
+  });
 
   // Supabase 클라이언트
   const supabase = createClient();
+
+  // 연락처 모달 열기
+  const openContactModal = (userId: string, nickname: string) => {
+    setContactModal({
+      isOpen: true,
+      userId,
+      nickname
+    });
+  };
+
+  // 연락처 모달 닫기
+  const closeContactModal = () => {
+    setContactModal({
+      isOpen: false,
+      userId: '',
+      nickname: ''
+    });
+  };
 
   // 판매 아이템 데이터 가져오기
   useEffect(() => {
@@ -859,6 +889,7 @@ export default function EquipmentPage() {
                         key={item.id}
                         item={item}
                         onEditClick={handleEditItemClick}
+                        onContactClick={openContactModal}
                       />
                     ))}
                     {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
@@ -886,6 +917,7 @@ export default function EquipmentPage() {
                         key={item.id}
                         item={item}
                         onEditClick={handleEditBuyItemClick}
+                        onContactClick={openContactModal}
                       />
                     ))}
                     {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
@@ -943,6 +975,14 @@ export default function EquipmentPage() {
           onComplete={handleCompleteBuyItem}
         />
       )}
+
+      {/* 연락처 모달 */}
+      <SellerContactModal
+        isOpen={contactModal.isOpen}
+        onClose={closeContactModal}
+        sellerUserId={contactModal.userId}
+        sellerNickname={contactModal.nickname}
+      />
     </div>
   );
 }

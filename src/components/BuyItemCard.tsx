@@ -31,6 +31,7 @@ type BuyItemCardProps = {
     is_active: boolean;
     user_id: string;
   }) => void;
+  onContactClick?: (userId: string, nickname: string) => void;
 };
 
 type BuyEquipmentOption = {
@@ -40,7 +41,7 @@ type BuyEquipmentOption = {
   option_text: string;
 };
 
-const BuyItemCard = ({ item, onEditClick }: BuyItemCardProps) => {
+const BuyItemCard = ({ item, onEditClick, onContactClick }: BuyItemCardProps) => {
   const {
     id,
     base_equipment_name,
@@ -236,9 +237,13 @@ const BuyItemCard = ({ item, onEditClick }: BuyItemCardProps) => {
             {/* 구매자 정보 */}
             <div className="flex items-center justify-between w-full">
               <span className="text-xs text-gray-500">구매자</span>
-              <span className="text-xs font-semibold text-blue-600 truncate max-w-[80px]">
+              <button
+                onClick={() => onContactClick?.(user_id, buyer_nickname || '알 수 없음')}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 truncate max-w-[80px] cursor-pointer transition-colors"
+                title="클릭하여 연락처 정보 보기"
+              >
                 {buyer_nickname || '알 수 없음'}
-              </span>
+              </button>
             </div>
             
             {/* 등록 시간 또는 거래 상태 */}
@@ -270,6 +275,7 @@ const BuyItemCard = ({ item, onEditClick }: BuyItemCardProps) => {
           </div>
         </div>
       </div>
+
     </div>
   );
 };

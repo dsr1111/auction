@@ -2,10 +2,11 @@
 "use client";
 
 import { useSession, signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import LoginModal from './LoginModal';
+import UserContactModal from './UserContactModal';
 
 interface ExtendedUser {
   name?: string | null;
@@ -19,6 +20,8 @@ const Header = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isTradeDropdownOpen, setIsTradeDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const pathname = usePathname();
   
   const handleSignOut = () => {
@@ -32,6 +35,21 @@ const Header = () => {
   const handleLoginModalClose = () => {
     setIsLoginModalOpen(false);
   };
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.profile-dropdown')) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const isActive = (path: string) => {
     return pathname === path ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900';
@@ -118,14 +136,48 @@ const Header = () => {
                     className="w-6 h-6 rounded-full object-cover"
                   />
                 )}
-                <span className="text-sm font-medium text-gray-700">
-                  {(session.user as ExtendedUser).displayName || session.user.name}
-                  {(session.user as ExtendedUser).isAdmin && (
-                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
-                      관리자
-                    </span>
+                {/* 프로필 드롭다운 */}
+                <div className="relative profile-dropdown">
+                  <button
+                    onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                    className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+                  >
+                    <span>{(session.user as ExtendedUser).displayName || session.user.name}</span>
+                    {(session.user as ExtendedUser).isAdmin && (
+                      <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
+                        관리자
+                      </span>
+                    )}
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* 프로필 드롭다운 메뉴 */}
+                  {isProfileDropdownOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                      <button
+                        onClick={() => {
+                          setIsContactModalOpen(true);
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span>연락처 설정</span>
+                      </button>
+                    </div>
                   )}
-                </span>
+                </div>
+                
+                {/* 로그아웃 버튼 */}
                 <button
                   onClick={handleSignOut}
                   className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
@@ -154,14 +206,45 @@ const Header = () => {
                     className="w-6 h-6 rounded-full object-cover"
                   />
                 )}
-                <span className="text-sm font-medium text-gray-700">
-                  {(session.user as ExtendedUser).displayName || session.user.name}
-                  {(session.user as ExtendedUser).isAdmin && (
-                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
-                      관리자
-                    </span>
+                <div className="relative profile-dropdown">
+                  <button
+                    onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                    className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+                  >
+                    <span>{(session.user as ExtendedUser).displayName || session.user.name}</span>
+                    {(session.user as ExtendedUser).isAdmin && (
+                      <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
+                        관리자
+                      </span>
+                    )}
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* 모바일 프로필 드롭다운 메뉴 */}
+                  {isProfileDropdownOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                      <button
+                        onClick={() => {
+                          setIsContactModalOpen(true);
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span>연락처 설정</span>
+                      </button>
+                    </div>
                   )}
-                </span>
+                </div>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
@@ -208,17 +291,28 @@ const Header = () => {
               </nav>
               
               {/* 로그인/로그아웃 버튼 */}
-              <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200 space-y-2">
                 {session?.user ? (
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
-                  >
-                    로그아웃
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsContactModalOpen(true);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full bg-green-50 hover:bg-green-100 text-green-600 hover:text-green-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-green-200 hover:border-green-300"
+                    >
+                      연락처 설정
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleSignOut();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
+                    >
+                      로그아웃
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => {
@@ -241,6 +335,14 @@ const Header = () => {
         isOpen={isLoginModalOpen} 
         onClose={handleLoginModalClose} 
       />
+
+      {/* 연락처 설정 모달 */}
+      {session?.user && (
+        <UserContactModal
+          isOpen={isContactModalOpen}
+          onClose={() => setIsContactModalOpen(false)}
+        />
+      )}
     </header>
   );
 };
