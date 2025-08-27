@@ -861,7 +861,10 @@ export default function EquipmentPage() {
                         onEditClick={handleEditItemClick}
                       />
                     ))}
-                    <AddTradeItemCard onAddClick={handleAddItemClick} />
+                    {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
+                    {session?.user && (
+                      <AddTradeItemCard onAddClick={handleAddItemClick} />
+                    )}
                   </div>
                 )}
               </div>
@@ -885,7 +888,10 @@ export default function EquipmentPage() {
                         onEditClick={handleEditBuyItemClick}
                       />
                     ))}
-                    <AddTradeItemCard onAddClick={handleAddBuyItemClick} />
+                    {/* 로그인한 유저에게만 새 아이템 추가 카드 표시 */}
+                    {session?.user && (
+                      <AddTradeItemCard onAddClick={handleAddBuyItemClick} />
+                    )}
                 </div>
                 )}
               </div>
