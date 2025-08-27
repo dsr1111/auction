@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
+import * as XLSX from 'xlsx';
 
 type BidHistoryModalProps = {
   isOpen: boolean;
@@ -24,11 +26,15 @@ type BidHistory = {
 };
 
 const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
+  const { data: session } = useSession();
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const supabase = createClient();
+  
+  // 관리자 권한 확인
+  const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
 
   const fetchBidHistory = useCallback(async () => {
     setIsLoading(true);
@@ -71,6 +77,31 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // 개별 입찰 삭제 함수
+  const handleDeleteBid = async (bidId: number) => {
+    if (!isAdmin) return;
+    
+    if (!confirm('이 입찰을 삭제하시겠습니까?')) return;
+    
+    try {
+      const { error: deleteError } = await supabase
+        .from('bid_history')
+        .delete()
+        .eq('id', bidId);
+      
+      if (deleteError) {
+        alert('입찰 삭제에 실패했습니다.');
+        return;
+      }
+      
+      // 로컬 상태에서 삭제된 입찰 제거
+      setBidHistory(prev => prev.filter(bid => bid.id !== bidId));
+      alert('입찰이 삭제되었습니다.');
+    } catch {
+      alert('입찰 삭제 중 오류가 발생했습니다.');
+    }
   };
 
 
@@ -146,6 +177,17 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
                         alt="bit" 
                         className="w-5 h-5 object-contain"
                       />
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDeleteBid(bid.id)}
+                          className="ml-2 p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors duration-200"
+                          title="입찰 삭제"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
