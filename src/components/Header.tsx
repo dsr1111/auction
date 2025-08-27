@@ -101,12 +101,12 @@ const Header = () => {
                     >
                       장비
                     </Link>
-                    <div className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+                    <Link
+                      href="/ultimate-potential"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    >
                       궁극체 포텐셜
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-                        준비중
-                      </span>
-                    </div>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -280,12 +280,13 @@ const Header = () => {
                     >
                       장비
                     </Link>
-                    <div className="py-2 text-sm text-gray-400">
+                    <Link
+                      href="/ultimate-potential"
+                      className="block py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
                       궁극체 포텐셜
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-                        준비중
-                      </span>
-                    </div>
+                    </Link>
                   </div>
                 </div>
               </nav>

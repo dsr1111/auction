@@ -113,7 +113,7 @@ const CommentTooltip = ({
           ref={tooltipRef}
           onMouseEnter={handleTooltipMouseEnter}
           onMouseLeave={handleTooltipMouseLeave}
-          className="absolute left-1/2 bottom-full mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-xl shadow-lg whitespace-normal z-[9999999]"
+          className="absolute left-1/2 bottom-full mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-xl shadow-lg whitespace-normal z-[99999999]"
           style={{
             transform: 'translateX(-50%)',
             width: `${tooltipWidth}px`,
