@@ -45,22 +45,17 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   const hasInitialized = useRef(false);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (item) {
-      setBidAmount(item.current_bid + 10000 || 10000);
-    }
-  }, [item]);
-
-  // 모달이 새로 열릴 때만 수량 초기화
+  // 모달이 새로 열릴 때만 입찰가와 수량 초기화
   useEffect(() => {
     if (isOpen && !hasInitialized.current) {
+      setBidAmount(item.current_bid + 10000 || 10000);
       setBidQuantity(1);
       setBidQuantityInput('1');
       hasInitialized.current = true;
     } else if (!isOpen) {
       hasInitialized.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, item]);
 
   if (status === 'loading') {
     return (
