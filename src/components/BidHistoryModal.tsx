@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
+import { notifyItemUpdate } from '@/utils/pusher';
 
 type BidHistoryModalProps = {
   isOpen: boolean;
@@ -29,6 +30,8 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentItemData, setCurrentItemData] = useState<{current_bid: number, last_bidder_nickname: string | null} | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const supabase = createClient();
   
@@ -40,23 +43,35 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     setError(null);
 
     try {
-      // 입찰 내역을 가져오는 쿼리
-      const { data, error: fetchError } = await supabase
-        .from('bid_history')
-        .select('*')
-        .eq('item_id', item.id)
-        .order('created_at', { ascending: false });
+      // 입찰 내역과 현재 아이템 데이터를 동시에 가져오기
+      const [bidHistoryResult, itemResult] = await Promise.all([
+        supabase
+          .from('bid_history')
+          .select('*')
+          .eq('item_id', item.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('items')
+          .select('current_bid, last_bidder_nickname')
+          .eq('id', item.id)
+          .single()
+      ]);
 
-      if (fetchError) {
+      if (bidHistoryResult.error) {
         setError('입찰 내역을 불러오는데 실패했습니다.');
         return;
       }
 
+      if (itemResult.error) {
+        setError('아이템 정보를 불러오는데 실패했습니다.');
+        return;
+      }
 
-      setBidHistory(data || []);
-          } catch {
-        setError('입찰 내역을 불러오는데 실패했습니다.');
-      } finally {
+      setBidHistory(bidHistoryResult.data || []);
+      setCurrentItemData(itemResult.data);
+    } catch {
+      setError('데이터를 불러오는데 실패했습니다.');
+    } finally {
       setIsLoading(false);
     }
   }, [item.id, supabase]);
@@ -85,6 +100,14 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     if (!confirm('이 입찰을 삭제하시겠습니까?')) return;
     
     try {
+      // 삭제할 입찰 정보 가져오기
+      const bidToDelete = bidHistory.find(bid => bid.id === bidId);
+      if (!bidToDelete) {
+        alert('삭제할 입찰을 찾을 수 없습니다.');
+        return;
+      }
+      
+      // 입찰 내역에서 삭제
       const { error: deleteError } = await supabase
         .from('bid_history')
         .delete()
@@ -95,19 +118,155 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
         return;
       }
       
+      // 삭제된 입찰이 현재 최고 입찰이었는지 확인
+      const isCurrentHighestBid = bidToDelete.bid_amount === Math.max(...bidHistory.map(bid => bid.bid_amount));
+      
+      if (isCurrentHighestBid) {
+        // 남은 입찰 중에서 새로운 최고 입찰 찾기
+        const remainingBids = bidHistory.filter(bid => bid.id !== bidId);
+        
+        if (remainingBids.length > 0) {
+          // 남은 입찰 중 최고 입찰 찾기
+          const newHighestBid = remainingBids.reduce((highest, current) => 
+            current.bid_amount > highest.bid_amount ? current : highest
+          );
+          
+          // 아이템의 현재 입찰가와 입찰자 정보 업데이트
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({
+              current_bid: newHighestBid.bid_amount,
+              last_bidder_nickname: newHighestBid.bidder_nickname
+            })
+            .eq('id', item.id);
+          
+          if (updateError) {
+            console.error('아이템 업데이트 실패:', updateError);
+          }
+        } else {
+          // 남은 입찰이 없으면 아이템을 초기 상태로 되돌리기
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({
+              current_bid: 0,
+              last_bidder_nickname: null
+            })
+            .eq('id', item.id);
+          
+          if (updateError) {
+            console.error('아이템 초기화 실패:', updateError);
+          }
+        }
+      }
+      
       // 로컬 상태에서 삭제된 입찰 제거
       setBidHistory(prev => prev.filter(bid => bid.id !== bidId));
+      
+      // 실시간 업데이트 알림
+      await notifyItemUpdate('bid', item.id);
+      
       alert('입찰이 삭제되었습니다.');
     } catch {
       alert('입찰 삭제 중 오류가 발생했습니다.');
     }
   };
 
+  // 데이터 동기화 함수
+  const handleSyncData = async () => {
+    if (!isAdmin || !currentItemData) return;
+    
+    setIsSyncing(true);
+    
+    try {
+      // 실제 입찰 내역에서 최고 입찰 찾기
+      if (bidHistory.length === 0) {
+        // 입찰 내역이 없으면 아이템을 초기 상태로
+        const { error: updateError } = await supabase
+          .from('items')
+          .update({
+            current_bid: 0,
+            last_bidder_nickname: null
+          })
+          .eq('id', item.id);
+        
+        if (updateError) {
+          alert('동기화에 실패했습니다.');
+          return;
+        }
+      } else {
+        // 최고 입찰 찾기
+        const highestBid = bidHistory.reduce((highest, current) => 
+          current.bid_amount > highest.bid_amount ? current : highest
+        );
+        
+        // 아이템 정보 업데이트
+        const { error: updateError } = await supabase
+          .from('items')
+          .update({
+            current_bid: highestBid.bid_amount,
+            last_bidder_nickname: highestBid.bidder_nickname
+          })
+          .eq('id', item.id);
+        
+        if (updateError) {
+          alert('동기화에 실패했습니다.');
+          return;
+        }
+      }
+      
+      // 실시간 업데이트 알림
+      await notifyItemUpdate('bid', item.id);
+      
+      // 데이터 다시 로드
+      await fetchBidHistory();
+      
+      alert('데이터가 동기화되었습니다.');
+    } catch {
+      alert('동기화 중 오류가 발생했습니다.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
+  // 데이터 불일치 여부 확인
+  const isDataInconsistent = () => {
+    if (!currentItemData || bidHistory.length === 0) {
+      return currentItemData?.current_bid !== 0 || currentItemData?.last_bidder_nickname !== null;
+    }
+    
+    const highestBid = bidHistory.reduce((highest, current) => 
+      current.bid_amount > highest.bid_amount ? current : highest
+    );
+    
+    return currentItemData.current_bid !== highestBid.bid_amount || 
+           currentItemData.last_bidder_nickname !== highestBid.bidder_nickname;
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} - 입찰 내역`}>
       <div className="flex flex-col gap-4">
+        {/* 데이터 동기화 버튼 (불일치 시에만 표시) */}
+        {isAdmin && currentItemData && isDataInconsistent() && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span className="text-sm text-orange-700">
+                  아이템 상태와 입찰 내역이 일치하지 않습니다.
+                </span>
+              </div>
+              <button
+                onClick={handleSyncData}
+                disabled={isSyncing}
+                className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isSyncing ? '동기화 중...' : '데이터 동기화'}
+              </button>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center p-8">
             <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
@@ -42,15 +42,25 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   const [bidderName, setBidderName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const hasInitialized = useRef(false);
   const supabase = createClient();
 
   useEffect(() => {
     if (item) {
       setBidAmount(item.current_bid + 10000 || 10000);
-      setBidQuantity(1);
-      setBidQuantityInput('1');
     }
   }, [item]);
+
+  // 모달이 새로 열릴 때만 수량 초기화
+  useEffect(() => {
+    if (isOpen && !hasInitialized.current) {
+      setBidQuantity(1);
+      setBidQuantityInput('1');
+      hasInitialized.current = true;
+    } else if (!isOpen) {
+      hasInitialized.current = false;
+    }
+  }, [isOpen]);
 
   if (status === 'loading') {
     return (
@@ -206,10 +216,16 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     
     const numValue = parseInt(value);
     
-    // 유효한 숫자이고 범위 내에 있으면 설정
+    // 유효한 숫자이고 1 이상이며 아이템 수량 이하이면 설정
     if (!isNaN(numValue) && numValue > 0 && numValue <= item.quantity) {
       setBidQuantity(numValue);
     }
+  };
+
+  // 수량 입력이 유효한지 확인
+  const isQuantityValid = () => {
+    const quantity = parseInt(bidQuantityInput);
+    return !isNaN(quantity) && quantity > 0 && quantity <= item.quantity;
   };
 
   const totalBidAmount = bidAmount * (parseInt(bidQuantityInput) || 1);
@@ -257,14 +273,23 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
             type="number"
             value={bidQuantityInput}
             onChange={handleBidQuantityChange}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+              bidQuantityInput && !isQuantityValid() 
+                ? 'border-red-300 focus:ring-red-500 bg-red-50' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
             placeholder="1"
             min="1"
             max={item.quantity || 1}
           />
           <p className="text-xs text-gray-500 mt-2">
-            구매하고 싶은 아이템의 수량을 입력하세요
+            구매하고 싶은 아이템의 수량을 입력하세요 (최대 {item.quantity}개)
           </p>
+          {bidQuantityInput && !isQuantityValid() && (
+            <p className="text-xs text-red-600 mt-1">
+              수량은 1개 이상 {item.quantity}개 이하여야 합니다.
+            </p>
+          )}
         </div>
         
         <div>
