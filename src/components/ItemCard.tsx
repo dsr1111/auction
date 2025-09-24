@@ -265,7 +265,8 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
           name, 
           current_bid, 
           quantity: item.quantity || 1, 
-          remaining_quantity: item.remaining_quantity || item.quantity || 1 
+          remaining_quantity: item.remaining_quantity || item.quantity || 1,
+          end_time: end_time 
         }}
         onBidSuccess={onBidSuccess}
       />

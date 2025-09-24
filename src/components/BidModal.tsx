@@ -30,6 +30,7 @@ type BidModalProps = {
     current_bid: number;
     quantity: number;
     remaining_quantity?: number;
+    end_time?: string | null;
   };
   onBidSuccess?: () => void;
 };
@@ -42,6 +43,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
   const [bidderName, setBidderName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnded, setIsEnded] = useState(false);
   const hasInitialized = useRef(false);
   const supabase = createClient();
 
@@ -56,6 +58,22 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       hasInitialized.current = false;
     }
   }, [isOpen, item]);
+
+  // 마감 시간 실시간 감지
+  useEffect(() => {
+    const updateEnded = () => {
+      if (!item.end_time) {
+        setIsEnded(false);
+        return;
+      }
+      const now = Date.now();
+      const end = new Date(item.end_time).getTime();
+      setIsEnded(end <= now);
+    };
+    updateEnded();
+    const timer = setInterval(updateEnded, 1000);
+    return () => clearInterval(timer);
+  }, [item.end_time]);
 
   if (status === 'loading') {
     return (
@@ -97,6 +115,11 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     setError(null);
     const MAX_BID_AMOUNT = 2000000000;
 
+    if (isEnded) {
+      setError('경매가 마감되어 입찰할 수 없습니다.');
+      return;
+    }
+
     if (!bidderName.trim()) {
       setError('입찰자 닉네임을 입력해주세요.');
       return;
@@ -133,7 +156,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     setIsLoading(true);
 
     try {
-      // 아이템 업데이트
+      // 서버-사이드 가드: 마감 이후/현재가 이상 업데이트 차단 (원자적 조건 업데이트)
+      const nowIso = new Date().toISOString();
       const { data, error: updateError } = await supabase
         .from('items')
         .update({
@@ -141,6 +165,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
           last_bidder_nickname: bidderName,
         })
         .eq('id', item.id)
+        .lt('current_bid', bidAmount)
+        .or(`end_time.is.null,end_time.gt.${nowIso}`)
         .select();
 
       if (updateError) {
@@ -168,7 +194,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
       }
 
       if (!data || data.length === 0) {
-        setError('입찰 업데이트에 실패했습니다.');
+        setError('입찰이 반영되지 않았습니다. 마감되었거나 더 높은 입찰가가 있습니다.');
         return;
       }
 
