@@ -276,7 +276,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           <p className="text-sm text-red-800 font-medium">
             <span className="font-bold">[필독]</span> 경매 마감 직후 정산 및 아이템 수령을 위해 30분 이내로 접속해 주세요.
             <br />
-            <span className="font-semibold">미접속으로 인해 아이템 수령을 못할 시 본인 책임입니다.</span>
+            <span className="font-semibold">미접속으로 인해 아이템 수령을 못할 시 본인 책임입니다. (수령 가능 시간 : ~ 04:00 )</span>
           </p>
         </div>
       </div>
