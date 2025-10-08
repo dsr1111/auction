@@ -270,6 +270,17 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
 
   return (
     <div className="space-y-6">
+      {/* 아이템 수령 안내 문구 */}
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div className="flex items-center">
+          <p className="text-sm text-red-800 font-medium">
+            <span className="font-bold">[필독]</span> 경매 마감 직후 정산 및 아이템 수령을 위해 30분 이내로 접속해 주세요.
+            <br />
+            <span className="font-semibold">미접속으로 인해 아이템 수령을 못할 시 본인 책임입니다.</span>
+          </p>
+        </div>
+      </div>
+
       {/* 총 입찰 금액 요약 */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-center justify-between">
