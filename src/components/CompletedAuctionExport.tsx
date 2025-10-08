@@ -277,7 +277,7 @@ const CompletedAuctionExport = () => {
         if (!isSubtotal && !isGrandTotal) return;
         const fillColor = isGrandTotal ? 'FFF9D966' : 'FFE7E6E6';
         row.eachCell((cell) => {
-          cell.font = { ...(cell.font || {}), bold: true } as any;
+          cell.font = { ...(cell.font || {}), bold: true };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
           cell.border = {
             top: { style: 'thin' },
