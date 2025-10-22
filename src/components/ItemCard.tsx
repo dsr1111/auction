@@ -1,4 +1,3 @@
-
 "use client"; // Make it a client component
 
 
@@ -8,6 +7,7 @@ import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
+import { useServerTime } from '@/hooks/useServerTime';
 
 
 type ItemCardProps = {
@@ -41,6 +41,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
     end_time,
   } = item;
   const { data: session } = useSession();
+  const { getTimeUntil, isInitialized } = useServerTime();
 
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
@@ -72,16 +73,14 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
 
 
 
-  // 남은 시간 계산
+  // 남은 시간 계산 (서버 시간 기준)
   useEffect(() => {
     const calculateTimeLeft = () => {
-      if (!end_time) return;
+      if (!end_time || !isInitialized) return;
       
-      const now = new Date().getTime();
-      const end = new Date(end_time).getTime();
-      const difference = end - now;
+      const difference = getTimeUntil(end_time);
 
-      if (difference <= 0) {
+      if (difference === null || difference <= 0) {
         setTimeLeft('마감');
         setIsAuctionEnded(true);
         return;
@@ -111,7 +110,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
     const timer = setInterval(calculateTimeLeft, 1000); // 1초마다 업데이트
 
     return () => clearInterval(timer);
-  }, [end_time]);
+  }, [end_time, isInitialized, getTimeUntil]);
 
 
 

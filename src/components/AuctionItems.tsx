@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
+import { useServerTime } from '@/hooks/useServerTime';
 
 type Item = {
   id: number;
@@ -25,6 +26,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
   const supabase = createClient();
+  const { getCurrentServerTime, isInitialized } = useServerTime();
 
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
@@ -110,9 +112,9 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         .select('*, quantity')
         .order('created_at', { ascending: false });
 
-      // 마감된 아이템을 뒤로 보내기 위한 정렬
+      // 마감된 아이템을 뒤로 보내기 위한 정렬 (서버 시간 기준)
       if (data) {
-        const now = new Date().getTime();
+        const now = isInitialized ? getCurrentServerTime().getTime() : new Date().getTime();
         const sortedData = data.sort((a, b) => {
           const aEnded = a.end_time ? new Date(a.end_time).getTime() <= now : false;
           const bEnded = b.end_time ? new Date(b.end_time).getTime() <= now : false;
@@ -163,8 +165,8 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             item.id === itemId ? data : item
           );
           
-          // 업데이트 후에도 마감된 아이템을 뒤로 보내기
-          const now = new Date().getTime();
+          // 업데이트 후에도 마감된 아이템을 뒤로 보내기 (서버 시간 기준)
+          const now = isInitialized ? getCurrentServerTime().getTime() : new Date().getTime();
           return updatedItems.sort((a, b) => {
             const aEnded = a.end_time ? new Date(a.end_time).getTime() <= now : false;
             const bEnded = b.end_time ? new Date(b.end_time).getTime() <= now : false;
@@ -189,7 +191,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
        // 에러 발생 시 전체 목록을 새로고침
        fetchItems();
      }
-  }, [supabase, fetchItems, calculateTotalBidAmount]);
+  }, [supabase, fetchItems, calculateTotalBidAmount, isInitialized, getCurrentServerTime]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
@@ -225,7 +227,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // 컴포넌트 마운트 시 아이템 로드
   useEffect(() => {
     fetchItems();
-  }, [fetchItems]);
+  }, [fetchItems, isInitialized, getCurrentServerTime]);
 
   useEffect(() => {
     if (onItemAdded) {
