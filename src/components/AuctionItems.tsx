@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
+import BatchAuctionModal from './BatchAuctionModal';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
 import { useServerTime } from '@/hooks/useServerTime';
 
@@ -25,6 +26,8 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
   const supabase = createClient();
   const { getCurrentServerTime, isInitialized } = useServerTime();
 
@@ -193,6 +196,41 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
      }
   }, [supabase, fetchItems, calculateTotalBidAmount, isInitialized, getCurrentServerTime]);
 
+  // 마감된 아이템 정리 함수
+  const cleanupExpiredItems = useCallback(async () => {
+    try {
+      setIsCleaningUp(true);
+      setError(null);
+      
+      const response = await fetch('/api/auction/cleanup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // 쿠키 포함하여 세션 전송
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '정리 작업에 실패했습니다.');
+      }
+
+      // 성공 시 아이템 목록 새로고침 (fetchItems에서 자동으로 총 입찰 금액 계산됨)
+      await fetchItems();
+      
+      // 성공 메시지 표시
+      console.log(data.message);
+      
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : '정리 작업 중 오류가 발생했습니다.';
+      console.error('Cleanup error:', errorMessage);
+      setError(errorMessage);
+    } finally {
+      setIsCleaningUp(false);
+    }
+  }, [fetchItems]);
+
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
     let lastUpdateTime = 0;
@@ -237,10 +275,12 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
 
   // items가 변경될 때마다 총 입찰 금액 계산 (fetchItems 완료 후)
   useEffect(() => {
-    if (items.length > 0) {
+    if (items.length > 0 && !loading) {
       calculateTotalBidAmount();
+    } else if (items.length === 0) {
+      setTotalBidAmount(0);
     }
-  }, [items.length, calculateTotalBidAmount]); // calculateTotalBidAmount 의존성 추가
+  }, [items.length, loading]); // calculateTotalBidAmount 의존성 제거
 
   if (loading) {
     return (
@@ -302,6 +342,18 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         </div>
       </div>
 
+      {/* 관리자용 관리 버튼들 */}
+      {(session?.user as { isAdmin?: boolean })?.isAdmin && (
+        <div className="mb-6 flex flex-wrap gap-3">
+          <button
+            onClick={() => setIsBatchModalOpen(true)}
+            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors shadow-md hover:shadow-lg"
+          >
+            아이템 일괄 등록
+          </button>
+        </div>
+      )}
+
       {/* 아이템 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {items.map((item) => (
@@ -319,6 +371,13 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           <AddItemCard onItemAdded={fetchItems} />
         )}
       </div>
+
+      {/* 일괄 등록 모달 */}
+      <BatchAuctionModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={fetchItems}
+      />
     </div>
   );
 }

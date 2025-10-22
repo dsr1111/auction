@@ -21,7 +21,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const handler = NextAuth({
+export const authOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
@@ -107,6 +107,8 @@ const handler = NextAuth({
     signIn: '/auth/signin',
     error: '/auth/error',
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
