@@ -71,21 +71,31 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
       setBidHistory(bidHistoryResult.data || []);
       setCurrentItemData(itemResult.data);
       
-      // 데이터 불일치 여부 확인
-      const inconsistent = await isDataInconsistent();
-      setIsInconsistent(inconsistent);
+      // 데이터 불일치 여부 확인은 별도로 처리
+      setIsInconsistent(false); // 임시로 false 설정
     } catch {
       setError('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [item.id, supabase, isDataInconsistent]);
+  }, [item.id, supabase]);
 
   useEffect(() => {
     if (isOpen && item.id) {
       fetchBidHistory();
     }
   }, [isOpen, item.id, fetchBidHistory]);
+
+  // 데이터 불일치 상태 확인
+  useEffect(() => {
+    if (currentItemData && bidHistory.length >= 0) {
+      const checkInconsistency = async () => {
+        const inconsistent = await isDataInconsistent();
+        setIsInconsistent(inconsistent);
+      };
+      checkInconsistency();
+    }
+  }, [currentItemData, bidHistory, isDataInconsistent]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
