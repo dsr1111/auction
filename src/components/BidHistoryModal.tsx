@@ -249,7 +249,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   };
 
   // 데이터 불일치 여부 확인
-  const isDataInconsistent = async () => {
+  const isDataInconsistent = useCallback(async () => {
     if (!currentItemData) return false;
     
     if (bidHistory.length === 0) {
@@ -272,7 +272,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     
     return currentItemData.current_bid !== highestBid.bid_amount || 
            currentItemData.last_bidder_nickname !== highestBid.bidder_nickname;
-  };
+  }, [currentItemData, bidHistory, item.id, supabase]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} - 입찰 내역`}>
