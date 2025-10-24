@@ -34,7 +34,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess }: BatchAuctionModalProp
       const data = await response.json();
       
       if (response.ok) {
-        const defaultItems = data.items.map((item: any) => ({
+        const defaultItems = data.items.map((item: { name: string; price: number; quantity: number }) => ({
           name: item.name,
           price: item.price,
           quantity: item.quantity
@@ -66,7 +66,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess }: BatchAuctionModalProp
   const saveAsDefaultItems = async (items: BatchItem[]) => {
     try {
       // 기존 기본 아이템 모두 삭제
-      const deleteResponse = await fetch('/api/default-items/manage', {
+      await fetch('/api/default-items/manage', {
         method: 'DELETE',
         credentials: 'include',
       });

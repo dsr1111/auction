@@ -27,7 +27,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
   const supabase = createClient();
   const { getCurrentServerTime, isInitialized } = useServerTime();
 
@@ -145,7 +144,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, getCurrentServerTime, isInitialized]);
 
   // 개별 아이템 업데이트 (깜빡임 없음)
   const updateSingleItem = useCallback(async (itemId: number) => {
@@ -196,40 +195,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
      }
   }, [supabase, fetchItems, calculateTotalBidAmount, isInitialized, getCurrentServerTime]);
 
-  // 마감된 아이템 정리 함수
-  const cleanupExpiredItems = useCallback(async () => {
-    try {
-      setIsCleaningUp(true);
-      setError(null);
-      
-      const response = await fetch('/api/auction/cleanup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // 쿠키 포함하여 세션 전송
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '정리 작업에 실패했습니다.');
-      }
-
-      // 성공 시 아이템 목록 새로고침 (fetchItems에서 자동으로 총 입찰 금액 계산됨)
-      await fetchItems();
-      
-      // 성공 메시지 표시
-      console.log(data.message);
-      
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : '정리 작업 중 오류가 발생했습니다.';
-      console.error('Cleanup error:', errorMessage);
-      setError(errorMessage);
-    } finally {
-      setIsCleaningUp(false);
-    }
-  }, [fetchItems]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
@@ -280,7 +245,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } else if (items.length === 0) {
       setTotalBidAmount(0);
     }
-  }, [items.length, loading]); // calculateTotalBidAmount 의존성 제거
+  }, [items.length, loading, calculateTotalBidAmount]);
 
   if (loading) {
     return (

@@ -79,7 +79,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [item.id, supabase]);
+  }, [item.id, supabase, isDataInconsistent]);
 
   useEffect(() => {
     if (isOpen && item.id) {
