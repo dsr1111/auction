@@ -32,6 +32,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   const [error, setError] = useState<string | null>(null);
   const [currentItemData, setCurrentItemData] = useState<{current_bid: number, last_bidder_nickname: string | null} | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isInconsistent, setIsInconsistent] = useState(false);
 
   const supabase = createClient();
   
@@ -69,6 +70,10 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
 
       setBidHistory(bidHistoryResult.data || []);
       setCurrentItemData(itemResult.data);
+      
+      // 데이터 불일치 여부 확인
+      const inconsistent = await isDataInconsistent();
+      setIsInconsistent(inconsistent);
     } catch {
       setError('데이터를 불러오는데 실패했습니다.');
     } finally {
@@ -180,11 +185,22 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     try {
       // 실제 입찰 내역에서 최고 입찰 찾기
       if (bidHistory.length === 0) {
-        // 입찰 내역이 없으면 아이템을 초기 상태로
+        // 입찰 내역이 없으면 아이템의 시작가(price)로 되돌리기
+        const { data: itemData, error: itemError } = await supabase
+          .from('items')
+          .select('price')
+          .eq('id', item.id)
+          .single();
+        
+        if (itemError) {
+          alert('아이템 정보를 가져오는데 실패했습니다.');
+          return;
+        }
+        
         const { error: updateError } = await supabase
           .from('items')
           .update({
-            current_bid: 0,
+            current_bid: itemData.price, // 시작가로 설정
             last_bidder_nickname: null
           })
           .eq('id', item.id);
@@ -220,6 +236,10 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
       // 데이터 다시 로드
       await fetchBidHistory();
       
+      // 불일치 상태 업데이트
+      const inconsistent = await isDataInconsistent();
+      setIsInconsistent(inconsistent);
+      
       alert('데이터가 동기화되었습니다.');
     } catch {
       alert('동기화 중 오류가 발생했습니다.');
@@ -229,9 +249,21 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
   };
 
   // 데이터 불일치 여부 확인
-  const isDataInconsistent = () => {
-    if (!currentItemData || bidHistory.length === 0) {
-      return currentItemData?.current_bid !== 0 || currentItemData?.last_bidder_nickname !== null;
+  const isDataInconsistent = async () => {
+    if (!currentItemData) return false;
+    
+    if (bidHistory.length === 0) {
+      // 입찰 내역이 없을 때는 시작가와 current_bid가 같아야 함
+      const { data: itemData } = await supabase
+        .from('items')
+        .select('price')
+        .eq('id', item.id)
+        .single();
+      
+      if (itemData) {
+        return currentItemData.current_bid !== itemData.price || currentItemData.last_bidder_nickname !== null;
+      }
+      return false;
     }
     
     const highestBid = bidHistory.reduce((highest, current) => 
@@ -246,7 +278,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} - 입찰 내역`}>
       <div className="flex flex-col gap-4">
         {/* 데이터 동기화 버튼 (불일치 시에만 표시) */}
-        {isAdmin && currentItemData && isDataInconsistent() && (
+        {isAdmin && currentItemData && isInconsistent && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">

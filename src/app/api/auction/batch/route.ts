@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
     const body: BatchAuctionRequest = await request.json();
     console.log('Request body:', body);
     const { items, endTime, clearExisting = true } = body;
+    
+    console.log('Items received:', items.map(item => ({ name: item.name, price: item.price, quantity: item.quantity })));
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Items array is required' }, { status: 400 });
@@ -56,24 +58,46 @@ export async function POST(request: NextRequest) {
     }
 
     // 새 아이템들 일괄 삽입
-    const itemsToInsert = items.map(item => ({
-      name: item.name,
-      price: item.price,
-      current_bid: item.price,
-      last_bidder_nickname: null,
-      end_time: endTime,
-      quantity: item.quantity || 1,
-      created_at: new Date().toISOString()
-    }));
+    const itemsToInsert = items.map(item => {
+      const price = typeof item.price === 'string' ? parseInt(item.price) : item.price;
+      console.log(`Item ${item.name}: original price=${item.price}, parsed price=${price}`);
+      
+      return {
+        name: item.name,
+        price: price,
+        current_bid: price,
+        last_bidder_nickname: null,
+        end_time: endTime,
+        quantity: item.quantity || 1,
+        created_at: new Date().toISOString()
+      };
+    });
+
+    console.log('Items to insert:', JSON.stringify(itemsToInsert, null, 2));
 
     const { data, error } = await supabase
       .from('items')
       .insert(itemsToInsert)
       .select();
 
+    console.log('Insert result:', { data, error });
+
     if (error) {
       console.error('Error inserting batch items:', error);
       return NextResponse.json({ error: 'Failed to create batch auction' }, { status: 500 });
+    }
+
+    // 삽입된 데이터 확인을 위해 다시 조회
+    if (data && data.length > 0) {
+      const { data: insertedItems, error: selectError } = await supabase
+        .from('items')
+        .select('id, name, price, current_bid, quantity')
+        .in('id', data.map(item => item.id));
+      
+      console.log('Inserted items from database:', insertedItems);
+      if (selectError) {
+        console.error('Error selecting inserted items:', selectError);
+      }
     }
 
     return NextResponse.json({ 
