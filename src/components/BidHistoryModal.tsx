@@ -95,7 +95,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
       };
       checkInconsistency();
     }
-  }, [currentItemData, bidHistory, isDataInconsistent]);
+  }, [currentItemData, bidHistory]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
