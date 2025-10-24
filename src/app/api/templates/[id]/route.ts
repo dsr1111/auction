@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 // 템플릿 수정
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // NextAuth 세션 확인
@@ -18,7 +18,8 @@ export async function PUT(
     const supabase = await createClient();
     const body = await request.json();
     const { name, items } = body;
-    const templateId = parseInt(params.id);
+    const resolvedParams = await params;
+    const templateId = parseInt(resolvedParams.id);
 
     if (!name || !items || !Array.isArray(items)) {
       return NextResponse.json({ error: 'Name and items are required' }, { status: 400 });
@@ -58,7 +59,7 @@ export async function PUT(
 // 템플릿 삭제
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // NextAuth 세션 확인
@@ -68,7 +69,8 @@ export async function DELETE(
     }
 
     const supabase = await createClient();
-    const templateId = parseInt(params.id);
+    const resolvedParams = await params;
+    const templateId = parseInt(resolvedParams.id);
 
     const { error } = await supabase
       .from('auction_templates')

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import NextAuth from 'next-auth/next';
 import DiscordProvider from 'next-auth/providers/discord';
 
 interface DiscordGuildMember {
