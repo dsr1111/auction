@@ -3,6 +3,16 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+interface GuildUser {
+  id: string;
+  displayName?: string;
+  isAdmin?: boolean;
+  isGuild1Member?: boolean;
+  isGuild2Member?: boolean;
+  guild1Member?: boolean;
+  guild2Member?: boolean;
+}
+
 interface GuildAccessGateProps {
   children: React.ReactNode;
   allowedGuild: 'guild1' | 'guild2';
@@ -39,7 +49,7 @@ export default function GuildAccessGate({ children, allowedGuild }: GuildAccessG
     );
   }
 
-  const user = session.user as any;
+  const user = session.user as GuildUser;
   
   // 길드1 페이지 접근 제어
   // 세계수 멤버 또는 세계수 관리자만 접근 가능
