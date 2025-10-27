@@ -78,11 +78,10 @@ export const authOptions = {
             (user as ExtendedUser).isAdmin = isAdminGuild1 || isAdminGuild2;
             
             // 길드별 멤버십 정보 저장
-            // 세계수 관리자는 아카츠키 페이지도 접근 가능하도록 설정
             (user as any).isGuild1Member = isAdminGuild1 || isGuild1Role;
-            (user as any).isGuild2Member = (isAdminGuild1 || isAdminGuild2 || isGuild2Role); // 세계수 관리자도 접근 가능
+            (user as any).isGuild2Member = isAdminGuild2 || isGuild2Role;
             (user as any).guild1Member = isAdminGuild1 || isGuild1Role;
-            (user as any).guild2Member = (isAdminGuild1 || isAdminGuild2 || isGuild2Role);
+            (user as any).guild2Member = isAdminGuild2 || isGuild2Role;
             (user as any).isAdminGuild1 = isAdminGuild1; // 세계수 관리자 여부
             (user as any).isAdminGuild2 = isAdminGuild2; // 아카츠키 관리자 여부
             

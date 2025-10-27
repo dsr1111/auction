@@ -52,7 +52,6 @@ export default function GuildAccessGate({ children, allowedGuild }: GuildAccessG
   const user = session.user as GuildUser;
   
   // 길드1 페이지 접근 제어
-  // 세계수 멤버 또는 세계수 관리자만 접근 가능
   if (allowedGuild === 'guild1' && !user.isGuild1Member) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -72,7 +71,6 @@ export default function GuildAccessGate({ children, allowedGuild }: GuildAccessG
   }
 
   // 길드2 페이지 접근 제어
-  // 아카츠키 멤버 또는 세계수 관리자만 접근 가능
   if (allowedGuild === 'guild2' && !user.isGuild2Member) {
     return (
       <div className="flex justify-center items-center min-h-screen">
