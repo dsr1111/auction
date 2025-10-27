@@ -23,6 +23,7 @@ type ItemCardProps = {
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
+  guildType?: 'guild1' | 'guild2';
 };
 
 interface ExtendedUser {
@@ -32,7 +33,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
+const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: ItemCardProps) => {
   const {
     id,
     name,
@@ -268,12 +269,14 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
           end_time: end_time 
         }}
         onBidSuccess={onBidSuccess}
+        guildType={guildType}
       />
       
       <BidHistoryModal
         isOpen={isBidHistoryModalOpen}
         onClose={() => setIsBidHistoryModalOpen(false)}
         item={{ id, name }}
+        guildType={guildType}
       />
       
       <ItemEditModal
@@ -288,6 +291,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted }: ItemCardProps) => {
         }}
         onItemUpdated={onBidSuccess}
         onItemDeleted={onItemDeleted}
+        guildType={guildType}
       />
     </div>
   );

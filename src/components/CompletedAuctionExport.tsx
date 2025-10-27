@@ -35,7 +35,11 @@ type CompletedAuctionItem = {
   }>;
 };
 
-const CompletedAuctionExport = () => {
+type CompletedAuctionExportProps = {
+  guildType?: 'guild1' | 'guild2';
+};
+
+const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExportProps) => {
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +59,7 @@ const CompletedAuctionExport = () => {
       console.log('엑셀 다운로드 시작');
       
       // 마감된 아이템 정보 가져오기
-      const response = await fetch('/api/auction/completed');
+      const response = await fetch(`/api/auction/completed?guildType=${guildType}`);
       console.log('API 응답:', response.status, response.statusText);
       
       if (!response.ok) {

@@ -33,9 +33,10 @@ type BidModalProps = {
     end_time?: string | null;
   };
   onBidSuccess?: () => void;
+  guildType?: 'guild1' | 'guild2';
 };
 
-const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
+const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }: BidModalProps) => {
   const { data: session, status } = useSession() as { data: ExtendedSession | null; status: string };
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [bidQuantity, setBidQuantity] = useState<number>(1);
@@ -158,8 +159,11 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
     try {
       // 서버-사이드 가드: 마감 이후/현재가 이상 업데이트 차단 (원자적 조건 업데이트)
       const nowIso = new Date().toISOString();
+      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
+      const historyTableName = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+      
       const { data, error: updateError } = await supabase
-        .from('items')
+        .from(tableName)
         .update({
           current_bid: bidAmount,
           last_bidder_nickname: bidderName,
@@ -179,7 +183,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess }: BidModalProps) => {
 
       // 입찰 내역 저장
       const { error: historyError } = await supabase
-        .from('bid_history')
+        .from(historyTableName)
         .insert({
           item_id: item.id,
           bid_amount: bidAmount,

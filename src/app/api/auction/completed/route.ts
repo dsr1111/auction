@@ -8,13 +8,13 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     console.log('Supabase 클라이언트 생성 완료');
     
-    // 여러 가능한 테이블명을 시도
-    const possibleTables = [
-      'timer_equipment_items',
-      'equipment_items', 
-      'auction_items',
-      'items'
-    ];
+    // guildType에 따라 테이블 선택
+    const url = new URL(request.url);
+    const guildType = url.searchParams.get('guildType') || 'guild1';
+    
+    const possibleTables = guildType === 'guild2' 
+      ? ['items_guild2']
+      : ['timer_equipment_items', 'equipment_items', 'auction_items', 'items'];
     
     let completedItems = null;
     let actualTableName = null;
@@ -94,13 +94,15 @@ export async function GET(request: NextRequest) {
     
     console.log(`테이블 ${actualTableName}에서 ${completedItems.length}개의 마감된 아이템을 찾았습니다.`);
 
-    // 4단계: 각 아이템의 입찰 내역을 별도로 가져옴 (bid_history 테이블이 있는 경우)
+          // 4단계: 각 아이템의 입찰 내역을 별도로 가져옴 (bid_history 테이블이 있는 경우)
+    const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+    
     const itemsWithBids = await Promise.all(
       completedItems.map(async (item) => {
         try {
           // 해당 아이템의 모든 입찰 내역을 가져옴
           const { data: bidHistory, error: bidError } = await supabase
-            .from('bid_history')
+            .from(historyTable)
             .select('*')
             .eq('item_id', item.id)
             .order('bid_amount', { ascending: false }); // 높은 입찰가 순으로 정렬

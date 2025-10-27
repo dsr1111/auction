@@ -9,9 +9,10 @@ type AddItemModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onItemAdded?: () => void;
+  guildType?: 'guild1' | 'guild2';
 };
 
-const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
+const AddItemModal = ({ isOpen, onClose, onItemAdded, guildType = 'guild1' }: AddItemModalProps) => {
   const [itemName, setItemName] = useState('');
   const [itemPrice, setItemPrice] = useState('');
   const [itemQuantity, setItemQuantity] = useState('1');
@@ -73,8 +74,10 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded }: AddItemModalProps) => {
         return;
       }
 
+      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
+      
       const { error: insertError } = await supabase
-        .from('items')
+        .from(tableName)
         .insert([
           {
             name: itemName.trim(),

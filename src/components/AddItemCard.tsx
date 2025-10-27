@@ -5,9 +5,10 @@ import AddItemModal from './AddItemModal';
 
 interface AddItemCardProps {
   onItemAdded: () => void;
+  guildType?: 'guild1' | 'guild2';
 }
 
-const AddItemCard = ({ onItemAdded }: AddItemCardProps) => {
+const AddItemCard = ({ onItemAdded, guildType = 'guild1' }: AddItemCardProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleCardClick = () => {
@@ -51,6 +52,7 @@ const AddItemCard = ({ onItemAdded }: AddItemCardProps) => {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onItemAdded={handleItemAdded}
+        guildType={guildType}
       />
     </>
   );

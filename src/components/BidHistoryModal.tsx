@@ -13,6 +13,7 @@ type BidHistoryModalProps = {
     id: number;
     name: string;
   };
+  guildType?: 'guild1' | 'guild2';
 };
 
 type BidHistory = {
@@ -25,7 +26,7 @@ type BidHistory = {
   created_at: string;
 };
 
-const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
+const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHistoryModalProps) => {
   const { data: session } = useSession();
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,15 +45,18 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     setError(null);
 
     try {
+      const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+      
       // 입찰 내역과 현재 아이템 데이터를 동시에 가져오기
       const [bidHistoryResult, itemResult] = await Promise.all([
         supabase
-          .from('bid_history')
+          .from(historyTable)
           .select('*')
           .eq('item_id', item.id)
           .order('created_at', { ascending: false }),
         supabase
-          .from('items')
+          .from(itemsTable)
           .select('current_bid, last_bidder_nickname')
           .eq('id', item.id)
           .single()
@@ -78,7 +82,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [item.id, supabase]);
+  }, [item.id, supabase, guildType]);
 
   useEffect(() => {
     if (isOpen && item.id) {
@@ -123,8 +127,9 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
       }
       
       // 입찰 내역에서 삭제
+      const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
       const { error: deleteError } = await supabase
-        .from('bid_history')
+        .from(historyTable)
         .delete()
         .eq('id', bidId);
       
@@ -147,8 +152,9 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
           );
           
           // 아이템의 현재 입찰가와 입찰자 정보 업데이트
+          const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
           const { error: updateError } = await supabase
-            .from('items')
+            .from(itemsTable)
             .update({
               current_bid: newHighestBid.bid_amount,
               last_bidder_nickname: newHighestBid.bidder_nickname
@@ -160,8 +166,9 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
           }
         } else {
           // 남은 입찰이 없으면 아이템을 초기 상태로 되돌리기
+          const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
           const { error: updateError } = await supabase
-            .from('items')
+            .from(itemsTable)
             .update({
               current_bid: 0,
               last_bidder_nickname: null
@@ -194,10 +201,12 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     
     try {
       // 실제 입찰 내역에서 최고 입찰 찾기
+      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+      
       if (bidHistory.length === 0) {
         // 입찰 내역이 없으면 아이템의 시작가(price)로 되돌리기
         const { data: itemData, error: itemError } = await supabase
-          .from('items')
+          .from(itemsTable)
           .select('price')
           .eq('id', item.id)
           .single();
@@ -208,7 +217,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
         }
         
         const { error: updateError } = await supabase
-          .from('items')
+          .from(itemsTable)
           .update({
             current_bid: itemData.price, // 시작가로 설정
             last_bidder_nickname: null
@@ -227,7 +236,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
         
         // 아이템 정보 업데이트
         const { error: updateError } = await supabase
-          .from('items')
+          .from(itemsTable)
           .update({
             current_bid: highestBid.bid_amount,
             last_bidder_nickname: highestBid.bidder_nickname
@@ -264,8 +273,9 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     
     if (bidHistory.length === 0) {
       // 입찰 내역이 없을 때는 시작가와 current_bid가 같아야 함
-      const { data: itemData } = await supabase
-        .from('items')
+      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+    const { data: itemData } = await supabase
+        .from(itemsTable)
         .select('price')
         .eq('id', item.id)
         .single();
@@ -282,7 +292,7 @@ const BidHistoryModal = ({ isOpen, onClose, item }: BidHistoryModalProps) => {
     
     return currentItemData.current_bid !== highestBid.bid_amount || 
            currentItemData.last_bidder_nickname !== highestBid.bidder_nickname;
-  }, [currentItemData, bidHistory, item.id, supabase]);
+  }, [currentItemData, bidHistory, item.id, supabase, guildType]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} - 입찰 내역`}>

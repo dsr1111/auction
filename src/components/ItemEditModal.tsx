@@ -17,9 +17,10 @@ type ItemEditModalProps = {
   };
   onItemUpdated?: () => void;
   onItemDeleted?: () => void;
+  guildType?: 'guild1' | 'guild2';
 };
 
-const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: ItemEditModalProps) => {
+const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, guildType = 'guild1' }: ItemEditModalProps) => {
   const supabase = createClient();
   const [quantity, setQuantity] = useState(item.quantity || 1);
   const [endTime, setEndTime] = useState(item.end_time ? new Date(item.end_time).toISOString().slice(0, 16) : '');
@@ -47,8 +48,9 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: 
         updateData.end_time = new Date(endTime).toISOString();
       }
 
+      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
       const { error } = await supabase
-        .from('items')
+        .from(tableName)
         .update(updateData)
         .eq('id', item.id);
 
@@ -76,8 +78,9 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted }: 
     
     setIsDeleting(true);
     try {
+      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
       const { error } = await supabase
-        .from('items')
+        .from(tableName)
         .delete()
         .eq('id', item.id);
 

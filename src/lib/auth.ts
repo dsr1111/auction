@@ -65,12 +65,36 @@ export const authOptions = {
           if (guildResponse.ok) {
             const member: DiscordGuildMember = await guildResponse.json();
             
-            // 관리자 역할 확인
-            const isAdmin = member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID!);
+            // 관리자 역할 확인 (길드1 또는 길드2)
+            const isAdminGuild1 = member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID!);
+            const isAdminGuild2 = process.env.DISCORD_ADMIN_ROLE_ID_2 ? member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID_2) : false;
+            
+            // 일반 멤버 역할 확인
+            const isGuild1Role = process.env.DISCORD_GUILD1_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD1_ROLE_ID) : false;
+            const isGuild2Role = process.env.DISCORD_GUILD2_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD2_ROLE_ID) : false;
             
             // 서버 닉네임 또는 글로벌 유저네임 설정
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
-            (user as ExtendedUser).isAdmin = isAdmin;
+            (user as ExtendedUser).isAdmin = isAdminGuild1 || isAdminGuild2;
+            
+            // 길드별 멤버십 정보 저장
+            // 세계수 관리자는 아카츠키 페이지도 접근 가능하도록 설정
+            (user as any).isGuild1Member = isAdminGuild1 || isGuild1Role;
+            (user as any).isGuild2Member = (isAdminGuild1 || isAdminGuild2 || isGuild2Role); // 세계수 관리자도 접근 가능
+            (user as any).guild1Member = isAdminGuild1 || isGuild1Role;
+            (user as any).guild2Member = (isAdminGuild1 || isAdminGuild2 || isGuild2Role);
+            (user as any).isAdminGuild1 = isAdminGuild1; // 세계수 관리자 여부
+            (user as any).isAdminGuild2 = isAdminGuild2; // 아카츠키 관리자 여부
+            
+            console.log('역할 확인:', {
+              isAdminGuild1,
+              isAdminGuild2,
+              isGuild1Role,
+              isGuild2Role,
+              isGuild1Member: (user as any).isGuild1Member,
+              isGuild2Member: (user as any).isGuild2Member,
+              roles: member.roles
+            });
             
             // Discord 로그인 성공
             return true; // 모든 Discord 사용자 로그인 허용 (테스트용)
@@ -89,6 +113,12 @@ export const authOptions = {
         token.id = user.id;
         token.displayName = (user as ExtendedUser).displayName;
         token.isAdmin = (user as ExtendedUser).isAdmin;
+        token.guild1Member = (user as any).guild1Member;
+        token.guild2Member = (user as any).guild2Member;
+        token.isGuild1Member = (user as any).isGuild1Member;
+        token.isGuild2Member = (user as any).isGuild2Member;
+        token.isAdminGuild1 = (user as any).isAdminGuild1;
+        token.isAdminGuild2 = (user as any).isAdminGuild2;
       }
       return token;
     },
@@ -97,6 +127,12 @@ export const authOptions = {
         (session.user as ExtendedUser).id = token.id as string;
         (session.user as ExtendedUser).displayName = token.displayName as string;
         (session.user as ExtendedUser).isAdmin = token.isAdmin as boolean;
+        (session.user as any).guild1Member = token.guild1Member;
+        (session.user as any).guild2Member = token.guild2Member;
+        (session.user as any).isGuild1Member = token.isGuild1Member;
+        (session.user as any).isGuild2Member = token.isGuild2Member;
+        (session.user as any).isAdminGuild1 = token.isAdminGuild1;
+        (session.user as any).isAdminGuild2 = token.isAdminGuild2;
       }
       return session;
     },

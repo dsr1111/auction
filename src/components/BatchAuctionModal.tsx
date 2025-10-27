@@ -14,9 +14,10 @@ interface BatchAuctionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  guildType?: 'guild1' | 'guild2';
 }
 
-const BatchAuctionModal = ({ isOpen, onClose, onSuccess }: BatchAuctionModalProps) => {
+const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }: BatchAuctionModalProps) => {
   const { data: session } = useSession();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [endTime, setEndTime] = useState('');
@@ -138,7 +139,8 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess }: BatchAuctionModalProp
         body: JSON.stringify({
           items: validItems,
           endTime: new Date(endTime).toISOString(),
-          clearExisting
+          clearExisting,
+          guildType
         }),
       });
 

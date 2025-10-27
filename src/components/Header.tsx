@@ -67,7 +67,13 @@ const Header = () => {
                 href="/" 
                 className={`py-2 text-sm font-medium transition-all duration-200 ${isActive('/')}`}
               >
-                토벌 경매
+                세계수 토벌 경매
+              </Link>
+              <Link 
+                href="/guild2" 
+                className={`py-2 text-sm font-medium transition-all duration-200 ${isActive('/guild2')}`}
+              >
+                아카츠키 토벌 경매
               </Link>
               
               {/* 아이템 거래 드롭다운 */}
@@ -265,7 +271,14 @@ const Header = () => {
                   className={`block py-2 text-sm font-medium transition-all duration-200 ${isActive('/')}`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  경매
+                  세계수 토벌 경매
+                </Link>
+                <Link 
+                  href="/guild2" 
+                  className={`block py-2 text-sm font-medium transition-all duration-200 ${isActive('/guild2')}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  아카츠키 토벌 경매
                 </Link>
                 
                 <div className="space-y-2">
