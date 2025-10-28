@@ -230,7 +230,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // 컴포넌트 마운트 시 아이템 로드
   useEffect(() => {
     fetchItems();
-  }, [fetchItems, isInitialized, getCurrentServerTime]);
+  }, [fetchItems, isInitialized]);
 
   useEffect(() => {
     if (onItemAdded) {
