@@ -144,7 +144,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } finally {
       setLoading(false);
     }
-  }, [supabase, getCurrentServerTime, isInitialized]);
+  }, [supabase, isInitialized]);
 
   // 개별 아이템 업데이트 (깜빡임 없음)
   const updateSingleItem = useCallback(async (itemId: number) => {
