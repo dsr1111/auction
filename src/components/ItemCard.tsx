@@ -8,6 +8,13 @@ import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
 
+// 서버 시간 옵셔널 (실시간 업데이트를 위해 필수 아님)
+type ServerTimeData = {
+  timeLeft: string;
+  isEnded: boolean;
+  endTime?: number;
+};
+
 
 type ItemCardProps = {
   item: {
@@ -41,8 +48,8 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
     current_bid,
     last_bidder_nickname,
     end_time,
-    timeLeft,
-    isEnded,
+    timeLeft: initialTimeLeft,
+    isEnded: initialIsEnded,
   } = item;
   const { data: session } = useSession();
 
@@ -50,6 +57,8 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
   const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<string>(initialTimeLeft || '');
+  const [isEnded, setIsEnded] = useState<boolean>(initialIsEnded || false);
   
   // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
@@ -74,7 +83,47 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
 
 
 
-  // 서버에서 계산된 시간을 사용하므로 별도 계산 불필요
+  // 실시간 시간 계산 (1초마다 업데이트)
+  useEffect(() => {
+    if (!end_time) return;
+    
+    const calculateTimeLeft = () => {
+      const now = Date.now();
+      const endTime = new Date(end_time).getTime();
+      const difference = endTime - now;
+
+      if (difference <= 0) {
+        setTimeLeft('마감');
+        setIsEnded(true);
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      let timeString = '';
+      
+      if (days > 0) {
+        timeString = `${days}일 ${hours}시간`;
+      } else if (hours > 0) {
+        timeString = `${hours}시간 ${minutes}분`;
+      } else if (minutes > 0) {
+        timeString = `${minutes}분 ${seconds}초`;
+      } else {
+        timeString = `${seconds}초`;
+      }
+
+      setTimeLeft(timeString);
+      setIsEnded(false);
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+
+    return () => clearInterval(timer);
+  }, [end_time]);
 
 
 
