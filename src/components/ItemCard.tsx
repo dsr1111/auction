@@ -8,12 +8,6 @@ import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
 
-// 서버 시간 옵셔널 (실시간 업데이트를 위해 필수 아님)
-type ServerTimeData = {
-  timeLeft: string;
-  isEnded: boolean;
-  endTime?: number;
-};
 
 
 type ItemCardProps = {

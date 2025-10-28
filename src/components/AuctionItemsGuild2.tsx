@@ -117,7 +117,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       const serverTimeOffset = data.serverTime - clientTime;
       
       // 아이템에 오프셋 추가
-      const itemsWithOffset = data.items?.map((item: any) => ({
+      const itemsWithOffset = data.items?.map((item: Item & { serverTimeOffset: number }) => ({
         ...item,
         serverTimeOffset
       })) || [];
