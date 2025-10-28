@@ -7,7 +7,6 @@ import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
-import { useServerTime } from '@/hooks/useServerTime';
 
 
 type ItemCardProps = {
@@ -20,6 +19,8 @@ type ItemCardProps = {
     end_time: string | null;
     quantity?: number;
     remaining_quantity?: number;
+    timeLeft?: string;
+    isEnded?: boolean;
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
@@ -40,15 +41,14 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
     current_bid,
     last_bidder_nickname,
     end_time,
+    timeLeft,
+    isEnded,
   } = item;
   const { data: session } = useSession();
-  const { getTimeUntil, isInitialized } = useServerTime();
 
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<string>('');
-  const [isAuctionEnded, setIsAuctionEnded] = useState(false);
   const [imageError, setImageError] = useState(false);
   
   // 이미지 로드 실패 시 기본 이미지 사용
@@ -74,44 +74,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
 
 
 
-  // 남은 시간 계산 (서버 시간 기준)
-  useEffect(() => {
-    const calculateTimeLeft = () => {
-      if (!end_time || !isInitialized) return;
-      
-      const difference = getTimeUntil(end_time);
-
-      if (difference === null || difference <= 0) {
-        setTimeLeft('마감');
-        setIsAuctionEnded(true);
-        return;
-      }
-
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-      let timeString = '';
-      
-      if (days > 0) {
-        timeString = `${days}일 ${hours}시간`;
-      } else if (hours > 0) {
-        timeString = `${hours}시간 ${minutes}분`;
-      } else if (minutes > 0) {
-        timeString = `${minutes}분 ${seconds}초`;
-      } else {
-        timeString = `${seconds}초`;
-      }
-
-      setTimeLeft(timeString);
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000); // 1초마다 업데이트
-
-    return () => clearInterval(timer);
-  }, [end_time, isInitialized, getTimeUntil]);
+  // 서버에서 계산된 시간을 사용하므로 별도 계산 불필요
 
 
 
@@ -119,7 +82,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
 
   return (
     <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 item-card ${
-      isAuctionEnded 
+      isEnded 
         ? 'bg-gray-100 border-gray-400 opacity-90' 
         : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
     } h-48 flex flex-col`}
@@ -222,7 +185,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
                   <span className={`text-xs font-medium ${
                     timeLeft === '마감' ? 'text-red-600' : 'text-orange-600'
                   }`}>
-                    {timeLeft}
+                    {timeLeft || '계산 중...'}
                   </span>
                 </div>
               )}
@@ -235,19 +198,19 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
         <div className="flex space-x-2">
           <button
             onClick={() => setIsBidModalOpen(true)}
-            disabled={isAuctionEnded}
+            disabled={isEnded}
             className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isAuctionEnded
+              isEnded
                 ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
             }`}
           >
-            {isAuctionEnded ? '경매 마감' : '입찰하기'}
+            {isEnded ? '경매 마감' : '입찰하기'}
           </button>
           <button
             onClick={() => setIsBidHistoryModalOpen(true)}
             className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isAuctionEnded
+              isEnded
                 ? 'bg-gray-500 hover:bg-gray-600 text-white hover:shadow-md'
                 : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
             }`}

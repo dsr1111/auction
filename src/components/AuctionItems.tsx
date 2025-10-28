@@ -7,7 +7,6 @@ import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
 import BatchAuctionModal from './BatchAuctionModal';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
-import { useServerTime } from '@/hooks/useServerTime';
 
 type Item = {
   id: number;
@@ -28,7 +27,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const supabase = createClient();
-  const { getCurrentServerTime, isInitialized } = useServerTime();
 
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
@@ -109,42 +107,21 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase
-        .from('items')
-        .select('*, quantity')
-        .order('created_at', { ascending: false });
-
-      // 마감된 아이템을 뒤로 보내기 위한 정렬 (서버 시간 기준)
-      if (data) {
-        const now = isInitialized ? getCurrentServerTime().getTime() : new Date().getTime();
-        const sortedData = data.sort((a, b) => {
-          const aEnded = a.end_time ? new Date(a.end_time).getTime() <= now : false;
-          const bEnded = b.end_time ? new Date(b.end_time).getTime() <= now : false;
-          
-          // 마감되지 않은 아이템을 앞으로, 마감된 아이템을 뒤로
-          if (aEnded && !bEnded) return 1;
-          if (!aEnded && bEnded) return -1;
-          
-          // 둘 다 마감되었거나 둘 다 진행 중인 경우, 생성일 기준으로 정렬
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-        
-        setItems(sortedData);
-      } else {
-        setItems([]);
-        setTotalBidAmount(0);
+      const response = await fetch('/api/auction/items');
+      if (!response.ok) {
+        throw new Error('Failed to fetch items');
       }
-
-      if (error) {
-        throw error;
-      }
+      
+      const data = await response.json();
+      setItems(data.items || []);
+      
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [supabase, isInitialized]);
+  }, []);
 
   // 개별 아이템 업데이트 (깜빡임 없음)
   const updateSingleItem = useCallback(async (itemId: number) => {
@@ -167,17 +144,8 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             item.id === itemId ? data : item
           );
           
-          // 업데이트 후에도 마감된 아이템을 뒤로 보내기 (서버 시간 기준)
-          const now = isInitialized ? getCurrentServerTime().getTime() : new Date().getTime();
-          return updatedItems.sort((a, b) => {
-            const aEnded = a.end_time ? new Date(a.end_time).getTime() <= now : false;
-            const bEnded = b.end_time ? new Date(b.end_time).getTime() <= now : false;
-            
-            if (aEnded && !bEnded) return 1;
-            if (!aEnded && bEnded) return -1;
-            
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          });
+          // 서버에서 이미 정렬된 데이터를 받으므로 별도 정렬 불필요
+          return updatedItems;
         });
         
         // 개별 아이템 업데이트 후 총 입찰 금액 재계산
@@ -193,7 +161,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
        // 에러 발생 시 전체 목록을 새로고침
        fetchItems();
      }
-  }, [supabase, fetchItems, calculateTotalBidAmount, isInitialized, getCurrentServerTime]);
+  }, [supabase, fetchItems, calculateTotalBidAmount]);
 
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
@@ -230,7 +198,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // 컴포넌트 마운트 시 아이템 로드
   useEffect(() => {
     fetchItems();
-  }, [fetchItems, isInitialized]);
+  }, [fetchItems]);
 
   useEffect(() => {
     if (onItemAdded) {
