@@ -111,7 +111,18 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       }
       
       const data = await response.json();
-      setItems(data.items || []);
+      
+      // 서버 시간과 클라이언트 시간의 오프셋 계산
+      const clientTime = Date.now();
+      const serverTimeOffset = data.serverTime - clientTime;
+      
+      // 아이템에 오프셋 추가
+      const itemsWithOffset = data.items?.map((item: any) => ({
+        ...item,
+        serverTimeOffset
+      })) || [];
+      
+      setItems(itemsWithOffset);
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';

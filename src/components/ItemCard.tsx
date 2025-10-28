@@ -28,6 +28,7 @@ type ItemCardProps = {
     remaining_quantity?: number;
     timeLeft?: string;
     isEnded?: boolean;
+    serverTimeOffset?: number;
   };
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
@@ -88,7 +89,9 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
     if (!end_time) return;
     
     const calculateTimeLeft = () => {
-      const now = Date.now();
+      // 서버 시간 오프셋을 사용해서 모든 브라우저에서 동일한 시간 보장
+      const serverTimeOffset = item.serverTimeOffset || 0;
+      const now = Date.now() + serverTimeOffset;
       const endTime = new Date(end_time).getTime();
       const difference = endTime - now;
 
@@ -123,7 +126,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [end_time]);
+  }, [end_time, item.serverTimeOffset]);
 
 
 
