@@ -38,12 +38,6 @@ export default function GuildAccessGate({ children, allowedGuild }: GuildAccessG
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">로그인이 필요합니다</h2>
           <p className="text-gray-600 mb-6">이 페이지에 접근하려면 로그인해주세요.</p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-          >
-            홈으로 돌아가기
-          </button>
         </div>
       </div>
     );
