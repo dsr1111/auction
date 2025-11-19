@@ -46,6 +46,9 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   const [isLoading, setIsLoading] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
   const hasInitialized = useRef(false);
+  const isUserTyping = useRef(false); // 사용자가 직접 입력 중인지 추적
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 타이핑 타이머 참조
+  const bidInputRef = useRef<HTMLInputElement | null>(null); // 입력 필드 참조
   const supabase = createClient();
 
   // 모달이 새로 열릴 때만 입찰가와 수량 초기화
@@ -57,8 +60,40 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
       hasInitialized.current = true;
     } else if (!isOpen) {
       hasInitialized.current = false;
+      isUserTyping.current = false;
+      // 타이머 정리
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
     }
   }, [isOpen, item]);
+
+  // 현재 입찰가가 업데이트되면 입력 필드도 자동 업데이트
+  useEffect(() => {
+    if (!isOpen || !hasInitialized.current) return;
+    
+    // 입력 필드에 포커스가 있으면 자동 업데이트하지 않음
+    if (bidInputRef.current === document.activeElement) {
+      return;
+    }
+    
+    const minBidAmount = item.current_bid + 10000;
+    
+    // 사용자가 직접 입력 중이 아니고, 현재 입력값이 최소 금액보다 낮으면 자동 업데이트
+    if (!isUserTyping.current && bidAmount < minBidAmount) {
+      setBidAmount(minBidAmount);
+    }
+  }, [item.current_bid, isOpen, bidAmount]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 마감 시간 실시간 감지
   useEffect(() => {
@@ -215,6 +250,19 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    
+    // 사용자가 직접 입력 중임을 표시
+    isUserTyping.current = true;
+    
+    // 기존 타이머가 있으면 취소
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // 입력이 끝난 후 일정 시간 후에 플래그 해제 (자동 업데이트 재개)
+    typingTimeoutRef.current = setTimeout(() => {
+      isUserTyping.current = false;
+    }, 2000); // 2초 후 자동 업데이트 재개
 
     if (value === '') {
       setBidAmount(0);
@@ -322,6 +370,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             입찰 금액 (개당)
           </label>
           <input
+            ref={bidInputRef}
             id="bidInput"
             type="number"
             value={bidAmount || ''}

@@ -59,14 +59,14 @@ export const useServerTime = () => {
     syncServerTime();
   }, [syncServerTime]);
 
-  // 정기적인 동기화 (5분마다)
+  // 정기적인 동기화 (30초마다 - 더 자주 동기화하여 정확도 향상)
   useEffect(() => {
     const interval = setInterval(() => {
       const timeSinceLastSync = Date.now() - lastSyncTime;
-      if (timeSinceLastSync > 5 * 60 * 1000) { // 5분
+      if (timeSinceLastSync > 30 * 1000) { // 30초마다 동기화
         syncServerTime();
       }
-    }, 60000); // 1분마다 체크
+    }, 10000); // 10초마다 체크
 
     return () => clearInterval(interval);
   }, [syncServerTime, lastSyncTime]);

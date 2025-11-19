@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
+import { useServerTime } from '@/hooks/useServerTime';
 
 type Item = {
   id: number;
@@ -24,7 +25,9 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
+  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0); // 서버 시간 오프셋을 별도 state로 관리
   const supabase = createClient();
+  const { getCurrentServerTime, isInitialized } = useServerTime();
 
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
@@ -114,15 +117,11 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       
       // 서버 시간과 클라이언트 시간의 오프셋 계산
       const clientTime = Date.now();
-      const serverTimeOffset = data.serverTime - clientTime;
+      const offset = data.serverTime - clientTime;
+      setServerTimeOffset(offset); // 오프셋만 별도 state로 저장
       
-      // 아이템에 오프셋 추가
-      const itemsWithOffset = data.items?.map((item: Item & { serverTimeOffset: number }) => ({
-        ...item,
-        serverTimeOffset
-      })) || [];
-      
-      setItems(itemsWithOffset);
+      // 아이템은 그대로 저장 (오프셋은 prop으로 전달)
+      setItems(data.items || []);
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';
@@ -148,6 +147,20 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       }
 
       if (data) {
+        // 서버 시간 오프셋 가져오기 (최신 오프셋 사용)
+        try {
+          const timeResponse = await fetch('/api/time');
+          if (timeResponse.ok) {
+            const timeData = await timeResponse.json();
+            const clientTime = Date.now();
+            const newOffset = timeData.timestamp - clientTime;
+            setServerTimeOffset(newOffset);
+          }
+        } catch (err) {
+          // 서버 시간 가져오기 실패 시 기존 오프셋 유지 (에러 무시)
+        }
+        
+        // 아이템만 업데이트 (오프셋은 별도 state로 관리)
         setItems(prevItems => {
           const updatedItems = prevItems.map(item => 
             item.id === itemId ? data : item
@@ -169,7 +182,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       // 에러 발생 시 전체 목록을 새로고침
       fetchItems();
     }
-  }, [supabase, fetchItems, calculateTotalBidAmount]);
+  }, [supabase, fetchItems, calculateTotalBidAmount, items]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
@@ -201,6 +214,34 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
     // 컴포넌트 언마운트 시 구독 해제
     return unsubscribe;
   }, [fetchItems, updateSingleItem]);
+
+  // 주기적으로 서버 시간 오프셋 업데이트 (30초마다)
+  // 오프셋만 업데이트하면 ItemCard가 자동으로 시간 재계산 (리렌더링 최소화)
+  useEffect(() => {
+    if (items.length === 0) return;
+    
+    const updateServerTimeOffset = async () => {
+      try {
+        const timeResponse = await fetch('/api/time');
+        if (timeResponse.ok) {
+          const timeData = await timeResponse.json();
+          const newClientTime = Date.now();
+          const newServerTimeOffset = timeData.timestamp - newClientTime;
+          
+          // 오프셋만 업데이트 (아이템 데이터는 변경하지 않음)
+          setServerTimeOffset(newServerTimeOffset);
+        }
+      } catch (err) {
+        console.error('서버 시간 동기화 실패:', err);
+      }
+    };
+    
+    // 30초마다 서버 시간 동기화
+    const timeSyncInterval = setInterval(updateServerTimeOffset, 30000);
+    
+    // 컴포넌트 언마운트 시 인터벌 정리
+    return () => clearInterval(timeSyncInterval);
+  }, [items.length]);
 
   // 컴포넌트 마운트 시 아이템 로드
   useEffect(() => {
@@ -290,7 +331,10 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         {items.map((item) => (
           <ItemCard
             key={item.id}
-            item={item}
+            item={{
+              ...item,
+              serverTimeOffset // 서버 시간 오프셋을 prop으로 전달
+            }}
             onBidSuccess={() => {
               // 입찰 성공 시 해당 아이템만 업데이트
               updateSingleItem(item.id);

@@ -1,7 +1,7 @@
 "use client"; // Make it a client component
 
 
-import { useState, useEffect } from 'react'; // Import useState and useEffect
+import { useState, useEffect, memo } from 'react'; // Import useState, useEffect, and memo
 import BidModal from './BidModal'; // Import BidModal
 import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
@@ -36,7 +36,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: ItemCardProps) => {
+const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: ItemCardProps) => {
   const {
     id,
     name,
@@ -84,6 +84,7 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
     
     const calculateTimeLeft = () => {
       // 서버 시간 오프셋을 사용해서 모든 브라우저에서 동일한 시간 보장
+      // item.serverTimeOffset이 있으면 사용하고, 없으면 0 (클라이언트 시간)
       const serverTimeOffset = item.serverTimeOffset || 0;
       const now = Date.now() + serverTimeOffset;
       const endTime = new Date(end_time).getTime();
@@ -304,6 +305,28 @@ const ItemCard = ({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: I
       />
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // serverTimeOffset만 변경된 경우 리렌더링 허용 (시간 업데이트 필요)
+  // 다른 prop이 변경되지 않았으면 리렌더링 방지
+  if (prevProps.item.serverTimeOffset !== nextProps.item.serverTimeOffset) {
+    return false; // 리렌더링 필요
+  }
+  
+  // 아이템 데이터가 변경된 경우만 리렌더링
+  return (
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.item.name === nextProps.item.name &&
+    prevProps.item.current_bid === nextProps.item.current_bid &&
+    prevProps.item.last_bidder_nickname === nextProps.item.last_bidder_nickname &&
+    prevProps.item.end_time === nextProps.item.end_time &&
+    prevProps.item.quantity === nextProps.item.quantity &&
+    prevProps.item.remaining_quantity === nextProps.item.remaining_quantity &&
+    prevProps.onBidSuccess === nextProps.onBidSuccess &&
+    prevProps.onItemDeleted === nextProps.onItemDeleted &&
+    prevProps.guildType === nextProps.guildType
+  );
+});
+
+ItemCard.displayName = 'ItemCard';
 
 export default ItemCard;

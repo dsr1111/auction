@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
@@ -23,16 +23,43 @@ type ItemEditModalProps = {
 const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, guildType = 'guild1' }: ItemEditModalProps) => {
   const supabase = createClient();
   const [quantity, setQuantity] = useState(item.quantity || 1);
-  const [endTime, setEndTime] = useState(item.end_time ? new Date(item.end_time).toISOString().slice(0, 16) : '');
+  // UTC 시간을 로컬 시간으로 변환하여 datetime-local 입력 필드에 표시
+  const [endTime, setEndTime] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const hasInitialized = useRef(false); // 모달이 처음 열릴 때만 초기화하기 위한 플래그
+  const lastItemId = useRef<number | null>(null); // 마지막으로 초기화한 아이템 ID 추적
+
+  // UTC 시간을 로컬 시간 문자열로 변환 (datetime-local 형식: YYYY-MM-DDTHH:mm)
+  const utcToLocalDateTimeString = (utcDateString: string | null): string => {
+    if (!utcDateString) return '';
+    const date = new Date(utcDateString);
+    // 로컬 시간의 연, 월, 일, 시, 분을 가져와서 형식 맞추기
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
 
   useEffect(() => {
     if (isOpen) {
-      setQuantity(item.quantity || 1);
-      setEndTime(item.end_time ? new Date(item.end_time).toISOString().slice(0, 16) : '');
+      // 모달이 처음 열릴 때 또는 다른 아이템으로 변경될 때만 초기화
+      if (!hasInitialized.current || lastItemId.current !== item.id) {
+        setQuantity(item.quantity || 1);
+        // UTC 시간을 로컬 시간으로 변환하여 표시
+        setEndTime(utcToLocalDateTimeString(item.end_time));
+        hasInitialized.current = true;
+        lastItemId.current = item.id;
+      }
+    } else {
+      // 모달이 닫히면 초기화 플래그 리셋
+      hasInitialized.current = false;
+      lastItemId.current = null;
     }
-  }, [isOpen, item]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, item.id]); // item.id만 추적하여 다른 아이템으로 변경될 때만 초기화
 
   const handleUpdate = async () => {
     if (quantity < 1) {
@@ -45,7 +72,10 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, gu
       const updateData: { quantity: number; end_time?: string } = { quantity };
       
       if (endTime) {
-        updateData.end_time = new Date(endTime).toISOString();
+        // 로컬 시간 문자열을 Date 객체로 변환 후 UTC ISO 문자열로 저장
+        // datetime-local 입력은 로컬 시간이므로, 이를 UTC로 변환해야 함
+        const localDate = new Date(endTime);
+        updateData.end_time = localDate.toISOString();
       }
 
       const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
