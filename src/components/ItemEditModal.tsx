@@ -31,7 +31,7 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, gu
   const lastItemId = useRef<number | null>(null); // 마지막으로 초기화한 아이템 ID 추적
 
   // UTC 시간을 로컬 시간 문자열로 변환 (datetime-local 형식: YYYY-MM-DDTHH:mm)
-  const utcToLocalDateTimeString = (utcDateString: string | null): string => {
+  const utcToLocalDateTimeString = (utcDateString: string | null | undefined): string => {
     if (!utcDateString) return '';
     const date = new Date(utcDateString);
     // 로컬 시간의 연, 월, 일, 시, 분을 가져와서 형식 맞추기
