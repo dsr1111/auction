@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import ExcelJS from 'exceljs';
 
 type CompletedAuctionItem = {
   id: number;
-  name: string; // base_equipment_name 대신 name
-  price: string; // number 대신 string
-  current_bid: string; // number | null 대신 string
+  name: string;
+  price: string;
+  current_bid: string;
   end_time: string;
   created_at: string;
-  last_bidder_nickname?: string; // 추가
-  quantity?: number; // 추가
-  remaining_quantity?: number; // 추가
+  last_bidder_nickname?: string;
+  quantity?: number;
+  remaining_quantity?: number;
   bid_history: Array<{
     id: number;
     bid_amount: number;
@@ -23,7 +22,7 @@ type CompletedAuctionItem = {
     bidder_discord_name: string | null;
     created_at: string;
   }>;
-  winning_bids: Array<{ // 낙찰 정보 추가
+  winning_bids: Array<{
     id: number;
     bid_amount: number;
     bid_quantity: number;
@@ -31,8 +30,27 @@ type CompletedAuctionItem = {
     bidder_discord_id: string | null;
     bidder_discord_name: string | null;
     created_at: string;
-    quantity_used: number; // 실제 사용된 수량
+    quantity_used: number;
   }>;
+};
+
+type RowByBidder = {
+  bidderNickname: string;
+  bidderDiscordName: string;
+  itemName: string;
+  quantity: number;
+  unitWithFee: number;
+  totalWithFee: number;
+  totalWithoutFee: number;
+};
+
+type ProcessedData = {
+  bidderToRows: Map<string, RowByBidder[]>;
+  bidderToTotalWithFee: Map<string, number>;
+  bidderToTotalWithoutFee: Map<string, number>;
+  sortedKeys: string[];
+  grandTotalWithFee: number;
+  grandTotalWithoutFee: number;
 };
 
 type CompletedAuctionExportProps = {
@@ -44,316 +62,217 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [previewData, setPreviewData] = useState<ProcessedData | null>(null);
+
   // 관리자 권한 확인
   const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
 
   if (!isAdmin) {
-    return null; // 관리자가 아니면 컴포넌트를 렌더링하지 않음
+    return null;
   }
 
-  const exportToExcel = async () => {
+  const fetchCompletedItems = async () => {
+    const response = await fetch(`/api/auction/completed?guildType=${guildType}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`마감된 아이템 정보를 가져오는데 실패했습니다. (${response.status}: ${response.statusText})`);
+    }
+    const responseData = await response.json();
+    const { data: completedItems, message } = responseData;
+
+    if (!completedItems || completedItems.length === 0) {
+      throw new Error(message || '마감된 아이템이 없습니다.');
+    }
+    return completedItems as CompletedAuctionItem[];
+  };
+
+  const processData = (items: CompletedAuctionItem[]): ProcessedData => {
+    const bidderToRows = new Map<string, RowByBidder[]>();
+    const bidderToTotalWithFee = new Map<string, number>();
+    const bidderToTotalWithoutFee = new Map<string, number>();
+
+    items.forEach((item) => {
+      if (!item.winning_bids || item.winning_bids.length === 0) {
+        return;
+      }
+      item.winning_bids.forEach((wb) => {
+        const unitWithFee = Math.round(wb.bid_amount * 1.1);
+        const totalWithFee = unitWithFee * wb.quantity_used;
+        const totalWithoutFee = wb.bid_amount * wb.quantity_used;
+        const bidderNickname = wb.bidder_nickname || '';
+        const bidderDiscordName = wb.bidder_discord_name || '';
+        const key = `${bidderNickname}||${bidderDiscordName}`;
+
+        const list = bidderToRows.get(key) || [];
+        list.push({
+          bidderNickname,
+          bidderDiscordName,
+          itemName: item.name,
+          quantity: wb.quantity_used,
+          unitWithFee,
+          totalWithFee,
+          totalWithoutFee,
+        });
+        bidderToRows.set(key, list);
+        bidderToTotalWithFee.set(key, (bidderToTotalWithFee.get(key) || 0) + totalWithFee);
+        bidderToTotalWithoutFee.set(key, (bidderToTotalWithoutFee.get(key) || 0) + totalWithoutFee);
+      });
+    });
+
+    let grandTotalWithFee = 0;
+    let grandTotalWithoutFee = 0;
+    for (const val of bidderToTotalWithFee.values()) grandTotalWithFee += val;
+    for (const val of bidderToTotalWithoutFee.values()) grandTotalWithoutFee += val;
+
+    const sortedKeys = Array.from(bidderToRows.keys()).sort((a, b) => {
+      const [aName] = a.split('||');
+      const [bName] = b.split('||');
+      return aName.localeCompare(bName, 'ko');
+    });
+
+    return {
+      bidderToRows,
+      bidderToTotalWithFee,
+      bidderToTotalWithoutFee,
+      sortedKeys,
+      grandTotalWithFee,
+      grandTotalWithoutFee
+    };
+  };
+
+  const handleOpenPreview = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('엑셀 다운로드 시작');
-      
-      // 마감된 아이템 정보 가져오기
-      const response = await fetch(`/api/auction/completed?guildType=${guildType}`);
-      console.log('API 응답:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API 에러 응답:', errorText);
-        throw new Error(`마감된 아이템 정보를 가져오는데 실패했습니다. (${response.status}: ${response.statusText})`);
-      }
-
-      const responseData = await response.json();
-      console.log('API 응답 데이터:', responseData);
-      
-      const { data: completedItems, message, sourceTable } = responseData;
-
-      if (!completedItems || completedItems.length === 0) {
-        alert(message || '마감된 아이템이 없습니다.');
-        return;
-      }
-
-      console.log(`${completedItems.length}개의 아이템을 엑셀로 변환 중... (테이블: ${sourceTable})`);
-
-      // 1) 낙찰자별 그룹화 준비
-      type RowByBidder = {
-        bidderNickname: string;
-        bidderDiscordName: string;
-        itemName: string;
-        quantity: number;
-        unitWithFee: number;
-        totalWithFee: number;
-        totalWithoutFee: number;
-      };
-
-      const bidderToRows = new Map<string, RowByBidder[]>();
-      const bidderToTotalWithFee = new Map<string, number>();
-      const bidderToTotalWithoutFee = new Map<string, number>();
-
-      completedItems.forEach((item: CompletedAuctionItem) => {
-        if (!item.winning_bids || item.winning_bids.length === 0) {
-          return; // 낙찰자별 보기에서는 낙찰 없는 아이템은 제외
-        }
-        item.winning_bids.forEach((wb) => {
-          const unitWithFee = Math.round(wb.bid_amount * 1.1);
-          const totalWithFee = unitWithFee * wb.quantity_used;
-          const totalWithoutFee = wb.bid_amount * wb.quantity_used;
-          const bidderNickname = wb.bidder_nickname || '';
-          const bidderDiscordName = wb.bidder_discord_name || '';
-          const key = `${bidderNickname}||${bidderDiscordName}`;
-
-          const list = bidderToRows.get(key) || [];
-          list.push({
-            bidderNickname,
-            bidderDiscordName,
-            itemName: item.name,
-            quantity: wb.quantity_used,
-            unitWithFee,
-            totalWithFee,
-            totalWithoutFee,
-          });
-          bidderToRows.set(key, list);
-          bidderToTotalWithFee.set(key, (bidderToTotalWithFee.get(key) || 0) + totalWithFee);
-          bidderToTotalWithoutFee.set(key, (bidderToTotalWithoutFee.get(key) || 0) + totalWithoutFee);
-        });
-      });
-
-      // 2) 낙찰자 이름으로 정렬, 각 낙찰자 블록별로 표 생성 + 소계
-      const sortedKeys = Array.from(bidderToRows.keys()).sort((a, b) => {
-        const [aName] = a.split('||');
-        const [bName] = b.split('||');
-        return aName.localeCompare(bName, 'ko');
-      });
-
-      const excelData: Array<{
-        '입찰자': string;
-        '아이템명': string;
-        '갯수': number | string;
-        '개당 입찰가(10%포함)': string;
-        '총 입찰가(10%포함)': string;
-        '총 입찰가(수수료 제외)': string;
-      }> = [];
-      const bidderBlocks: Array<{ startIndex: number; itemCount: number }> = [];
-
-      let grandTotalWithFee = 0;
-      let grandTotalWithoutFee = 0;
-
-      sortedKeys.forEach((key) => {
-        const [bidderNickname, bidderDiscordName] = key.split('||');
-        const rows = bidderToRows.get(key) || [];
-        const subtotalWithFee = bidderToTotalWithFee.get(key) || 0;
-        const subtotalWithoutFee = bidderToTotalWithoutFee.get(key) || 0;
-        grandTotalWithFee += subtotalWithFee;
-        grandTotalWithoutFee += subtotalWithoutFee;
-
-        // 아이템 행 (아이템명, 수량, 단가, 총액) 추가
-        const bidderDisplay = bidderDiscordName ? `${bidderNickname} (${bidderDiscordName})` : bidderNickname;
-        const startIndex = excelData.length; // 현재 낙찰자 블록 시작 인덱스
-        let itemCount = 0;
-        rows
-          .sort((r1, r2) => r1.itemName.localeCompare(r2.itemName, 'ko'))
-          .forEach((r, idx) => {
-            itemCount += 1;
-            excelData.push({
-              '입찰자': idx === 0 ? bidderDisplay : '',
-              '아이템명': r.itemName,
-              '갯수': r.quantity,
-              '개당 입찰가(10%포함)': r.unitWithFee.toLocaleString(),
-              '총 입찰가(10%포함)': r.totalWithFee.toLocaleString(),
-              '총 입찰가(수수료 제외)': r.totalWithoutFee.toLocaleString(),
-            });
-          });
-
-        // 낙찰자 블록 메타 저장 (물품 행 수 만큼 병합용)
-        bidderBlocks.push({ startIndex, itemCount });
-
-        // 소계 행 (아이템 목록 아래쪽)
-        excelData.push({
-          '입찰자': '',
-          '아이템명': '합계',
-          '갯수': '',
-          '개당 입찰가(10%포함)': '',
-          '총 입찰가(10%포함)': subtotalWithFee.toLocaleString(),
-          '총 입찰가(수수료 제외)': subtotalWithoutFee.toLocaleString(),
-        });
-
-        // 낙찰자 블록 구분 빈 줄
-        excelData.push({
-          '입찰자': '',
-          '아이템명': '',
-          '갯수': '',
-          '개당 입찰가(10%포함)': '',
-          '총 입찰가(10%포함)': '',
-          '총 입찰가(수수료 제외)': '',
-        });
-      });
-
-      // 마지막 빈 줄 제거
-      if (excelData.length > 0) {
-        excelData.pop();
-      }
-
-      // 3) 전체 합계 행 추가
-      excelData.push({
-        '입찰자': '',
-        '아이템명': '전체 합계',
-        '갯수': '',
-        '개당 입찰가(10%포함)': '',
-        '총 입찰가(10%포함)': grandTotalWithFee.toLocaleString(),
-        '총 입찰가(수수료 제외)': grandTotalWithoutFee.toLocaleString(),
-      });
-
-      console.log('엑셀 데이터 준비 완료(행 수):', excelData.length);
-
-      // 워크북/워크시트 생성 (exceljs)
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('낙찰자별 내역');
-
-      // 컬럼 정의
-      worksheet.columns = [
-        { header: '입찰자', key: 'bidder', width: 28 },
-        { header: '아이템명', key: 'item', width: 28 },
-        { header: '갯수', key: 'qty', width: 10 },
-        { header: '개당 입찰가(10%포함)', key: 'unitWithFee', width: 18 },
-        { header: '총 입찰가(10%포함)', key: 'totalWithFee', width: 18 },
-        { header: '총 입찰가(수수료 제외)', key: 'totalWithoutFee', width: 20 },
-      ];
-
-      // 헤더 스타일
-      const headerRow = worksheet.getRow(1);
-      headerRow.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4472C4' } };
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin' },
-          bottom: { style: 'thin' },
-          left: { style: 'thin' },
-          right: { style: 'thin' },
-        };
-      });
-
-      // 데이터 입력 + 기본 테두리/정렬
-      excelData.forEach((r) => {
-        const row = worksheet.addRow({
-          bidder: r['입찰자'],
-          item: r['아이템명'],
-          qty: r['갯수'],
-          unitWithFee: r['개당 입찰가(10%포함)'],
-          totalWithFee: r['총 입찰가(10%포함)'],
-          totalWithoutFee: r['총 입찰가(수수료 제외)'],
-        });
-        row.eachCell((cell) => {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          cell.border = {
-            top: { style: 'thin' },
-            bottom: { style: 'thin' },
-            left: { style: 'thin' },
-            right: { style: 'thin' },
-          };
-        });
-      });
-
-      // 입찰자 셀 병합 (물품 행 수만큼)
-      const dataStartRow = 2; // 헤더 다음부터 데이터 시작
-      bidderBlocks.forEach(({ startIndex, itemCount }) => {
-        if (itemCount <= 0) return;
-        const startRow = dataStartRow + startIndex;
-        // 합계 행까지 포함하여 병합 (아이템 행 수 + 1)
-        const endRow = startRow + itemCount; 
-        if (endRow > startRow) {
-          worksheet.mergeCells(startRow, 1, endRow, 1);
-        }
-      });
-
-      // 소계/전체 합계 강조 (행 내용 기준으로 처리)
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
-        const itemCell = row.getCell(2); // 아이템명
-        const value = String(itemCell.value ?? '');
-        const isSubtotal = value === '합계';
-        const isGrandTotal = value === '전체 합계';
-        if (!isSubtotal && !isGrandTotal) return;
-        const fillColor = isGrandTotal ? 'FFF9D966' : 'FFE7E6E6';
-        row.eachCell((cell) => {
-          cell.font = { ...(cell.font || {}), bold: true };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
-          cell.border = {
-            top: { style: 'thin' },
-            bottom: { style: 'thin' },
-            left: { style: 'thin' },
-            right: { style: 'thin' },
-          };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        });
-      });
-
-      // 파일명 생성 (현재 날짜 포함)
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0];
-      const fileName = `낙찰내역_${dateStr}.xlsx`;
-
-      console.log('엑셀 파일 다운로드 시작:', fileName);
-
-      // 브라우저에서 파일 저장
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log('엑셀 다운로드 완료');
+      const completedItems = await fetchCompletedItems();
+      const processed = processData(completedItems);
+      setPreviewData(processed);
+      setShowModal(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
-      console.error('엑셀 다운로드 에러:', err);
-      setError(errorMessage);
-      alert(`엑셀 다운로드에 실패했습니다: ${errorMessage}`);
+      console.error('데이터 로드 실패:', err);
+      // 에러 발생 시 붉은 창(setError) 대신 alert만 표시
+      alert(`데이터 로드 실패: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-blue-800 font-medium">낙찰 내역 다운로드</span>
-        </div>
-        <button
-          onClick={exportToExcel}
-          disabled={isLoading}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-full transition-colors duration-200 flex items-center space-x-2"
-        >
-          {isLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>처리 중...</span>
-            </>
-          ) : (
-            <>
+    <>
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-blue-800 font-medium">낙찰 내역 관리</span>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleOpenPreview}
+              disabled={isLoading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-full transition-colors duration-200 flex items-center space-x-2"
+            >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              <span>엑셀 다운로드</span>
-            </>
-          )}
-        </button>
+              <span>낙찰 내역 보기</span>
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-3">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
       </div>
-      
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-3">
-          <p className="text-red-600 text-sm">{error}</p>
+
+      {showModal && previewData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+              <h3 className="text-lg font-bold text-gray-800">낙찰 내역 미리보기</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 p-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-auto p-6 flex-1">
+              <table className="w-full border-collapse border border-gray-300 text-sm">
+                <thead className="bg-blue-600 text-white sticky top-0 z-10">
+                  <tr>
+                    <th className="border border-gray-300 px-4 py-2">입찰자</th>
+                    <th className="border border-gray-300 px-4 py-2">아이템명</th>
+                    <th className="border border-gray-300 px-4 py-2">갯수</th>
+                    <th className="border border-gray-300 px-4 py-2">개당 입찰가(10%포함)</th>
+                    <th className="border border-gray-300 px-4 py-2">총 입찰가(10%포함)</th>
+                    <th className="border border-gray-300 px-4 py-2">총 입찰가(수수료 제외)</th>
+                  </tr>
+                </thead>
+                {previewData.sortedKeys.map((key) => {
+                  const [bidderNickname, bidderDiscordName] = key.split('||');
+                  const rows = previewData.bidderToRows.get(key) || [];
+                  const subtotalWithFee = previewData.bidderToTotalWithFee.get(key) || 0;
+                  const subtotalWithoutFee = previewData.bidderToTotalWithoutFee.get(key) || 0;
+                  const bidderDisplay = bidderDiscordName ? `${bidderNickname} (${bidderDiscordName})` : bidderNickname;
+
+                  return (
+                    <tbody key={key}>
+                      {rows.sort((a, b) => a.itemName.localeCompare(b.itemName, 'ko')).map((row, idx) => (
+                        <tr key={`${key}-${idx}`} className="hover:bg-gray-50">
+                          {idx === 0 && (
+                            <td
+                              className="border border-gray-300 px-4 py-2 font-bold bg-gray-50 text-center align-middle"
+                              rowSpan={rows.length + 1}
+                            >
+                              {bidderDisplay}
+                            </td>
+                          )}
+                          <td className="border border-gray-300 px-4 py-2">{row.itemName}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-center">{row.quantity}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-right">{row.unitWithFee.toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-right">{row.totalWithFee.toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-right">{row.totalWithoutFee.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="border border-gray-300 px-4 py-2 text-center text-gray-700">합계</td>
+                        <td className="border border-gray-300 px-4 py-2"></td>
+                        <td className="border border-gray-300 px-4 py-2"></td>
+                        <td className="border border-gray-300 px-4 py-2 text-right text-black">{subtotalWithFee.toLocaleString()}</td>
+                        <td className="border border-gray-300 px-4 py-2 text-right text-black">{subtotalWithoutFee.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  );
+                })}
+                <tfoot>
+                  <tr className="bg-yellow-100 font-bold text-base border-t-2 border-black">
+                    <td className="border border-gray-300 px-4 py-3 text-center">전체 합계</td>
+                    <td className="border border-gray-300 px-4 py-3"></td>
+                    <td className="border border-gray-300 px-4 py-3"></td>
+                    <td className="border border-gray-300 px-4 py-3"></td>
+                    <td className="border border-gray-300 px-4 py-3 text-right">{previewData.grandTotalWithFee.toLocaleString()}</td>
+                    <td className="border border-gray-300 px-4 py-3 text-right">{previewData.grandTotalWithoutFee.toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors shadow-sm"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

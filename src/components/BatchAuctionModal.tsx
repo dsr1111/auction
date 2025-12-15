@@ -10,14 +10,23 @@ interface BatchItem {
 }
 
 
+// Incoming item structure
+interface CurrentAuctionItem {
+  name: string;
+  price: number;
+  quantity?: number;
+  [key: string]: any; // Allow other properties
+}
+
 interface BatchAuctionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   guildType?: 'guild1' | 'guild2';
+  currentItems?: CurrentAuctionItem[];
 }
 
-const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }: BatchAuctionModalProps) => {
+const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', currentItems = [] }: BatchAuctionModalProps) => {
   const { data: session } = useSession();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [endTime, setEndTime] = useState('');
@@ -25,27 +34,6 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveAsDefault, setSaveAsDefault] = useState(true);
-
-  // 기본 아이템 로드
-  const loadDefaultItems = async () => {
-    try {
-      const response = await fetch('/api/default-items', {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      
-      if (response.ok) {
-        const defaultItems = data.items.map((item: { name: string; price: number; quantity: number }) => ({
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        }));
-        setItems(defaultItems);
-      }
-    } catch (error) {
-      console.error('Failed to load default items:', error);
-    }
-  };
 
   // 기본 마감 시간 설정 (현재 시간 + 2주)
   useEffect(() => {
@@ -56,11 +44,20 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
     }
   }, [isOpen, endTime]);
 
-  // 모달이 열릴 때 기본 아이템 로드
+  // 모달이 열릴 때 아이템 목록 초기화 (현재 경매 아이템 사용)
   useEffect(() => {
     if (isOpen) {
-      loadDefaultItems();
+      if (currentItems && currentItems.length > 0) {
+        setItems(currentItems.map(item => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity || 1
+        })));
+      } else {
+        setItems([{ name: '', price: 0, quantity: 1 }]);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // 기본 아이템으로 저장하는 함수
@@ -158,7 +155,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
 
       onSuccess();
       onClose();
-      
+
       // 폼 초기화
       setItems([{ name: '', price: 0, quantity: 1 }]);
       setError(null);
@@ -224,7 +221,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
                   기존 경매 아이템 모두 삭제 후 등록
                 </label>
               </div>
-              
+
               {/* 관리자만 기본 아이템 저장 옵션 표시 */}
               {(session?.user as { isAdmin?: boolean })?.isAdmin && (
                 <div className="flex items-center space-x-2">
@@ -269,7 +266,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">아이템명</label>
@@ -282,7 +279,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
                         required
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">시작가 (비트)</label>
                       <input
@@ -295,7 +292,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }:
                         required
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">수량</label>
                       <input
