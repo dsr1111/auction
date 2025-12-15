@@ -1,62 +1,60 @@
-# 경매 사이트 (Auction Site)
+# 아카츠키 토벌 경매 시스템
 
-이 프로젝트는 [Next.js](https://nextjs.org)를 기반으로 한 경매 사이트입니다. 사용자들이 아이템에 입찰할 수 있고, 입찰 내역을 확인할 수 있습니다.
+길드2 전용 토벌 경매 시스템입니다.
 
-## 주요 기능
+## 설치 및 실행
 
-- **아이템 경매**: 다양한 아이템에 대한 실시간 입찰
-- **입찰 내역**: 각 아이템별 입찰 기록 조회
-- **실시간 업데이트**: WebSocket을 통한 실시간 입찰 현황 업데이트
-- **디스코드 로그인**: 디스코드 계정으로 간편 로그인
-- **관리자 기능**: 아이템 관리 및 삭제
+1. 의존성 설치:
+```bash
+npm install
+```
 
-## 새로운 기능: 입찰 내역 조회
+2. 환경 변수 설정:
+`.env.local` 파일을 생성하고 다음 변수들을 설정하세요:
 
-- 아이템 카드의 입찰하기 버튼과 입찰 내역 버튼을 나란히 배치
-- 입찰 내역 버튼 클릭 시 해당 아이템의 모든 입찰 기록을 모달로 표시
-- 최고가 입찰자 강조 표시
-- 입찰 시간 및 금액 정보 제공
+```env
+# Discord OAuth 설정
+DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_SECRET=your_discord_client_secret
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_nextauth_secret
 
-## Getting Started
+# Supabase 설정
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-First, run the development server:
+# Pusher 설정
+NEXT_PUBLIC_PUSHER_APP_KEY=your_pusher_app_key
+PUSHER_APP_ID=your_pusher_app_id
+PUSHER_SECRET=your_pusher_secret
+PUSHER_CLUSTER=your_pusher_cluster
+```
 
+3. 개발 서버 실행:
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 데이터베이스
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+이 프로젝트는 기존 Supabase 데이터베이스의 `items_guild2`와 `bid_history_guild2` 테이블을 사용합니다.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 기능
 
-## 데이터베이스 설정
+- 아카츠키 길드 전용 토벌 경매
+- 실시간 입찰 시스템
+- 관리자 기능 (아이템 추가/수정/삭제)
+- 완료된 경매 내역 엑셀 다운로드
+- Discord 로그인 연동
 
-입찰 내역 기능을 사용하려면 `bid_history` 테이블이 필요합니다. `database-setup.sql` 파일의 SQL 스크립트를 실행하여 테이블을 생성하세요.
+## 기술 스택
 
-```sql
--- Supabase SQL 편집기에서 실행
--- database-setup.sql 파일 내용 참조
-```
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Next.js 16
+- React 18
+- TypeScript
+- Tailwind CSS
+- NextAuth.js (Discord Provider)
+- Supabase
+- Pusher (실시간 업데이트)
+- ExcelJS (엑셀 다운로드)
