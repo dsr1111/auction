@@ -183,7 +183,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       // 에러 발생 시 전체 목록을 새로고침
       fetchItems();
     }
-  }, [supabase, fetchItems, calculateTotalBidAmount, items]);
+  }, [supabase, fetchItems, calculateTotalBidAmount]); // items 제거 - setItems 콜백 형태 사용으로 불필요
 
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
