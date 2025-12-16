@@ -134,13 +134,13 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
     try {
       const { data, error } = await supabase
         .from('items_guild2')
-        .select('*, quantity')
+        .select('*')
         .eq('id', itemId)
         .single();
 
       if (error) {
-        // 에러 발생 시 전체 목록을 새로고침
-        fetchItems();
+        // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
+        console.error('아이템 업데이트 실패:', error);
         return;
       }
 
@@ -176,9 +176,9 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         // 업데이트된 데이터가 없으면 전체 목록 새로고침
         fetchItems();
       }
-    } catch {
-      // 에러 발생 시 전체 목록을 새로고침
-      fetchItems();
+    } catch (err) {
+      // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
+      console.error('아이템 업데이트 중 오류:', err);
     }
   }, [supabase, fetchItems, calculateTotalBidAmount]); // items 제거 - setItems 콜백 형태 사용으로 불필요
 
