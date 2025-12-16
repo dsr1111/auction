@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
-import { useServerTime } from '@/hooks/useServerTime';
 
 type Item = {
   id: number;
@@ -25,9 +24,8 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
-  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0); // 서버 시간 오프셋을 별도 state로 관리
+  const serverTimeOffsetRef = useRef<number>(0); // useRef로 변경하여 리렌더링 없이 오프셋 업데이트
   const supabase = createClient();
-  const { getCurrentServerTime, isInitialized } = useServerTime();
 
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
@@ -39,7 +37,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         }
         return 0;
       }
-      
+
       const { data: bidHistoryData, error } = await supabase
         .from('bid_history_guild2')
         .select('item_id, bid_amount, bid_quantity')
@@ -55,7 +53,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
 
       // 입찰내역을 아이템별로 그룹화
       const bidHistoryMap = new Map<number, number[]>();
-      
+
       if (bidHistoryData && bidHistoryData.length > 0) {
         bidHistoryData.forEach(bid => {
           if (!bidHistoryMap.has(bid.item_id)) {
@@ -76,26 +74,26 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       const total = items.reduce((total, item) => {
         // 해당 아이템의 입찰내역 가져오기
         const itemBids = bidHistoryMap.get(item.id);
-        
+
         if (itemBids && itemBids.length > 0) {
           // 수량 기반으로 입찰가 계산 (남은 수량만큼만)
           let remainingQuantity = item.quantity || 1;
           let itemTotal = 0;
-          
+
           for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
             const bidAmount = itemBids[i];
             const quantityToUse = Math.min(remainingQuantity, 1); // 각 입찰은 1개씩
-            
+
             itemTotal += bidAmount * quantityToUse;
             remainingQuantity -= quantityToUse;
           }
-          
+
           return total + itemTotal;
         } else {
           return total;
         }
       }, 0);
-      
+
       setTotalBidAmount(total);
       return total;
     } catch {
@@ -107,22 +105,22 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch('/api/auction/items-guild2');
       if (!response.ok) {
         throw new Error('Failed to fetch items');
       }
-      
+
       const data = await response.json();
-      
+
       // 서버 시간과 클라이언트 시간의 오프셋 계산
       const clientTime = Date.now();
       const offset = data.serverTime - clientTime;
-      setServerTimeOffset(offset); // 오프셋만 별도 state로 저장
-      
+      serverTimeOffsetRef.current = offset; // ref로 변경 (리렌더링 없음)
+
       // 아이템은 그대로 저장 (오프셋은 prop으로 전달)
       setItems(data.items || []);
-      
+
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';
       setError(errorMessage);
@@ -154,22 +152,22 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
             const timeData = await timeResponse.json();
             const clientTime = Date.now();
             const newOffset = timeData.timestamp - clientTime;
-            setServerTimeOffset(newOffset);
+            serverTimeOffsetRef.current = newOffset; // ref로 변경
           }
         } catch (err) {
           // 서버 시간 가져오기 실패 시 기존 오프셋 유지 (에러 무시)
         }
-        
+
         // 아이템만 업데이트 (오프셋은 별도 state로 관리)
         setItems(prevItems => {
-          const updatedItems = prevItems.map(item => 
+          const updatedItems = prevItems.map(item =>
             item.id === itemId ? data : item
           );
-          
+
           // 서버에서 이미 정렬된 데이터를 받으므로 별도 정렬 불필요
           return updatedItems;
         });
-        
+
         // 개별 아이템 업데이트 후 총 입찰 금액 재계산
         setTimeout(() => {
           calculateTotalBidAmount();
@@ -188,7 +186,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
   useEffect(() => {
     let lastUpdateTime = 0;
     const UPDATE_THROTTLE = 1000; // 1초 내 중복 업데이트 방지
-    
+
     const unsubscribe = subscribeToAuctionChannel((data: { action: string; itemId?: number; timestamp: number }) => {
       // 중복 업데이트 방지
       const now = Date.now();
@@ -196,49 +194,48 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         return;
       }
       lastUpdateTime = now;
-      
+
       if (data.action === 'bid' && data.itemId) {
         // 입찰 업데이트: 해당 아이템만 업데이트 (깜빡임 없음)
-        
+
         // 약간의 지연을 두어 데이터베이스 업데이트가 완료된 후 처리
         setTimeout(() => {
           updateSingleItem(data.itemId!);
         }, 100);
-        
+
       } else if (data.action === 'added' || data.action === 'deleted') {
         // 추가/삭제: 전체 목록 새로고침 (필요한 경우만)
         fetchItems();
       }
     });
-    
+
     // 컴포넌트 언마운트 시 구독 해제
     return unsubscribe;
   }, [fetchItems, updateSingleItem]);
 
   // 주기적으로 서버 시간 오프셋 업데이트 (30초마다)
-  // 오프셋만 업데이트하면 ItemCard가 자동으로 시간 재계산 (리렌더링 최소화)
+  // useRef를 사용하므로 리렌더링 없이 즉시 업데이트
   useEffect(() => {
     if (items.length === 0) return;
-    
+
     const updateServerTimeOffset = async () => {
       try {
         const timeResponse = await fetch('/api/time');
         if (timeResponse.ok) {
           const timeData = await timeResponse.json();
           const newClientTime = Date.now();
-          const newServerTimeOffset = timeData.timestamp - newClientTime;
-          
-          // 오프셋만 업데이트 (아이템 데이터는 변경하지 않음)
-          setServerTimeOffset(newServerTimeOffset);
+          const newOffset = timeData.timestamp - newClientTime;
+          // ref로 직접 업데이트 (리렌더링 없음)
+          serverTimeOffsetRef.current = newOffset;
         }
       } catch (err) {
         console.error('서버 시간 동기화 실패:', err);
       }
     };
-    
-    // 30초마다 서버 시간 동기화
+
+    // 30초마다 서버 시간 동기화 (리렌더링 없으므로 더 자주 동기화 가능)
     const timeSyncInterval = setInterval(updateServerTimeOffset, 30000);
-    
+
     // 컴포넌트 언마운트 시 인터벌 정리
     return () => clearInterval(timeSyncInterval);
   }, [items.length]);
@@ -317,9 +314,9 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
             <span className="text-2xl font-bold text-blue-600">
               {totalBidAmount.toLocaleString()}
             </span>
-            <img 
-              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-              alt="bit" 
+            <img
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+              alt="bit"
               className="w-6 h-6 object-contain"
             />
           </div>
@@ -331,10 +328,8 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         {items.map((item) => (
           <ItemCard
             key={item.id}
-            item={{
-              ...item,
-              serverTimeOffset // 서버 시간 오프셋을 prop으로 전달
-            }}
+            item={item}
+            getServerTimeOffset={() => serverTimeOffsetRef.current}
             onBidSuccess={() => {
               // 입찰 성공 시 해당 아이템만 업데이트
               updateSingleItem(item.id);

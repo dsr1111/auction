@@ -22,8 +22,8 @@ type ItemCardProps = {
     remaining_quantity?: number;
     timeLeft?: string;
     isEnded?: boolean;
-    serverTimeOffset?: number;
   };
+  getServerTimeOffset?: () => number; // getter 함수로 변경 (언제나 최신 값 참조)
   onBidSuccess?: () => void;
   onItemDeleted?: () => void;
   guildType?: 'guild1' | 'guild2';
@@ -36,7 +36,7 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
-const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1' }: ItemCardProps) => {
+const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted, guildType = 'guild1' }: ItemCardProps) => {
   const {
     id,
     name,
@@ -54,7 +54,7 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
   const [imageError, setImageError] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>(initialTimeLeft || '');
   const [isEnded, setIsEnded] = useState<boolean>(initialIsEnded || false);
-  
+
   // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
     setImageError(true);
@@ -81,11 +81,10 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
   // 실시간 시간 계산 (1초마다 업데이트)
   useEffect(() => {
     if (!end_time) return;
-    
+
     const calculateTimeLeft = () => {
-      // 서버 시간 오프셋을 사용해서 모든 브라우저에서 동일한 시간 보장
-      // item.serverTimeOffset이 있으면 사용하고, 없으면 0 (클라이언트 시간)
-      const serverTimeOffset = item.serverTimeOffset || 0;
+      // getter 함수를 호출하여 항상 최신 오프셋 값 사용 (리렌더링 없음)
+      const serverTimeOffset = getServerTimeOffset ? getServerTimeOffset() : 0;
       const now = Date.now() + serverTimeOffset;
       const endTime = new Date(end_time).getTime();
       const difference = endTime - now;
@@ -102,7 +101,7 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
       let timeString = '';
-      
+
       if (days > 0) {
         timeString = `${days}일 ${hours}시간`;
       } else if (hours > 0) {
@@ -121,47 +120,46 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [end_time, item.serverTimeOffset]);
+  }, [end_time, getServerTimeOffset]);
 
 
 
   const isAdmin = session?.user && (session.user as ExtendedUser).isAdmin;
 
   return (
-    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 item-card ${
-      isEnded 
-        ? 'bg-gray-100 border-gray-400 opacity-90' 
-        : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
-    } h-48 flex flex-col`}
-    style={{ zIndex: 0, position: 'relative' }}>
-      
-                     {/* 관리자용 수정 버튼 */}
-        {isAdmin && (
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-blue-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 z-10 group"
-            title="아이템 수정"
-          >
-            <span className="group-hover:scale-110 transition-transform duration-200">✎</span>
-          </button>
-        )}
+    <div className={`relative border rounded-2xl shadow-sm transition-all duration-200 item-card ${isEnded
+      ? 'bg-gray-100 border-gray-400 opacity-90'
+      : 'bg-white border-gray-200 hover:shadow-lg hover:border-gray-300'
+      } h-48 flex flex-col`}
+      style={{ zIndex: 0, position: 'relative' }}>
+
+      {/* 관리자용 수정 버튼 */}
+      {isAdmin && (
+        <button
+          onClick={() => setIsEditModalOpen(true)}
+          className="absolute top-1 right-2 w-6 h-6 text-gray-400 hover:text-blue-600 rounded-full flex items-center justify-center text-lg font-light transition-all duration-200 z-10 group"
+          title="아이템 수정"
+        >
+          <span className="group-hover:scale-110 transition-transform duration-200">✎</span>
+        </button>
+      )}
 
       <div className="p-4 flex-1">
         <div className="flex items-center justify-center h-full">
           <div className="flex-shrink-0 mr-4">
-            <div 
+            <div
               className="rounded-[10px] p-1 relative"
               style={{ backgroundColor: '#1a202c' }}
             >
               <div className="relative overflow-visible">
-                <img 
-                  src={imageError ? getDefaultImageUrl() : getImageUrl()} 
-                  alt={name} 
-                  width={56} 
-                  height={56} 
+                <img
+                  src={imageError ? getDefaultImageUrl() : getImageUrl()}
+                  alt={name}
+                  width={56}
+                  height={56}
                   className="rounded-xl object-cover w-14 h-14"
-                  style={{ 
-                    width: '56px', 
+                  style={{
+                    width: '56px',
                     height: '56px',
                     minWidth: '56px',
                     minHeight: '56px',
@@ -172,7 +170,7 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
                 />
                 {/* 수량 표시 */}
                 {item.quantity && item.quantity > 1 && (
-                  <span 
+                  <span
                     className="absolute text-white text-xs font-bold text-center"
                     style={{
                       fontSize: '14px',
@@ -199,39 +197,37 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
                 {name}
               </h3>
             </CustomTooltip>
-            
-                          <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
-                    {last_bidder_nickname ? '개당 입찰가' : '입찰 시작가'}
-                  </span>
-                  <div className="flex items-center space-x-1 ml-2">
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
+                  {last_bidder_nickname ? '개당 입찰가' : '입찰 시작가'}
+                </span>
+                <div className="flex items-center space-x-1 ml-2">
                   <span className="text-sm font-semibold text-blue-600">
                     {current_bid.toLocaleString()}
                   </span>
-                  <img 
-                    src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-                    alt="bit" 
+                  <img
+                    src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+                    alt="bit"
                     className="w-4 h-4 object-contain"
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">최근 입찰자</span>
-                <span className={`text-xs ${
-                  last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400'
-                }`}>
+                <span className={`text-xs ${last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400'
+                  }`}>
                   {last_bidder_nickname || '입찰자 없음'}
                 </span>
               </div>
-              
+
               {end_time && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">남은 시간</span>
-                  <span className={`text-xs font-medium ${
-                    timeLeft === '마감' ? 'text-red-600' : 'text-orange-600'
-                  }`}>
+                  <span className={`text-xs font-medium ${timeLeft === '마감' ? 'text-red-600' : 'text-orange-600'
+                    }`}>
                     {timeLeft || '계산 중...'}
                   </span>
                 </div>
@@ -246,21 +242,19 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
           <button
             onClick={() => setIsBidModalOpen(true)}
             disabled={isEnded}
-            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isEnded
-                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
-            }`}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${isEnded
+              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
+              }`}
           >
             {isEnded ? '경매 마감' : '입찰하기'}
           </button>
           <button
             onClick={() => setIsBidHistoryModalOpen(true)}
-            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${
-              isEnded
-                ? 'bg-gray-500 hover:bg-gray-600 text-white hover:shadow-md'
-                : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
-            }`}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${isEnded
+              ? 'bg-gray-500 hover:bg-gray-600 text-white hover:shadow-md'
+              : 'bg-gray-600 hover:bg-gray-700 text-white hover:shadow-md'
+              }`}
           >
             입찰 내역
           </button>
@@ -270,34 +264,34 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
       <BidModal
         isOpen={isBidModalOpen}
         onClose={() => setIsBidModalOpen(false)}
-        item={{ 
-          id, 
-          name, 
-          current_bid, 
-          quantity: item.quantity || 1, 
+        item={{
+          id,
+          name,
+          current_bid,
+          quantity: item.quantity || 1,
           remaining_quantity: item.remaining_quantity || item.quantity || 1,
-          end_time: end_time 
+          end_time: end_time
         }}
         onBidSuccess={onBidSuccess}
         guildType={guildType}
       />
-      
+
       <BidHistoryModal
         isOpen={isBidHistoryModalOpen}
         onClose={() => setIsBidHistoryModalOpen(false)}
         item={{ id, name }}
         guildType={guildType}
       />
-      
+
       <ItemEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        item={{ 
-          id, 
-          name, 
-          current_bid, 
-          quantity: item.quantity || 1, 
-          end_time: end_time 
+        item={{
+          id,
+          name,
+          current_bid,
+          quantity: item.quantity || 1,
+          end_time: end_time
         }}
         onItemUpdated={onBidSuccess}
         onItemDeleted={onItemDeleted}
@@ -306,13 +300,8 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
     </div>
   );
 }, (prevProps, nextProps) => {
-  // serverTimeOffset만 변경된 경우 리렌더링 허용 (시간 업데이트 필요)
-  // 다른 prop이 변경되지 않았으면 리렌더링 방지
-  if (prevProps.item.serverTimeOffset !== nextProps.item.serverTimeOffset) {
-    return false; // 리렌더링 필요
-  }
-  
-  // 아이템 데이터가 변경된 경우만 리렌더링
+  // serverTimeOffset 변경은 무시 (내부 setInterval이 시간 업데이트를 처리함)
+  // 실제 아이템 데이터가 변경된 경우만 리렌더링
   return (
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.name === nextProps.item.name &&
@@ -321,8 +310,6 @@ const ItemCard = memo(({ item, onBidSuccess, onItemDeleted, guildType = 'guild1'
     prevProps.item.end_time === nextProps.item.end_time &&
     prevProps.item.quantity === nextProps.item.quantity &&
     prevProps.item.remaining_quantity === nextProps.item.remaining_quantity &&
-    prevProps.onBidSuccess === nextProps.onBidSuccess &&
-    prevProps.onItemDeleted === nextProps.onItemDeleted &&
     prevProps.guildType === nextProps.guildType
   );
 });
