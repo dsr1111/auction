@@ -136,7 +136,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         .from('items_guild2')
         .select('*')
         .eq('id', itemId)
-        .single();
+        .maybeSingle(); // single() 대신 maybeSingle() 사용 - 아이템이 없어도 에러 없음
 
       if (error) {
         // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
@@ -173,8 +173,9 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
           calculateTotalBidAmount();
         }, 100);
       } else {
-        // 업데이트된 데이터가 없으면 전체 목록 새로고침
-        fetchItems();
+        // 아이템이 존재하지 않음 (삭제됨) - 무시
+        console.log(`[Guild2] 아이템 ${itemId}이(가) 존재하지 않음 (삭제된 것으로 추정)`);
+        return;
       }
     } catch (err) {
       // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
@@ -339,7 +340,11 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         ))}
         {/* 관리자에게만 새 아이템 추가 카드 표시 */}
         {(session?.user as { isAdmin?: boolean })?.isAdmin && (
-          <AddItemCard onItemAdded={fetchItems} guildType="guild2" />
+          <AddItemCard
+            onItemAdded={fetchItems}
+            guildType="guild2"
+            currentItems={items}
+          />
         )}
       </div>
     </div>

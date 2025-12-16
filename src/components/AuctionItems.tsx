@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
-import BatchAuctionModal from './BatchAuctionModal';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
 
 type Item = {
@@ -25,7 +24,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const serverTimeOffsetRef = useRef<number>(0); // useRef로 변경하여 리렌더링 없이 오프셋 업데이트
   const supabase = createClient();
 
@@ -138,7 +136,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         .from('items')
         .select('*')
         .eq('id', itemId)
-        .single();
+        .maybeSingle(); // single() 대신 maybeSingle() 사용 - 아이템이 없어도 에러 없음
 
       if (error) {
         // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
@@ -176,8 +174,9 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           calculateTotalBidAmount();
         }, 100);
       } else {
-        // 업데이트된 데이터가 없으면 전체 목록 새로고침
-        fetchItems();
+        // 아이템이 존재하지 않음 (삭제됨) - 무시
+        console.log(`아이템 ${itemId}이(가) 존재하지 않음 (삭제된 것으로 추정)`);
+        return;
       }
     } catch (err) {
       // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
@@ -327,17 +326,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         </div>
       </div>
 
-      {/* 관리자용 관리 버튼들 */}
-      {(session?.user as { isAdmin?: boolean })?.isAdmin && (
-        <div className="mb-6 flex flex-wrap gap-3">
-          <button
-            onClick={() => setIsBatchModalOpen(true)}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors shadow-md hover:shadow-lg"
-          >
-            아이템 일괄 등록
-          </button>
-        </div>
-      )}
+
 
       {/* 아이템 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -354,17 +343,14 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         ))}
         {/* 관리자에게만 새 아이템 추가 카드 표시 */}
         {(session?.user as { isAdmin?: boolean })?.isAdmin && (
-          <AddItemCard onItemAdded={fetchItems} />
+          <AddItemCard
+            onItemAdded={fetchItems}
+            currentItems={items}
+          />
         )}
       </div>
 
-      {/* 일괄 등록 모달 */}
-      <BatchAuctionModal
-        isOpen={isBatchModalOpen}
-        onClose={() => setIsBatchModalOpen(false)}
-        onSuccess={fetchItems}
-        currentItems={items}
-      />
+
     </div>
   );
 }
