@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import DefaultItemsManageModal from './DefaultItemsManageModal';
 
 interface BatchItem {
   name: string;
@@ -33,7 +34,9 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
   const [clearExisting, setClearExisting] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saveAsDefault, setSaveAsDefault] = useState(true);
+  const [isPresetMenuOpen, setIsPresetMenuOpen] = useState(false);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const presetMenuRef = useRef<HTMLDivElement>(null);
 
   // 기본 마감 시간 설정 (현재 시간 + 2주)
   useEffect(() => {
@@ -44,53 +47,56 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
     }
   }, [isOpen, endTime]);
 
-  // 모달이 열릴 때 아이템 목록 초기화 (현재 경매 아이템 사용)
+  // 모달이 열릴 때 아이템 목록 초기화 (빈 목록으로 시작)
   useEffect(() => {
     if (isOpen) {
-      if (currentItems && currentItems.length > 0) {
-        setItems(currentItems.map(item => ({
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity || 1
-        })));
-      } else {
-        setItems([{ name: '', price: 0, quantity: 1 }]);
-      }
+      // 빈 목록으로 시작 (프리셋 불러오기로 로드)
+      setItems([{ name: '', price: 0, quantity: 1 }]);
+      setIsPresetMenuOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // 기본 아이템으로 저장하는 함수
-  const saveAsDefaultItems = async (items: BatchItem[]) => {
+  // 프리셋 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (presetMenuRef.current && !presetMenuRef.current.contains(event.target as Node)) {
+        setIsPresetMenuOpen(false);
+      }
+    };
+
+    if (isPresetMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPresetMenuOpen]);
+
+  // 프리셋 불러오기
+  const loadPresetItems = async () => {
     try {
-      // 기존 기본 아이템 모두 삭제
-      await fetch('/api/default-items/manage', {
-        method: 'DELETE',
+      const response = await fetch('/api/default-items', {
         credentials: 'include',
       });
-
-      // 새 기본 아이템들 추가
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.name.trim() && item.price > 0) {
-          await fetch('/api/default-items/manage', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity,
-              sort_order: i + 1
-            }),
-          });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.items && data.items.length > 0) {
+          setItems(data.items.map((item: { name: string; price: number; quantity?: number }) => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity || 1
+          })));
+        } else {
+          alert('저장된 프리셋이 없습니다. 프리셋 관리에서 먼저 아이템을 등록해주세요.');
         }
       }
-    } catch (error) {
-      console.error('Failed to save as default items:', error);
+    } catch (err) {
+      console.error('Failed to load preset items:', err);
+      alert('프리셋을 불러오는데 실패했습니다.');
     }
+    setIsPresetMenuOpen(false);
   };
 
 
@@ -146,11 +152,6 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
       if (!response.ok) {
         console.error('Batch registration error:', data);
         throw new Error(data.error || '일괄 등록에 실패했습니다.');
-      }
-
-      // 기본 아이템으로 저장 (관리자이고 체크된 경우)
-      if (saveAsDefault && (session?.user as { isAdmin?: boolean })?.isAdmin) {
-        await saveAsDefaultItems(validItems);
       }
 
       onSuccess();
@@ -221,35 +222,64 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
                   기존 경매 아이템 모두 삭제 후 등록
                 </label>
               </div>
-
-              {/* 관리자만 기본 아이템 저장 옵션 표시 */}
-              {(session?.user as { isAdmin?: boolean })?.isAdmin && (
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="saveAsDefault"
-                    checked={saveAsDefault}
-                    onChange={(e) => setSaveAsDefault(e.target.checked)}
-                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  />
-                  <label htmlFor="saveAsDefault" className="text-sm text-gray-700">
-                    이 아이템들을 기본 아이템으로 저장 (다음 경매에서 자동 로드됨)
-                  </label>
-                </div>
-              )}
             </div>
 
             {/* 아이템 목록 */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium text-gray-900">경매 아이템</h3>
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium"
-                >
-                  + 아이템 추가
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* 프리셋 관리 드롭다운 */}
+                  <div className="relative" ref={presetMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPresetMenuOpen(!isPresetMenuOpen)}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-xl text-sm font-medium flex items-center gap-1"
+                    >
+                      프리셋 관리
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {isPresetMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={loadPresetItems}
+                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                          </svg>
+                          불러오기
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPresetMenuOpen(false);
+                            setIsManageModalOpen(true);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors flex items-center gap-2 border-t border-gray-100"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          관리
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-xl text-sm font-medium"
+                  >
+                    + 아이템 추가
+                  </button>
+                </div>
               </div>
 
               {items.map((item, index) => (
@@ -340,6 +370,12 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
           </form>
         </div>
       </div>
+
+      {/* 프리셋 관리 모달 */}
+      <DefaultItemsManageModal
+        isOpen={isManageModalOpen}
+        onClose={() => setIsManageModalOpen(false)}
+      />
     </div>
   );
 };

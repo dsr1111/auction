@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, price, quantity, sort_order } = body;
 
-    if (!name || !price || !quantity) {
+    if (!name || price === undefined || price === null || quantity === undefined || quantity === null) {
       return NextResponse.json({ error: 'Name, price, and quantity are required' }, { status: 400 });
     }
 
@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create default item' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       item: data,
       message: '기본 아이템이 성공적으로 추가되었습니다.'
     });
@@ -97,8 +97,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update default item' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       item: data,
       message: '기본 아이템이 성공적으로 수정되었습니다.'
     });
@@ -137,7 +137,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete default item' }, { status: 500 });
       }
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
         message: '기본 아이템이 성공적으로 삭제되었습니다.'
       });
@@ -153,7 +153,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete all default items' }, { status: 500 });
       }
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
         message: '모든 기본 아이템이 성공적으로 삭제되었습니다.'
       });

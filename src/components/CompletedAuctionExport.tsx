@@ -66,10 +66,11 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
   const [showModal, setShowModal] = useState(false);
   const [previewData, setPreviewData] = useState<ProcessedData | null>(null);
 
-  // 관리자 권한 확인
+  // 관리자 권한 확인 (미사용 - 참고용)
   const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
 
-  if (!isAdmin) {
+  // 로그인한 사용자만 볼 수 있음
+  if (!session) {
     return null;
   }
 
