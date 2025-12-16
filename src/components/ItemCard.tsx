@@ -120,7 +120,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [end_time, getServerTimeOffset]);
+  }, [end_time]); // getServerTimeOffset 제거 - ref에서 읽으므로 항상 최신값 사용
 
 
 
