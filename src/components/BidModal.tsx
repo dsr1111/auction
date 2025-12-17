@@ -72,14 +72,14 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   // 현재 입찰가가 업데이트되면 입력 필드도 자동 업데이트
   useEffect(() => {
     if (!isOpen || !hasInitialized.current) return;
-    
+
     // 입력 필드에 포커스가 있으면 자동 업데이트하지 않음
     if (bidInputRef.current === document.activeElement) {
       return;
     }
-    
+
     const minBidAmount = item.current_bid + 10000;
-    
+
     // 사용자가 직접 입력 중이 아니고, 현재 입력값이 최소 금액보다 낮으면 자동 업데이트
     if (!isUserTyping.current && bidAmount < minBidAmount) {
       setBidAmount(minBidAmount);
@@ -138,7 +138,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 hover:shadow-lg flex items-center justify-center space-x-2"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515a.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0a12.64 12.64 0 00-.617-1.25a.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057a19.9 19.9 0 005.993 3.03a.078.078 0 00.084-.028a14.09 14.09 0 001.226-1.994a.076.076 0 00-.041-.106a13.107 13.107 0 01-1.872-.892a.077.077 0 01-.008-.128a10.2 10.2 0 00.372-.292a.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127a12.299 12.299 0 01-1.873.892a.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028a19.839 19.839 0 006.002-3.03a.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515a.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0a12.64 12.64 0 00-.617-1.25a.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057a19.9 19.9 0 005.993 3.03a.078.078 0 00.084-.028a14.09 14.09 0 001.226-1.994a.076.076 0 00-.041-.106a13.107 13.107 0 01-1.872-.892a.077.077 0 01-.008-.128a10.2 10.2 0 00.372-.292a.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127a12.299 12.299 0 01-1.873.892a.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028a19.839 19.839 0 006.002-3.03a.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" />
             </svg>
             <span>디스코드로 로그인</span>
           </button>
@@ -164,14 +164,15 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
       setError('유효한 입찰 금액을 입력해주세요.');
       return;
     }
-    
+
     // 10000 단위 검증
     if (bidAmount % 10000 !== 0) {
       setError('입찰 금액은 10,000bit 단위로만 가능합니다.');
       return;
     }
-    if (bidAmount <= item.current_bid) {
-      setError('입찰 금액은 현재 입찰가보다 높아야 합니다.');
+    // 블라인드 경매: 시작가(current_bid가 price로 표시됨) 이상이면 입찰 가능
+    if (bidAmount < item.current_bid) {
+      setError('입찰 금액은 시작가 이상이어야 합니다.');
       return;
     }
     if (bidAmount > MAX_BID_AMOUNT) {
@@ -192,31 +193,30 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
     setIsLoading(true);
 
     try {
-      // 서버-사이드 가드: 마감 이후/현재가 이상 업데이트 차단 (원자적 조건 업데이트)
+      // 블라인드 경매: items 테이블 업데이트 없이 bid_history에만 기록
       const nowIso = new Date().toISOString();
       const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
       const historyTableName = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
-      
-      const { data, error: updateError } = await supabase
-        .from(tableName)
-        .update({
-          current_bid: bidAmount,
-          last_bidder_nickname: bidderName,
-        })
-        .eq('id', item.id)
-        .lt('current_bid', bidAmount)
-        .or(`end_time.is.null,end_time.gt.${nowIso}`)
-        .select();
 
-      if (updateError) {
-        setError(`입찰에 실패했습니다: ${updateError.message}`);
+      // 마감 여부 확인 (서버사이드 체크)
+      const { data: itemData, error: checkError } = await supabase
+        .from(tableName)
+        .select('end_time')
+        .eq('id', item.id)
+        .single();
+
+      if (checkError) {
+        setError('아이템 정보를 확인할 수 없습니다.');
         return;
       }
 
-      // 세션 정보 디버깅
+      // 마감 시간 체크
+      if (itemData.end_time && new Date(itemData.end_time) <= new Date(nowIso)) {
+        setError('경매가 이미 마감되었습니다.');
+        return;
+      }
 
-
-      // 입찰 내역 저장
+      // 블라인드 경매: 입찰 내역만 저장 (items 테이블 업데이트 없음)
       const { error: historyError } = await supabase
         .from(historyTableName)
         .insert({
@@ -229,11 +229,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
         });
 
       if (historyError) {
-        // 입찰 내역 저장 실패해도 입찰은 성공한 것으로 처리
-      }
-
-      if (!data || data.length === 0) {
-        setError('입찰이 반영되지 않았습니다. 마감되었거나 더 높은 입찰가가 있습니다.');
+        setError(`입찰에 실패했습니다: ${historyError.message}`);
         return;
       }
 
@@ -250,15 +246,15 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
+
     // 사용자가 직접 입력 중임을 표시
     isUserTyping.current = true;
-    
+
     // 기존 타이머가 있으면 취소
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // 입력이 끝난 후 일정 시간 후에 플래그 해제 (자동 업데이트 재개)
     typingTimeoutRef.current = setTimeout(() => {
       isUserTyping.current = false;
@@ -280,15 +276,15 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   const handleBidQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setBidQuantityInput(value);
-    
+
     // 빈 문자열이면 1로 설정
     if (value === '') {
       setBidQuantity(1);
       return;
     }
-    
+
     const numValue = parseInt(value);
-    
+
     // 유효한 숫자이고 1 이상이며 아이템 수량 이하이면 설정
     if (!isNaN(numValue) && numValue > 0 && numValue <= item.quantity) {
       setBidQuantity(numValue);
@@ -306,15 +302,28 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name}`}>
       <div className="flex flex-col gap-4">
+        {/* 블라인드 경매 안내 */}
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            <span className="text-sm text-purple-700 font-medium">블라인드 경매</span>
+          </div>
+          <p className="text-xs text-purple-600 mt-1">
+            입찰 내역은 경매 마감 후 공개됩니다. 입찰 후 수정/취소 불가합니다.
+          </p>
+        </div>
+
         <div className="bg-gray-50 p-3 rounded-md">
-          <p className="text-sm text-gray-600">현재 입찰가 (개당)</p>
+          <p className="text-sm text-gray-600">시작가 (개당)</p>
           <div className="flex items-center space-x-2">
             <p className="text-lg font-semibold text-gray-900">
               {item.current_bid?.toLocaleString() || 0}
             </p>
-            <img 
-              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-              alt="bit" 
+            <img
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+              alt="bit"
               className="w-5 h-5 object-contain"
             />
           </div>
@@ -322,7 +331,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             수량: {item.quantity}개
           </p>
         </div>
-        
+
         <div>
           <label htmlFor="nicknameInput" className="block text-gray-700 text-sm font-medium mb-2">
             입찰자 닉네임
@@ -346,11 +355,10 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             type="number"
             value={bidQuantityInput}
             onChange={handleBidQuantityChange}
-            className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-              bidQuantityInput && !isQuantityValid() 
-                ? 'border-red-300 focus:ring-red-500 bg-red-50' 
-                : 'border-gray-300 focus:ring-blue-500'
-            }`}
+            className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${bidQuantityInput && !isQuantityValid()
+              ? 'border-red-300 focus:ring-red-500 bg-red-50'
+              : 'border-gray-300 focus:ring-blue-500'
+              }`}
             placeholder="1"
             min="1"
             max={item.quantity || 1}
@@ -364,7 +372,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             </p>
           )}
         </div>
-        
+
         <div>
           <label htmlFor="bidInput" className="block text-gray-700 text-sm font-medium mb-2">
             입찰 금액 (개당)
@@ -380,10 +388,10 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             step="10000"
           />
           <p className="text-xs text-gray-500 mt-2">
-            최소 입찰가: {(item.current_bid + 10000).toLocaleString()}
-            <img 
-              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-              alt="bit" 
+            최소 입찰가 (시작가 이상): {item.current_bid.toLocaleString()}
+            <img
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+              alt="bit"
               className="inline w-3 h-3 object-contain ml-1"
             />
             <span className="ml-2 text-blue-600">• 10,000원 단위로만 입찰 가능</span>
@@ -396,9 +404,9 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             <p className="text-lg font-semibold text-blue-700">
               {(totalBidAmount * 1.1).toLocaleString()}
             </p>
-            <img 
-              src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-              alt="bit" 
+            <img
+              src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+              alt="bit"
               className="w-5 h-5 object-contain"
             />
             <span className="text-sm text-blue-600">
@@ -409,13 +417,13 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             수수료: {(totalBidAmount * 0.1).toLocaleString()} bit
           </p>
         </div>
-        
+
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4">
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
-        
+
         <button
           onClick={handlePlaceBid}
           disabled={isLoading}

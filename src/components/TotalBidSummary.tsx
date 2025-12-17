@@ -9,53 +9,63 @@ type Item = {
   name: string;
   current_bid: number;
   quantity: number;
+  end_time: string | null;
 };
 
 export default function TotalBidSummary() {
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
+  const [completedCount, setCompletedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
   const supabase = createClient();
 
   const calculateTotalBidAmount = useCallback((items: Item[], bidHistoryMap: Map<number, number[]>) => {
-    return items.reduce((total, item) => {
-      // 아이템의 수량만 사용
+    const now = new Date();
+
+    // 마감된 아이템만 필터링
+    const completedItems = items.filter(item => {
+      if (!item.end_time) return false;
+      return new Date(item.end_time) <= now;
+    });
+
+    const total = completedItems.reduce((total, item) => {
+      // 아이템의 수량
       const actualQuantity = item.quantity;
-      
+
       // 해당 아이템의 입찰내역 가져오기
       const itemBids = bidHistoryMap.get(item.id);
-      
+
       if (itemBids && itemBids.length > 0) {
-        // 수량 기반으로 입찰가 계산 (남은 수량만큼만)
+        // 수량 기반으로 입찰가 계산 (수량만큼만)
         let remainingQuantity = actualQuantity;
         let itemTotal = 0;
-        
+
         for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
           const bidAmount = itemBids[i];
           const quantityToUse = Math.min(remainingQuantity, 1); // 각 입찰은 1개씩
-          
+
           itemTotal += bidAmount * quantityToUse;
           remainingQuantity -= quantityToUse;
         }
-        
-        return total + itemTotal;
-      } else {
-        // 입찰내역이 없으면 시작가로 계산
-        const itemTotal = item.current_bid * actualQuantity;
+
         return total + itemTotal;
       }
+      // 입찰내역이 없으면 0 (낙찰 안됨)
+      return total;
     }, 0);
+
+    return { total, completedCount: completedItems.length };
   }, []);
 
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // 아이템과 입찰내역을 병렬로 조회
       const [itemsResult, bidHistoryResult] = await Promise.all([
         supabase
           .from('items')
-          .select('id, name, current_bid, quantity')
+          .select('id, name, current_bid, quantity, end_time')
           .order('current_bid', { ascending: false }),
         supabase
           .from('bid_history')
@@ -74,7 +84,7 @@ export default function TotalBidSummary() {
       if (itemsResult.data) {
         // 입찰내역을 아이템별로 그룹화하고 높은 가격순으로 정렬
         const bidHistoryMap = new Map<number, number[]>();
-        
+
         if (bidHistoryResult.data) {
           bidHistoryResult.data.forEach(bid => {
             if (!bidHistoryMap.has(bid.item_id)) {
@@ -86,14 +96,14 @@ export default function TotalBidSummary() {
             }
           });
         }
-        
-        // 각 아이템의 입찰내역을 높은 가격순으로 정렬
-               bidHistoryMap.forEach((bids) => {
-         bids.sort((a, b) => b - a);
-       });
 
-        const total = calculateTotalBidAmount(itemsResult.data, bidHistoryMap);
-        
+        // 각 아이템의 입찰내역을 높은 가격순으로 정렬
+        bidHistoryMap.forEach((bids) => {
+          bids.sort((a, b) => b - a);
+        });
+
+        const { total, completedCount: count } = calculateTotalBidAmount(itemsResult.data, bidHistoryMap);
+
         // 값이 실제로 변경되었을 때만 상태 업데이트
         setTotalBidAmount(prevTotal => {
           if (prevTotal !== total) {
@@ -102,6 +112,7 @@ export default function TotalBidSummary() {
           }
           return prevTotal;
         });
+        setCompletedCount(count);
       }
     } catch {
       // 총 입찰가 계산 중 오류
@@ -122,7 +133,7 @@ export default function TotalBidSummary() {
         }
       }
     });
-    
+
     return unsubscribe;
   }, [fetchItems, lastUpdateTime]);
 
@@ -136,7 +147,7 @@ export default function TotalBidSummary() {
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-          <span className="text-blue-600 text-sm">총 입찰가 계산 중...</span>
+          <span className="text-blue-600 text-sm">총 낙찰가 계산 중...</span>
         </div>
       </div>
     );
@@ -146,15 +157,15 @@ export default function TotalBidSummary() {
     <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 mb-2">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <span className="text-gray-700 text-sm">총 입찰 금액:</span>
+          <span className="text-gray-700 text-sm">총 낙찰 금액 (마감 {completedCount}건):</span>
         </div>
         <div className="flex items-center space-x-2">
           <span className="text-base font-semibold text-blue-600">
             {totalBidAmount.toLocaleString()}
           </span>
-          <img 
-            src="https://media.dsrwiki.com/dsrwiki/bit.webp" 
-            alt="bit" 
+          <img
+            src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+            alt="bit"
             className="w-3 h-3 object-contain"
           />
         </div>
@@ -162,3 +173,4 @@ export default function TotalBidSummary() {
     </div>
   );
 }
+

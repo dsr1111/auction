@@ -129,6 +129,26 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     }
   }, []);
 
+  // 백그라운드 데이터 새로고침 (로딩 상태 없이 조용히 업데이트)
+  const refreshItemsSilently = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auction/items');
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      // 서버 시간 오프셋 업데이트
+      const clientTime = Date.now();
+      const offset = data.serverTime - clientTime;
+      serverTimeOffsetRef.current = offset;
+
+      // 아이템 데이터만 조용히 업데이트 (로딩 상태 변경 없음)
+      setItems(data.items || []);
+    } catch {
+      // 조용히 실패 (에러 표시 없음)
+    }
+  }, []);
+
   // 개별 아이템 업데이트 (깜빡임 없음)
   const updateSingleItem = useCallback(async (itemId: number) => {
     try {
@@ -198,23 +218,20 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       }
       lastUpdateTime = now;
 
-      if (data.action === 'bid' && data.itemId) {
-        // 입찰 업데이트: 해당 아이템만 업데이트 (깜빡임 없음)
-
-        // 약간의 지연을 두어 데이터베이스 업데이트가 완료된 후 처리
+      if (data.action === 'bid') {
+        // 입찰: 조용히 업데이트 (깜빡임 없음)
         setTimeout(() => {
-          updateSingleItem(data.itemId!);
+          refreshItemsSilently();
         }, 100);
-
       } else if (data.action === 'added' || data.action === 'deleted') {
-        // 추가/삭제: 전체 목록 새로고침 (필요한 경우만)
+        // 추가/삭제: 전체 목록 새로고침
         fetchItems();
       }
     });
 
     // 컴포넌트 언마운트 시 구독 해제
     return unsubscribe;
-  }, [fetchItems, updateSingleItem]);
+  }, [fetchItems, refreshItemsSilently]);
 
   // 주기적으로 서버 시간 오프셋 업데이트 (30초마다)
   // useRef를 사용하므로 리렌더링 없이 즉시 업데이트
@@ -297,34 +314,58 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       <div className="bg-red-50 border border-red-200 rounded-xl p-4">
         <div className="flex items-center">
           <p className="text-sm text-red-800 font-medium">
-            <span className="font-bold">[필독]</span> 경매 마감 직후 정산 및 아이템 수령을 위해 30분 이내로 접속해 주세요.
-            <br />
-            <span className="font-semibold">미접속으로 인해 아이템 수령을 못할 시 본인 책임입니다. (수령 가능 시간 : ~ 04:00 )</span>
+            <span className="font-bold">[필독]</span> 경매 마감 직후 정산 및 아이템 수령을 위해 30분 이내로 접속해 주세요.{' '}
+            <span className="font-semibold">미접속으로 인해 아이템 수령을 못할 시 본인 책임입니다.</span>
             <br />
             <br />
             <span className="font-semibold">@ 반드시 인게임 닉네임으로 입찰해 주세요. 장난칠 시 입찰 삭제합니다.</span>
+            <br />
+            <br />
+            <span className="font-semibold">@ 가격이 블라인드된 경매입니다. 마감 직전에 입찰할 필요 없이 여유 있게 입찰해 주세요.</span>
           </p>
         </div>
       </div>
 
       {/* 총 입찰 금액 요약 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-blue-800 font-medium">총 입찰 금액</span>
+      {(() => {
+        // 모든 아이템이 마감되었는지 확인
+        const now = Date.now() + serverTimeOffsetRef.current;
+        const allEnded = items.length > 0 && items.every(item => {
+          if (!item.end_time) return false;
+          return new Date(item.end_time).getTime() <= now;
+        });
+
+        // 숫자를 *로 마스킹하는 함수 (자릿수와 콤마 유지)
+        const maskNumber = (num: number) => {
+          const formatted = num.toLocaleString();
+          return formatted.replace(/\d/g, '*');
+        };
+
+        return (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-blue-800 font-medium">
+                  {allEnded ? '총 낙찰 금액' : '총 입찰 금액'}
+                </span>
+                {!allEnded && (
+                  <span className="text-xs text-blue-500">(마감 후 공개)</span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl font-bold text-blue-600">
+                  {allEnded ? totalBidAmount.toLocaleString() : maskNumber(totalBidAmount)}
+                </span>
+                <img
+                  src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+                  alt="bit"
+                  className="w-6 h-6 object-contain"
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-blue-600">
-              {totalBidAmount.toLocaleString()}
-            </span>
-            <img
-              src="https://media.dsrwiki.com/dsrwiki/bit.webp"
-              alt="bit"
-              className="w-6 h-6 object-contain"
-            />
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
 
 
@@ -336,8 +377,8 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
             item={item}
             getServerTimeOffset={() => serverTimeOffsetRef.current}
             onBidSuccess={() => {
-              // 입찰 성공 시 해당 아이템만 업데이트
-              updateSingleItem(item.id);
+              // 블라인드 경매: 입찰/마감 시 조용히 데이터 새로고침 (깜빡임 없음)
+              refreshItemsSilently();
             }}
           />
         ))}

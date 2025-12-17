@@ -1,7 +1,7 @@
 "use client"; // Make it a client component
 
 
-import { useState, useEffect, memo } from 'react'; // Import useState, useEffect, and memo
+import { useState, useEffect, memo, useRef } from 'react'; // Import useState, useEffect, memo, and useRef
 import BidModal from './BidModal'; // Import BidModal
 import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
@@ -22,6 +22,7 @@ type ItemCardProps = {
     remaining_quantity?: number;
     timeLeft?: string;
     isEnded?: boolean;
+    bidder_count?: number; // 블라인드 경매: 입찰 인원 수
   };
   getServerTimeOffset?: () => number; // getter 함수로 변경 (언제나 최신 값 참조)
   onBidSuccess?: () => void;
@@ -54,6 +55,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
   const [imageError, setImageError] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>(initialTimeLeft || '');
   const [isEnded, setIsEnded] = useState<boolean>(initialIsEnded || false);
+  const [loadingResult, setLoadingResult] = useState(false); // 마감 직후 결과 로딩 상태
 
   // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
@@ -77,6 +79,8 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
   }, [id, name]);
 
 
+  // 마감 감지 시 데이터 새로고침을 위한 ref
+  const wasEndedRef = useRef(initialIsEnded || false);
 
   // 실시간 시간 계산 (1초마다 업데이트)
   useEffect(() => {
@@ -91,7 +95,22 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
 
       if (difference <= 0) {
         setTimeLeft('마감');
+        const wasEnded = wasEndedRef.current;
         setIsEnded(true);
+        wasEndedRef.current = true;
+
+        // 마감 직후(새로 마감된 경우) 데이터 새로고침 및 로딩 상태 표시
+        if (!wasEnded) {
+          setLoadingResult(true);
+          // 약간의 지연 후 데이터 새로고침 (서버에서 마감 처리 완료 대기)
+          setTimeout(() => {
+            onBidSuccess?.();
+            // 데이터 로드 완료 후 로딩 상태 해제
+            setTimeout(() => {
+              setLoadingResult(false);
+            }, 500);
+          }, 300);
+        }
         return;
       }
 
@@ -120,7 +139,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [end_time]); // getServerTimeOffset 제거 - ref에서 읽으므로 항상 최신값 사용
+  }, [end_time, onBidSuccess]); // onBidSuccess 추가
 
 
 
@@ -201,25 +220,43 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
-                  {last_bidder_nickname ? '개당 입찰가' : '입찰 시작가'}
+                  {loadingResult ? '결과 확인 중' : (isEnded ? (last_bidder_nickname ? '최고 낙찰가' : '유찰') : '시작가')}
                 </span>
                 <div className="flex items-center space-x-1 ml-2">
-                  <span className="text-sm font-semibold text-blue-600">
-                    {current_bid.toLocaleString()}
-                  </span>
-                  <img
-                    src="https://media.dsrwiki.com/dsrwiki/bit.webp"
-                    alt="bit"
-                    className="w-4 h-4 object-contain"
-                  />
+                  {loadingResult ? (
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span className="text-sm font-semibold text-blue-600">
+                        {current_bid.toLocaleString()}
+                      </span>
+                      <img
+                        src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+                        alt="bit"
+                        className="w-4 h-4 object-contain"
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">최근 입찰자</span>
-                <span className={`text-xs ${last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400'
+                <span className="text-xs text-gray-500">
+                  {isEnded ? '최고 입찰자' : '입찰 현황'}
+                </span>
+                <span className={`text-xs ${isEnded
+                  ? (last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400')
+                  : 'font-medium text-purple-600'
                   }`}>
-                  {last_bidder_nickname || '입찰자 없음'}
+                  {loadingResult
+                    ? '확인 중...'
+                    : (isEnded
+                      ? (last_bidder_nickname || '입찰자 없음')
+                      : (item.bidder_count && item.bidder_count > 0
+                        ? `${item.bidder_count}명 입찰 중`
+                        : '입찰자 없음')
+                    )
+                  }
                 </span>
               </div>
 
@@ -279,7 +316,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
       <BidHistoryModal
         isOpen={isBidHistoryModalOpen}
         onClose={() => setIsBidHistoryModalOpen(false)}
-        item={{ id, name }}
+        item={{ id, name, end_time }}
         guildType={guildType}
       />
 
@@ -310,6 +347,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
     prevProps.item.end_time === nextProps.item.end_time &&
     prevProps.item.quantity === nextProps.item.quantity &&
     prevProps.item.remaining_quantity === nextProps.item.remaining_quantity &&
+    prevProps.item.bidder_count === nextProps.item.bidder_count && // 블라인드 경매: 입찰 인원 수
     prevProps.guildType === nextProps.guildType
   );
 });
