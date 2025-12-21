@@ -246,7 +246,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
                 </span>
                 <span className={`text-xs ${isEnded
                   ? (last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400')
-                  : 'font-medium text-purple-600'
+                  : (item.bidder_count && item.bidder_count > 0 ? 'font-medium text-purple-600' : 'text-gray-400')
                   }`}>
                   {loadingResult
                     ? '확인 중...'

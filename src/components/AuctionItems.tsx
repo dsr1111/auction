@@ -16,6 +16,7 @@ type Item = {
   created_at: string;
   end_time: string | null;
   quantity?: number;
+  bidder_count?: number;
 };
 
 export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void }) {
@@ -24,13 +25,40 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
-  const serverTimeOffsetRef = useRef<number>(0); // useRef로 변경하여 리렌더링 없이 오프셋 업데이트
+  const serverTimeOffsetRef = useRef<number>(0);
   const supabase = createClient();
+
+  // 아이템 정렬 함수
+  const sortItems = useCallback((itemsToSort: Item[]) => {
+    const now = Date.now() + serverTimeOffsetRef.current;
+
+    return [...itemsToSort].sort((a, b) => {
+      // 1. 마감 여부 (마감된 항목은 뒤로)
+      const isEndedA = a.end_time ? new Date(a.end_time).getTime() <= now : false;
+      const isEndedB = b.end_time ? new Date(b.end_time).getTime() <= now : false;
+
+      if (isEndedA !== isEndedB) {
+        return isEndedA ? 1 : -1;
+      }
+
+      // 2. 입찰자 유무 (마감 안 된 경우, 입찰자 있는 항목이 앞으로)
+      if (!isEndedA) {
+        const hasBiddersA = (a.bidder_count || 0) > 0;
+        const hasBiddersB = (b.bidder_count || 0) > 0;
+
+        if (hasBiddersA !== hasBiddersB) {
+          return hasBiddersA ? -1 : 1;
+        }
+      }
+
+      // 3. 이름순 정렬
+      return a.name.localeCompare(b.name, 'ko');
+    });
+  }, []);
 
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
     try {
-      // 로딩 중이거나 아이템이 없으면 계산하지 않음
       if (loading || !items || items.length === 0) {
         if (!loading) {
           setTotalBidAmount(0);
@@ -51,7 +79,6 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         return 0;
       }
 
-      // 입찰내역을 아이템별로 그룹화
       const bidHistoryMap = new Map<number, number[]>();
 
       if (bidHistoryData && bidHistoryData.length > 0) {
@@ -59,30 +86,26 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           if (!bidHistoryMap.has(bid.item_id)) {
             bidHistoryMap.set(bid.item_id, []);
           }
-          // bid_quantity만큼 bid_amount를 반복해서 추가
           for (let i = 0; i < bid.bid_quantity; i++) {
             bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
           }
         });
       }
 
-      // 각 아이템의 입찰내역을 높은 가격순으로 정렬
       bidHistoryMap.forEach((bids) => {
         bids.sort((a, b) => b - a);
       });
 
       const total = items.reduce((total, item) => {
-        // 해당 아이템의 입찰내역 가져오기
         const itemBids = bidHistoryMap.get(item.id);
 
         if (itemBids && itemBids.length > 0) {
-          // 수량 기반으로 입찰가 계산 (남은 수량만큼만)
           let remainingQuantity = item.quantity || 1;
           let itemTotal = 0;
 
           for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
             const bidAmount = itemBids[i];
-            const quantityToUse = Math.min(remainingQuantity, 1); // 각 입찰은 1개씩
+            const quantityToUse = Math.min(remainingQuantity, 1);
 
             itemTotal += bidAmount * quantityToUse;
             remainingQuantity -= quantityToUse;
@@ -113,13 +136,12 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
 
       const data = await response.json();
 
-      // 서버 시간과 클라이언트 시간의 오프셋 계산
       const clientTime = Date.now();
       const offset = data.serverTime - clientTime;
-      serverTimeOffsetRef.current = offset; // ref로 변경 (리렌더링 없음)
+      serverTimeOffsetRef.current = offset;
 
-      // 아이템은 그대로 저장 (오프셋은 prop으로 전달)
-      setItems(data.items || []);
+      // 정렬 후 저장
+      setItems(sortItems(data.items || []));
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '아이템을 불러오는데 실패했습니다.';
@@ -127,7 +149,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortItems]);
 
   // 백그라운드 데이터 새로고침 (로딩 상태 없이 조용히 업데이트)
   const refreshItemsSilently = useCallback(async () => {
@@ -137,17 +159,15 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
 
       const data = await response.json();
 
-      // 서버 시간 오프셋 업데이트
       const clientTime = Date.now();
       const offset = data.serverTime - clientTime;
       serverTimeOffsetRef.current = offset;
 
-      // 아이템 데이터만 조용히 업데이트 (로딩 상태 변경 없음)
-      setItems(data.items || []);
+      // 정렬 후 업데이트
+      setItems(sortItems(data.items || []));
     } catch {
-      // 조용히 실패 (에러 표시 없음)
     }
-  }, []);
+  }, [sortItems]);
 
   // 개별 아이템 업데이트 (깜빡임 없음)
   const updateSingleItem = useCallback(async (itemId: number) => {
@@ -156,53 +176,45 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         .from('items')
         .select('*')
         .eq('id', itemId)
-        .maybeSingle(); // single() 대신 maybeSingle() 사용 - 아이템이 없어도 에러 없음
+        .maybeSingle();
 
       if (error) {
-        // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
         console.error('아이템 업데이트 실패:', error);
         return;
       }
 
       if (data) {
-        // 서버 시간 오프셋 가져오기 (최신 오프셋 사용)
         try {
           const timeResponse = await fetch('/api/time');
           if (timeResponse.ok) {
             const timeData = await timeResponse.json();
             const clientTime = Date.now();
             const newOffset = timeData.timestamp - clientTime;
-            serverTimeOffsetRef.current = newOffset; // ref로 변경
+            serverTimeOffsetRef.current = newOffset;
           }
         } catch (err) {
-          // 서버 시간 가져오기 실패 시 기존 오프셋 유지 (에러 무시)
         }
 
-        // 아이템만 업데이트 (오프셋은 별도 state로 관리)
         setItems(prevItems => {
           const updatedItems = prevItems.map(item =>
             item.id === itemId ? data : item
           );
 
-          // 서버에서 이미 정렬된 데이터를 받으므로 별도 정렬 불필요
-          return updatedItems;
+          // 업데이트된 리스트 다시 정렬
+          return sortItems(updatedItems);
         });
 
-        // 개별 아이템 업데이트 후 총 입찰 금액 재계산
-        // 약간의 지연을 두어 상태 업데이트가 완료된 후 계산
         setTimeout(() => {
           calculateTotalBidAmount();
         }, 100);
       } else {
-        // 아이템이 존재하지 않음 (삭제됨) - 무시
         console.log(`아이템 ${itemId}이(가) 존재하지 않음 (삭제된 것으로 추정)`);
         return;
       }
     } catch (err) {
-      // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
       console.error('아이템 업데이트 중 오류:', err);
     }
-  }, [supabase, fetchItems, calculateTotalBidAmount]); // items 제거 - setItems 콜백 형태 사용으로 불필요
+  }, [supabase, fetchItems, calculateTotalBidAmount, sortItems]);
 
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
