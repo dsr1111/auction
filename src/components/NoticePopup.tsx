@@ -86,7 +86,7 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
                   &nbsp;&nbsp;&nbsp;&nbsp;마감 시 최고가 입찰자가 낙찰</li>
                 <li>• <span className="font-medium">수량이 여러개인 품목의 경우:</span><br />
                   &nbsp;&nbsp;&nbsp;&nbsp;개당 가격이 높은 순으로 낙찰</li>
-                <li>• <span className="font-medium">입찰가가 동일한 경우 먼저 입찰이 빠른순으로 낙찰</span><br />
+                <li>• <span className="font-medium">입찰가가 동일한 경우 입찰이 빠른순으로 낙찰</span><br />
                 </li>
               </ul>
             </div>
