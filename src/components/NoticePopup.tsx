@@ -30,21 +30,20 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* 배경 오버레이 */}
-      <div 
+      <div
         className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-200"
       />
-      
+
       {/* 팝업 컨테이너 */}
-      <div className={`relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col transform transition-all duration-200 ${
-        isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-      }`}>
+      <div className={`relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col transform transition-all duration-200 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}>
         {/* 헤더 */}
         <div className="flex items-center justify-center p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900">📢 공지사항</h2>
         </div>
-        
+
         {/* 내용 - 스크롤 가능 */}
-        <div 
+        <div
           className="p-4 sm:p-6 flex-1 overflow-y-auto"
           style={{
             scrollbarWidth: 'thin',
@@ -79,7 +78,7 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
                 </ul>
               </div>
             </div>
-            
+
             <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded">
               <h3 className="font-medium text-green-800 mb-3">낙찰 기준 안내</h3>
               <ul className="text-sm text-green-700 space-y-2">
@@ -87,11 +86,13 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
                   &nbsp;&nbsp;&nbsp;&nbsp;마감 시 최고가 입찰자가 낙찰</li>
                 <li>• <span className="font-medium">수량이 여러개인 품목의 경우:</span><br />
                   &nbsp;&nbsp;&nbsp;&nbsp;개당 가격이 높은 순으로 낙찰</li>
+                <li>• <span className="font-medium">입찰가가 동일한 경우 먼저 입찰이 빠른순으로 낙찰</span><br />
+                </li>
               </ul>
             </div>
           </div>
         </div>
-        
+
         {/* 하단 버튼 - 항상 보이도록 */}
         <div className="flex justify-center p-4 sm:p-6 border-t border-gray-200 flex-shrink-0">
           <button
