@@ -19,12 +19,23 @@ type Item = {
   bidder_count?: number;
 };
 
+type MyBidItem = {
+  item_id: number;
+  item_name: string;
+  bid_amount: number;
+  bid_quantity: number;
+  bid_time: string;
+};
+
 export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void }) {
   const { data: session } = useSession();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
+  const [myTotalBidAmount, setMyTotalBidAmount] = useState<number>(0);
+  const [myBids, setMyBids] = useState<MyBidItem[]>([]);
+  const [showMyBidsModal, setShowMyBidsModal] = useState(false); // 아코디언 펼침 상태
   const serverTimeOffsetRef = useRef<number>(0);
   const supabase = createClient();
 
@@ -124,6 +135,61 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     }
   }, [items, supabase, loading]);
 
+  // 나의 총 입찰 금액 계산
+  const calculateMyTotalBidAmount = useCallback(async () => {
+    try {
+      const currentUserId = (session?.user as { id?: string })?.id;
+      if (!currentUserId || loading || !items || items.length === 0) {
+        setMyTotalBidAmount(0);
+        setMyBids([]);
+        return 0;
+      }
+
+      // 현재 사용자의 입찰 내역 조회
+      const { data: myBidHistoryData, error } = await supabase
+        .from('bid_history')
+        .select('item_id, bid_amount, bid_quantity, created_at')
+        .eq('bidder_discord_id', currentUserId)
+        .order('created_at', { ascending: false });
+
+      if (error || !myBidHistoryData) {
+        setMyTotalBidAmount(0);
+        setMyBids([]);
+        return 0;
+      }
+
+      // 아이템 정보 맵 생성
+      const itemMap = new Map<number, Item>();
+      items.forEach(item => itemMap.set(item.id, item));
+
+      // 나의 입찰 내역 생성 (현재 진행 중인 아이템만)
+      const myBidItems: MyBidItem[] = [];
+      let total = 0;
+
+      myBidHistoryData.forEach(bid => {
+        const item = itemMap.get(bid.item_id);
+        if (item) {
+          myBidItems.push({
+            item_id: bid.item_id,
+            item_name: item.name,
+            bid_amount: bid.bid_amount,
+            bid_quantity: bid.bid_quantity,
+            bid_time: bid.created_at
+          });
+          total += bid.bid_amount * bid.bid_quantity;
+        }
+      });
+
+      setMyBids(myBidItems);
+      setMyTotalBidAmount(total);
+      return total;
+    } catch {
+      setMyTotalBidAmount(0);
+      setMyBids([]);
+      return 0;
+    }
+  }, [items, supabase, loading, session]);
+
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
@@ -206,6 +272,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
 
         setTimeout(() => {
           calculateTotalBidAmount();
+          calculateMyTotalBidAmount();
         }, 100);
       } else {
         console.log(`아이템 ${itemId}이(가) 존재하지 않음 (삭제된 것으로 추정)`);
@@ -214,7 +281,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } catch (err) {
       console.error('아이템 업데이트 중 오류:', err);
     }
-  }, [supabase, fetchItems, calculateTotalBidAmount, sortItems]);
+  }, [supabase, fetchItems, calculateTotalBidAmount, calculateMyTotalBidAmount, sortItems]);
 
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
@@ -287,10 +354,13 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   useEffect(() => {
     if (items.length > 0 && !loading) {
       calculateTotalBidAmount();
+      calculateMyTotalBidAmount();
     } else if (items.length === 0) {
       setTotalBidAmount(0);
+      setMyTotalBidAmount(0);
+      setMyBids([]);
     }
-  }, [items.length, loading, calculateTotalBidAmount]);
+  }, [items.length, loading, calculateTotalBidAmount, calculateMyTotalBidAmount]);
 
   if (loading) {
     return (
@@ -354,8 +424,9 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         };
 
         return (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+            {/* 전체 총 입찰 금액 헤더 */}
+            <div className="p-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span className="text-blue-800 font-medium">
                   {allEnded ? '총 낙찰 금액' : '총 입찰 금액'}
@@ -364,17 +435,138 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
                   <span className="text-xs text-blue-500">(마감 후 공개)</span>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl font-bold text-blue-600">
-                  {allEnded ? totalBidAmount.toLocaleString() : maskNumber(totalBidAmount)}
-                </span>
-                <img
-                  src="https://media.dsrwiki.com/dsrwiki/bit.webp"
-                  alt="bit"
-                  className="w-6 h-6 object-contain"
-                />
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl font-bold text-blue-600">
+                    {allEnded ? totalBidAmount.toLocaleString() : maskNumber(totalBidAmount)}
+                  </span>
+                  <img
+                    src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+                    alt="bit"
+                    className="w-6 h-6 object-contain"
+                  />
+                </div>
+                {/* 접기/펼치기 버튼 (로그인 시에만 표시) */}
+                {session?.user && (
+                  <button
+                    onClick={() => setShowMyBidsModal(!showMyBidsModal)}
+                    className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200"
+                    title="나의 입찰 내역"
+                  >
+                    <svg
+                      className={`w-5 h-5 transition-transform duration-200 ${showMyBidsModal ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* 아코디언 펼침 영역 - 나의 입찰 내역 */}
+            {session?.user && (
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${showMyBidsModal ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+              >
+                <div className="border-t border-blue-200 bg-blue-50/50">
+                  {/* 나의 총 입찰 금액 */}
+                  <div className="p-4 flex items-center justify-between border-b border-blue-200">
+                    <span className="text-blue-700">나의 총 입찰 금액</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xl font-bold text-blue-600">
+                        {myTotalBidAmount.toLocaleString()}
+                      </span>
+                      <img
+                        src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+                        alt="bit"
+                        className="w-5 h-5 object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 입찰 상세 내역 */}
+                  <div className="p-4 max-h-[350px] overflow-y-auto">
+                    {myBids.length === 0 ? (
+                      <p className="text-center text-gray-500 py-4">입찰 내역이 없습니다.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(() => {
+                          // 아이템별로 그룹화
+                          const groupedBids = myBids.reduce((acc, bid) => {
+                            if (!acc[bid.item_id]) {
+                              acc[bid.item_id] = {
+                                item_name: bid.item_name,
+                                bids: []
+                              };
+                            }
+                            acc[bid.item_id].bids.push({
+                              amount: bid.bid_amount,
+                              quantity: bid.bid_quantity,
+                              time: bid.bid_time
+                            });
+                            return acc;
+                          }, {} as Record<number, { item_name: string; bids: { amount: number; quantity: number; time: string }[] }>);
+
+                          return Object.entries(groupedBids).map(([itemId, group]) => {
+                            // 총 수량과 총 금액 계산
+                            const totalQuantity = group.bids.reduce((sum, b) => sum + b.quantity, 0);
+                            const totalAmount = group.bids.reduce((sum, b) => sum + (b.amount * b.quantity), 0);
+                            // 가장 최근 입찰 시간
+                            const latestTime = group.bids.reduce((latest, b) =>
+                              new Date(b.time) > new Date(latest) ? b.time : latest, group.bids[0].time);
+
+                            return (
+                              <div
+                                key={itemId}
+                                className="bg-white rounded-lg p-3 border border-blue-200 shadow-sm"
+                              >
+                                <div className="flex items-center justify-between">
+                                  {/* 왼쪽: 아이템 이름 + 수량 (수량x금액) */}
+                                  <div className="flex-1">
+                                    <span className="font-medium text-gray-800">{group.item_name}</span>
+                                    <div className="text-xs text-gray-400 mt-0.5">
+                                      {totalQuantity}개
+                                      {!(group.bids.length === 1 && totalQuantity === 1) && (
+                                        <span className="text-blue-500 ml-1">
+                                          ({group.bids.map((b, idx) => (
+                                            <span key={idx}>
+                                              {b.quantity}x{b.amount.toLocaleString()}
+                                              {idx < group.bids.length - 1 && ', '}
+                                            </span>
+                                          ))})
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* 오른쪽: 금액 */}
+                                  <div className="text-right">
+                                    <div className="flex items-center justify-end space-x-1">
+                                      <span className="text-lg font-bold text-blue-600">
+                                        {totalAmount.toLocaleString()}
+                                      </span>
+                                      <img
+                                        src="https://media.dsrwiki.com/dsrwiki/bit.webp"
+                                        alt="bit"
+                                        className="w-4 h-4 object-contain"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
