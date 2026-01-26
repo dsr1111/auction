@@ -134,9 +134,14 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
               }
             } else {
               // 최고 입찰가로 동기화
-              const highestBid = bidHistory.reduce((highest, current) =>
-                current.bid_amount > highest.bid_amount ? current : highest
-              );
+              // 최고 입찰가로 동기화 (같은 가격일 경우 먼저 입찰한 사람 우선)
+              const highestBid = bidHistory.reduce((highest, current) => {
+                if (current.bid_amount > highest.bid_amount) return current;
+                if (current.bid_amount === highest.bid_amount) {
+                  return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
+                }
+                return highest;
+              });
 
               await supabase
                 .from(itemsTable)
@@ -207,9 +212,14 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
 
         if (remainingBids.length > 0) {
           // 남은 입찰 중 최고 입찰 찾기
-          const newHighestBid = remainingBids.reduce((highest, current) =>
-            current.bid_amount > highest.bid_amount ? current : highest
-          );
+          // 남은 입찰 중 최고 입찰 찾기 (같은 가격일 경우 먼저 입찰한 사람 우선)
+          const newHighestBid = remainingBids.reduce((highest, current) => {
+            if (current.bid_amount > highest.bid_amount) return current;
+            if (current.bid_amount === highest.bid_amount) {
+              return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
+            }
+            return highest;
+          });
 
           // 아이템의 현재 입찰가와 입찰자 정보 업데이트
           const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
@@ -290,9 +300,14 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
         }
       } else {
         // 최고 입찰 찾기
-        const highestBid = bidHistory.reduce((highest, current) =>
-          current.bid_amount > highest.bid_amount ? current : highest
-        );
+        // 최고 입찰 찾기 (같은 가격일 경우 먼저 입찰한 사람 우선)
+        const highestBid = bidHistory.reduce((highest, current) => {
+          if (current.bid_amount > highest.bid_amount) return current;
+          if (current.bid_amount === highest.bid_amount) {
+            return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
+          }
+          return highest;
+        });
 
         // 아이템 정보 업데이트
         const { error: updateError } = await supabase
@@ -349,9 +364,13 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
       return false;
     }
 
-    const highestBid = bidHistory.reduce((highest, current) =>
-      current.bid_amount > highest.bid_amount ? current : highest
-    );
+    const highestBid = bidHistory.reduce((highest, current) => {
+      if (current.bid_amount > highest.bid_amount) return current;
+      if (current.bid_amount === highest.bid_amount) {
+        return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
+      }
+      return highest;
+    });
 
     return currentItemData.current_bid !== highestBid.bid_amount ||
       currentItemData.last_bidder_nickname !== highestBid.bidder_nickname;
@@ -383,7 +402,10 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
         ) : (() => {
           // 블라인드 경매: 마감 전에는 관리자도 자신의 입찰만 표시
           const visibleBids = isEnded
-            ? [...bidHistory].sort((a, b) => b.bid_amount - a.bid_amount) // 마감 후: 가격 높은 순 정렬
+            ? [...bidHistory].sort((a, b) => {
+              if (b.bid_amount !== a.bid_amount) return b.bid_amount - a.bid_amount;
+              return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            }) // 마감 후: 가격 높은 순, 시간 빠른 순 정렬
             : bidHistory.filter(bid => bid.bidder_discord_id === currentUserId); // 마감 전: 자신의 입찰만
 
           const myBidsCount = bidHistory.filter(bid => bid.bidder_discord_id === currentUserId).length;
