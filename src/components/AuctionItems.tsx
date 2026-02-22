@@ -67,128 +67,31 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     });
   }, []);
 
-  // 총 입찰 금액 계산
-  const calculateTotalBidAmount = useCallback(async () => {
+  // 총 입찰 금액 및 나의 입찰 금액 요약정보 가져오기
+  const fetchBidSummary = useCallback(async () => {
     try {
       if (loading || !items || items.length === 0) {
         if (!loading) {
           setTotalBidAmount(0);
+          setMyTotalBidAmount(0);
+          setMyBids([]);
         }
-        return 0;
+        return;
       }
 
-      const { data: bidHistoryData, error } = await supabase
-        .from('bid_history')
-        .select('item_id, bid_amount, bid_quantity')
-        .order('bid_amount', { ascending: false });
+      const response = await fetch('/api/auction/summary?guildType=guild1');
+      if (!response.ok) return;
 
-      if (error) {
-        return 0;
-      }
-
-      if (!bidHistoryData) {
-        return 0;
-      }
-
-      const bidHistoryMap = new Map<number, number[]>();
-
-      if (bidHistoryData && bidHistoryData.length > 0) {
-        bidHistoryData.forEach(bid => {
-          if (!bidHistoryMap.has(bid.item_id)) {
-            bidHistoryMap.set(bid.item_id, []);
-          }
-          for (let i = 0; i < bid.bid_quantity; i++) {
-            bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
-          }
-        });
-      }
-
-      bidHistoryMap.forEach((bids) => {
-        bids.sort((a, b) => b - a);
-      });
-
-      const total = items.reduce((total, item) => {
-        const itemBids = bidHistoryMap.get(item.id);
-
-        if (itemBids && itemBids.length > 0) {
-          let remainingQuantity = item.quantity || 1;
-          let itemTotal = 0;
-
-          for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
-            const bidAmount = itemBids[i];
-            const quantityToUse = Math.min(remainingQuantity, 1);
-
-            itemTotal += bidAmount * quantityToUse;
-            remainingQuantity -= quantityToUse;
-          }
-
-          return total + itemTotal;
-        } else {
-          return total;
-        }
-      }, 0);
-
-      setTotalBidAmount(total);
-      return total;
+      const data = await response.json();
+      setTotalBidAmount(data.totalBidAmount || 0);
+      setMyTotalBidAmount(data.myTotalBidAmount || 0);
+      setMyBids(data.myBids || []);
     } catch {
-      return 0;
-    }
-  }, [items, supabase, loading]);
-
-  // 나의 총 입찰 금액 계산
-  const calculateMyTotalBidAmount = useCallback(async () => {
-    try {
-      const currentUserId = (session?.user as { id?: string })?.id;
-      if (!currentUserId || loading || !items || items.length === 0) {
-        setMyTotalBidAmount(0);
-        setMyBids([]);
-        return 0;
-      }
-
-      // 현재 사용자의 입찰 내역 조회
-      const { data: myBidHistoryData, error } = await supabase
-        .from('bid_history')
-        .select('item_id, bid_amount, bid_quantity, created_at')
-        .eq('bidder_discord_id', currentUserId)
-        .order('created_at', { ascending: false });
-
-      if (error || !myBidHistoryData) {
-        setMyTotalBidAmount(0);
-        setMyBids([]);
-        return 0;
-      }
-
-      // 아이템 정보 맵 생성
-      const itemMap = new Map<number, Item>();
-      items.forEach(item => itemMap.set(item.id, item));
-
-      // 나의 입찰 내역 생성 (현재 진행 중인 아이템만)
-      const myBidItems: MyBidItem[] = [];
-      let total = 0;
-
-      myBidHistoryData.forEach(bid => {
-        const item = itemMap.get(bid.item_id);
-        if (item) {
-          myBidItems.push({
-            item_id: bid.item_id,
-            item_name: item.name,
-            bid_amount: bid.bid_amount,
-            bid_quantity: bid.bid_quantity,
-            bid_time: bid.created_at
-          });
-          total += bid.bid_amount * bid.bid_quantity;
-        }
-      });
-
-      setMyBids(myBidItems);
-      setMyTotalBidAmount(total);
-      return total;
-    } catch {
+      setTotalBidAmount(0);
       setMyTotalBidAmount(0);
       setMyBids([]);
-      return 0;
     }
-  }, [items, supabase, loading, session]);
+  }, [loading, items.length]);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -271,8 +174,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         });
 
         setTimeout(() => {
-          calculateTotalBidAmount();
-          calculateMyTotalBidAmount();
+          fetchBidSummary();
         }, 100);
       } else {
         console.log(`아이템 ${itemId}이(가) 존재하지 않음 (삭제된 것으로 추정)`);
@@ -281,7 +183,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
     } catch (err) {
       console.error('아이템 업데이트 중 오류:', err);
     }
-  }, [supabase, fetchItems, calculateTotalBidAmount, calculateMyTotalBidAmount, sortItems]);
+  }, [supabase, fetchItems, fetchBidSummary, sortItems]);
 
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
@@ -353,14 +255,13 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // items가 변경될 때마다 총 입찰 금액 계산 (fetchItems 완료 후)
   useEffect(() => {
     if (items.length > 0 && !loading) {
-      calculateTotalBidAmount();
-      calculateMyTotalBidAmount();
+      fetchBidSummary();
     } else if (items.length === 0) {
       setTotalBidAmount(0);
       setMyTotalBidAmount(0);
       setMyBids([]);
     }
-  }, [items.length, loading, calculateTotalBidAmount, calculateMyTotalBidAmount]);
+  }, [items.length, loading, fetchBidSummary]);
 
   if (loading) {
     return (

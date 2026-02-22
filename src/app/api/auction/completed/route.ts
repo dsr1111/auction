@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         console.log(`테이블 ${tableName} 접근 성공, 샘플 데이터:`, testData);
 
         // 2단계: end_time이 있는 아이템들 확인
-        const { data: itemsWithEndTime, error: endTimeError } = await supabase
+        const { data: itemsWithEndTime } = await supabase
           .from(tableName)
           .select('*')
           .not('end_time', 'is', null);

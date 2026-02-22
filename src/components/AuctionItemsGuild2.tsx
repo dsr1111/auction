@@ -30,7 +30,6 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
     try {
-      // 로딩 중이거나 아이템이 없으면 계산하지 않음
       if (loading || !items || items.length === 0) {
         if (!loading) {
           setTotalBidAmount(0);
@@ -38,68 +37,16 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
         return 0;
       }
 
-      const { data: bidHistoryData, error } = await supabase
-        .from('bid_history_guild2')
-        .select('item_id, bid_amount, bid_quantity')
-        .order('bid_amount', { ascending: false });
+      const response = await fetch('/api/auction/summary?guildType=guild2');
+      if (!response.ok) return 0;
 
-      if (error) {
-        return 0;
-      }
-
-      if (!bidHistoryData) {
-        return 0;
-      }
-
-      // 입찰내역을 아이템별로 그룹화
-      const bidHistoryMap = new Map<number, number[]>();
-
-      if (bidHistoryData && bidHistoryData.length > 0) {
-        bidHistoryData.forEach(bid => {
-          if (!bidHistoryMap.has(bid.item_id)) {
-            bidHistoryMap.set(bid.item_id, []);
-          }
-          // bid_quantity만큼 bid_amount를 반복해서 추가
-          for (let i = 0; i < bid.bid_quantity; i++) {
-            bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
-          }
-        });
-      }
-
-      // 각 아이템의 입찰내역을 높은 가격순으로 정렬
-      bidHistoryMap.forEach((bids) => {
-        bids.sort((a, b) => b - a);
-      });
-
-      const total = items.reduce((total, item) => {
-        // 해당 아이템의 입찰내역 가져오기
-        const itemBids = bidHistoryMap.get(item.id);
-
-        if (itemBids && itemBids.length > 0) {
-          // 수량 기반으로 입찰가 계산 (남은 수량만큼만)
-          let remainingQuantity = item.quantity || 1;
-          let itemTotal = 0;
-
-          for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
-            const bidAmount = itemBids[i];
-            const quantityToUse = Math.min(remainingQuantity, 1); // 각 입찰은 1개씩
-
-            itemTotal += bidAmount * quantityToUse;
-            remainingQuantity -= quantityToUse;
-          }
-
-          return total + itemTotal;
-        } else {
-          return total;
-        }
-      }, 0);
-
-      setTotalBidAmount(total);
-      return total;
+      const data = await response.json();
+      setTotalBidAmount(data.totalBidAmount || 0);
+      return data.totalBidAmount || 0;
     } catch {
       return 0;
     }
-  }, [items, supabase, loading]);
+  }, [loading, items.length]);
 
   const fetchItems = useCallback(async () => {
     try {

@@ -35,6 +35,8 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
   const [currentItemData, setCurrentItemData] = useState<{ current_bid: number, last_bidder_nickname: string | null, end_time: string | null } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInconsistent, setIsInconsistent] = useState(false);
+  const [totalBidsCount, setTotalBidsCount] = useState<number>(0);
+  const [myBidsCount, setMyBidsCount] = useState<number>(0);
 
   const supabase = createClient();
 
@@ -56,35 +58,19 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
     setError(null);
 
     try {
-      const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
-      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+      const response = await fetch(`/api/auction/bid-history?itemId=${item.id}&guildType=${guildType}`);
 
-      // 입찰 내역과 현재 아이템 데이터를 동시에 가져오기
-      const [bidHistoryResult, itemResult] = await Promise.all([
-        supabase
-          .from(historyTable)
-          .select('*')
-          .eq('item_id', item.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from(itemsTable)
-          .select('current_bid, last_bidder_nickname, end_time')
-          .eq('id', item.id)
-          .single()
-      ]);
-
-      if (bidHistoryResult.error) {
-        setError('입찰 내역을 불러오는데 실패했습니다.');
+      if (!response.ok) {
+        setError('데이터를 불러오는데 실패했습니다.');
         return;
       }
 
-      if (itemResult.error) {
-        setError('아이템 정보를 불러오는데 실패했습니다.');
-        return;
-      }
+      const data = await response.json();
 
-      setBidHistory(bidHistoryResult.data || []);
-      setCurrentItemData(itemResult.data);
+      setBidHistory(data.bids || []);
+      setCurrentItemData(data.item);
+      setTotalBidsCount(data.totalBidsCount || 0);
+      setMyBidsCount(data.myBidsCount || 0);
 
       // 데이터 불일치 여부 확인은 별도로 처리
       setIsInconsistent(false); // 임시로 false 설정
@@ -203,51 +189,56 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
         return;
       }
 
-      // 삭제된 입찰이 현재 최고 입찰이었는지 확인
-      const isCurrentHighestBid = bidToDelete.bid_amount === Math.max(...bidHistory.map(bid => bid.bid_amount));
+      // 삭제된 입찰이 현재 최고 입찰이었는지 여부를 서버에서 바로 확인
+      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
 
-      if (isCurrentHighestBid) {
-        // 남은 입찰 중에서 새로운 최고 입찰 찾기
-        const remainingBids = bidHistory.filter(bid => bid.id !== bidId);
+      // 서버에서 남은 입찰 목록 다 가져와서 최고 입찰 찾기
+      const { data: remainingBidsData } = await supabase
+        .from(historyTable)
+        .select('*')
+        .eq('item_id', item.id)
+        .order('bid_amount', { ascending: false });
 
-        if (remainingBids.length > 0) {
-          // 남은 입찰 중 최고 입찰 찾기
-          // 남은 입찰 중 최고 입찰 찾기 (같은 가격일 경우 먼저 입찰한 사람 우선)
-          const newHighestBid = remainingBids.reduce((highest, current) => {
-            if (current.bid_amount > highest.bid_amount) return current;
-            if (current.bid_amount === highest.bid_amount) {
-              return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
-            }
-            return highest;
-          });
-
-          // 아이템의 현재 입찰가와 입찰자 정보 업데이트
-          const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
-          const { error: updateError } = await supabase
-            .from(itemsTable)
-            .update({
-              current_bid: newHighestBid.bid_amount,
-              last_bidder_nickname: newHighestBid.bidder_nickname
-            })
-            .eq('id', item.id);
-
-          if (updateError) {
-            console.error('아이템 업데이트 실패:', updateError);
+      if (remainingBidsData && remainingBidsData.length > 0) {
+        // 최고 입찰 찾기 (같은 가격일 경우 먼저 입찰한 사람 우선)
+        const newHighestBid = remainingBidsData.reduce((highest, current) => {
+          if (current.bid_amount > highest.bid_amount) return current;
+          if (current.bid_amount === highest.bid_amount) {
+            return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
           }
-        } else {
-          // 남은 입찰이 없으면 아이템을 초기 상태로 되돌리기
-          const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
-          const { error: updateError } = await supabase
-            .from(itemsTable)
-            .update({
-              current_bid: 0,
-              last_bidder_nickname: null
-            })
-            .eq('id', item.id);
+          return highest;
+        });
 
-          if (updateError) {
-            console.error('아이템 초기화 실패:', updateError);
-          }
+        // 아이템의 현재 입찰가와 입찰자 정보 업데이트
+        const { error: updateError } = await supabase
+          .from(itemsTable)
+          .update({
+            current_bid: newHighestBid.bid_amount,
+            last_bidder_nickname: newHighestBid.bidder_nickname
+          })
+          .eq('id', item.id);
+
+        if (updateError) {
+          console.error('아이템 업데이트 실패:', updateError);
+        }
+      } else {
+        // 남은 입찰이 없으면 아이템을 초기 상태(시작가)로 되돌리기
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select('price')
+          .eq('id', item.id)
+          .single();
+
+        const { error: updateError } = await supabase
+          .from(itemsTable)
+          .update({
+            current_bid: itemData ? itemData.price : 0,
+            last_bidder_nickname: null
+          })
+          .eq('id', item.id);
+
+        if (updateError) {
+          console.error('아이템 초기화 실패:', updateError);
         }
       }
 
@@ -400,18 +391,10 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         ) : (() => {
-          // 블라인드 경매: 마감 전에는 관리자도 자신의 입찰만 표시
-          const visibleBids = isEnded
-            ? [...bidHistory].sort((a, b) => {
-              if (b.bid_amount !== a.bid_amount) return b.bid_amount - a.bid_amount;
-              return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-            }) // 마감 후: 가격 높은 순, 시간 빠른 순 정렬
-            : bidHistory.filter(bid => bid.bidder_discord_id === currentUserId); // 마감 전: 자신의 입찰만
+          // 서버에서 이미 권한/상태에 맞게 필터링 및 정렬된 visibleBids를 가져옵니다.
+          const visibleBids = bidHistory;
 
-          const myBidsCount = bidHistory.filter(bid => bid.bidder_discord_id === currentUserId).length;
-          const totalBidsCount = bidHistory.length;
-
-          if (visibleBids.length === 0) {
+          if (visibleBids.length === 0 && totalBidsCount === 0) {
             return (
               <div className="text-center p-8">
                 <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -430,6 +413,29 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
                 {!isEnded && totalBidsCount > 0 && (
                   <p className="text-sm text-purple-600 mt-2">
                     현재 {totalBidsCount}건의 입찰이 있습니다.
+                  </p>
+                )}
+              </div>
+            );
+          }
+
+          if (visibleBids.length === 0 && !isEnded) {
+            return (
+              <div className="text-center p-8">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  본인의 입찰 내역이 없습니다
+                </h3>
+                <p className="text-gray-600">
+                  다른 사용자의 입찰 정보는 경매 마감 시까지 비공개됩니다.
+                </p>
+                {totalBidsCount > 0 && (
+                  <p className="text-sm text-purple-600 mt-2">
+                    현재 전체 기준 {totalBidsCount}건의 입찰이 있습니다.
                   </p>
                 )}
               </div>
