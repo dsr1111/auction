@@ -53,7 +53,8 @@ export async function POST() {
           .from('bid_history')
           .select('*')
           .eq('item_id', item.id)
-          .order('bid_amount', { ascending: false });
+          .order('bid_amount', { ascending: false })
+          .order('created_at', { ascending: true });
 
         if (bidError) {
           console.error(`Failed to fetch bid history for item ${item.id}:`, bidError);
