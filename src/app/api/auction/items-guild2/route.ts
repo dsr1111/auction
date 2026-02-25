@@ -24,7 +24,8 @@ export async function GET() {
         .from('bid_history_guild2')
         .select('item_id, bidder_discord_id, bidder_nickname, bid_amount')
         .in('item_id', itemIds)
-        .order('bid_amount', { ascending: false });
+        .order('bid_amount', { ascending: false })
+        .order('created_at', { ascending: true });
 
       if (bidData) {
         // 아이템별 고유 입찰자 수 계산 및 최고 입찰 저장
