@@ -76,7 +76,7 @@ export default function GuildAccessGate({ children, allowedGuild }: GuildAccessG
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">접근 권한이 없습니다</h2>
           <p className="text-gray-600 mb-6">
-            이 페이지는 <span className="font-bold">아카츠키 길드</span> 멤버만 접근할 수 있습니다.
+            이 페이지는 <span className="font-bold">크랙 길드</span> 멤버만 접근할 수 있습니다.
           </p>
         </div>
       </div>

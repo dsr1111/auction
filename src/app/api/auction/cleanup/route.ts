@@ -1,11 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     console.log('Cleanup API called');
+
+    // guildType 파라미터 확인
+    const url = new URL(request.url);
+    const guildType = url.searchParams.get('guildType') || 'guild1';
+    
+    const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+    const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+    const archiveTable = guildType === 'guild2' ? 'auction_results_archive_guild2' : 'auction_results_archive';
 
     // NextAuth 세션 확인
     const session = await getServerSession(authOptions);
@@ -22,7 +30,7 @@ export async function POST() {
     const now = new Date().toISOString();
 
     const { data: expiredItems, error: fetchError } = await supabase
-      .from('items')
+      .from(itemsTable)
       .select('id, name, price, current_bid, quantity, end_time, created_at')
       .lte('end_time', now);
 
@@ -50,7 +58,7 @@ export async function POST() {
       try {
         // 해당 아이템의 입찰 내역 조회
         const { data: bidHistory, error: bidError } = await supabase
-          .from('bid_history')
+          .from(historyTable)
           .select('*')
           .eq('item_id', item.id)
           .order('bid_amount', { ascending: false })
@@ -102,7 +110,7 @@ export async function POST() {
 
         // 아카이브 테이블에 저장
         const { error: archiveError } = await supabase
-          .from('auction_results_archive')
+          .from(archiveTable)
           .insert({
             item_id: item.id,
             item_name: item.name,
@@ -148,7 +156,7 @@ export async function POST() {
 
     // 마감된 아이템들 삭제 (아카이브 후)
     const { error: deleteError } = await supabase
-      .from('items')
+      .from(itemsTable)
       .delete()
       .lte('end_time', now);
 

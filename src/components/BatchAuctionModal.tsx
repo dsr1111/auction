@@ -77,7 +77,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
   // 프리셋 불러오기
   const loadPresetItems = async () => {
     try {
-      const response = await fetch('/api/default-items', {
+      const response = await fetch(`/api/default-items?guildType=${guildType}`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -375,6 +375,7 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
       <DefaultItemsManageModal
         isOpen={isManageModalOpen}
         onClose={() => setIsManageModalOpen(false)}
+        guildType={guildType}
       />
     </div>
   );

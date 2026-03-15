@@ -23,14 +23,16 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
     const body = await request.json();
-    const { name, price, quantity, sort_order } = body;
+    const { name, price, quantity, sort_order, guildType = 'guild1' } = body;
 
     if (!name || price === undefined || price === null || quantity === undefined || quantity === null) {
       return NextResponse.json({ error: 'Name, price, and quantity are required' }, { status: 400 });
     }
 
+    const tableName = guildType === 'guild2' ? 'auction_default_items_guild2' : 'auction_default_items';
+
     const { data, error } = await supabase
-      .from('auction_default_items')
+      .from(tableName)
       .insert({
         name,
         price,
@@ -72,14 +74,16 @@ export async function PUT(request: NextRequest) {
 
     const supabase = await createClient();
     const body = await request.json();
-    const { id, name, price, quantity, sort_order, is_active } = body;
+    const { id, name, price, quantity, sort_order, is_active, guildType = 'guild1' } = body;
 
     if (!id || !name || !price || !quantity) {
       return NextResponse.json({ error: 'ID, name, price, and quantity are required' }, { status: 400 });
     }
 
+    const tableName = guildType === 'guild2' ? 'auction_default_items_guild2' : 'auction_default_items';
+
     const { data, error } = await supabase
-      .from('auction_default_items')
+      .from(tableName)
       .update({
         name,
         price,
@@ -124,11 +128,14 @@ export async function DELETE(request: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const guildType = searchParams.get('guildType') || 'guild1';
+    
+    const tableName = guildType === 'guild2' ? 'auction_default_items_guild2' : 'auction_default_items';
 
     if (id) {
       // 특정 아이템 삭제
       const { error } = await supabase
-        .from('auction_default_items')
+        .from(tableName)
         .delete()
         .eq('id', parseInt(id));
 
@@ -144,7 +151,7 @@ export async function DELETE(request: NextRequest) {
     } else {
       // 모든 기본 아이템 삭제
       const { error } = await supabase
-        .from('auction_default_items')
+        .from(tableName)
         .delete()
         .neq('id', 0); // 모든 아이템 삭제
 

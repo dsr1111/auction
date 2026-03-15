@@ -13,6 +13,7 @@ interface BatchAuctionRequest {
   items: BatchItem[];
   endTime: string; // ISO string format
   clearExisting?: boolean; // 기존 경매 아이템 삭제 여부
+  guildType?: 'guild1' | 'guild2';
 }
 
 export async function POST(request: NextRequest) {
@@ -32,7 +33,8 @@ export async function POST(request: NextRequest) {
 
     const body: BatchAuctionRequest = await request.json();
     console.log('Request body:', body);
-    const { items, endTime, clearExisting = true } = body;
+    const { items, endTime, clearExisting = true, guildType = 'guild1' } = body;
+    const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
     
     console.log('Items received:', items.map(item => ({ name: item.name, price: item.price, quantity: item.quantity })));
 
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
     // 기존 경매 아이템 삭제 (선택사항)
     if (clearExisting) {
       const { error: deleteError } = await supabase
-        .from('items')
+        .from(tableName)
         .delete()
         .neq('id', 0); // 모든 아이템 삭제
 
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     console.log('Items to insert:', JSON.stringify(itemsToInsert, null, 2));
 
     const { data, error } = await supabase
-      .from('items')
+      .from(tableName)
       .insert(itemsToInsert)
       .select();
 
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
     // 삽입된 데이터 확인을 위해 다시 조회
     if (data && data.length > 0) {
       const { data: insertedItems, error: selectError } = await supabase
-        .from('items')
+        .from(tableName)
         .select('id, name, price, current_bid, quantity')
         .in('id', data.map(item => item.id));
       

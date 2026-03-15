@@ -69,8 +69,14 @@ const Header = () => {
                             >
                                 세계수 토벌 경매
                             </Link>
+                            <Link
+                                href="/crack"
+                                className={`py-2 text-sm font-medium transition-all duration-200 ${isActive('/crack')}`}
+                            >
+                                크랙 토벌 경매
+                            </Link>
 
-                            {/* 아이템 거래 드롭다운 */}
+                            {/* 아이템 거래 드롭다운 (비활성화)
                             <div
                                 className="relative"
                                 onMouseEnter={() => setIsTradeDropdownOpen(true)}
@@ -91,7 +97,7 @@ const Header = () => {
                                     </svg>
                                 </button>
 
-                                {/* 드롭다운 메뉴 - 간격 제거 */}
+                                {/* 드롭다운 메뉴 - 간격 제거 *}
                                 {isTradeDropdownOpen && (
                                     <div className="absolute top-full left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
                                         <Link
@@ -109,6 +115,7 @@ const Header = () => {
                                     </div>
                                 )}
                             </div>
+                            */}
                         </nav>
                     </div>
 
@@ -266,7 +273,15 @@ const Header = () => {
                                 >
                                     세계수 토벌 경매
                                 </Link>
+                                <Link
+                                    href="/crack"
+                                    className={`block py-2 text-sm font-medium transition-all duration-200 ${isActive('/crack')}`}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    크랙 토벌 경매
+                                </Link>
 
+                                {/* 아이템 거래 (비활성화)
                                 <div className="space-y-2">
                                     <div className="py-2 text-sm font-medium text-gray-600">
                                         아이템 거래
@@ -288,6 +303,7 @@ const Header = () => {
                                         </Link>
                                     </div>
                                 </div>
+                                */}
                             </nav>
 
                             {/* 로그인/로그아웃 버튼 */}

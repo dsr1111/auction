@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const guildType = searchParams.get('guildType') || 'guild1';
+    const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+    const bidHistoryTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from('items')
+      .from(itemsTable)
       .select('*, quantity')
       .order('created_at', { ascending: false });
 
@@ -21,7 +26,7 @@ export async function GET() {
     if (itemIds.length > 0) {
       // 각 아이템별 입찰 정보 조회
       const { data: bidData } = await supabase
-        .from('bid_history')
+        .from(bidHistoryTable)
         .select('item_id, bidder_discord_id, bidder_nickname, bid_amount')
         .in('item_id', itemIds)
         .order('bid_amount', { ascending: false })

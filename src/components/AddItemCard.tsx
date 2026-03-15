@@ -118,6 +118,7 @@ const AddItemCard = ({ onItemAdded, guildType = 'guild1', currentItems = [] }: A
         onClose={() => setIsBatchModalOpen(false)}
         onSuccess={onItemAdded}
         currentItems={currentItems}
+        guildType={guildType}
       />
     </>
   );

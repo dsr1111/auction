@@ -65,13 +65,13 @@ export const authOptions = {
           if (guildResponse.ok) {
             const member: DiscordGuildMember = await guildResponse.json();
             
-            // 관리자 역할 확인 (길드1 또는 길드2)
+            // 관리자 역할 확인 (길드1과 길드2 모두 동일한 관리자 역할 사용)
             const isAdminGuild1 = member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID!);
-            const isAdminGuild2 = process.env.DISCORD_ADMIN_ROLE_ID_2 ? member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID_2) : false;
+            const isAdminGuild2 = isAdminGuild1;
             
-            // 일반 멤버 역할 확인
+            // 일반 멤버 역할 확인 (길드1과 길드2 모두 동일한 멤버 역할 사용)
             const isGuild1Role = process.env.DISCORD_GUILD1_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD1_ROLE_ID) : false;
-            const isGuild2Role = process.env.DISCORD_GUILD2_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD2_ROLE_ID) : false;
+            const isGuild2Role = isGuild1Role;
             
             // 서버 닉네임 또는 글로벌 유저네임 설정
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
@@ -83,7 +83,7 @@ export const authOptions = {
             (user as any).guild1Member = isAdminGuild1 || isGuild1Role;
             (user as any).guild2Member = isAdminGuild2 || isGuild2Role;
             (user as any).isAdminGuild1 = isAdminGuild1; // 세계수 관리자 여부
-            (user as any).isAdminGuild2 = isAdminGuild2; // 아카츠키 관리자 여부
+            (user as any).isAdminGuild2 = isAdminGuild2; // 크랙 관리자 여부
             
             console.log('역할 확인:', {
               isAdminGuild1,

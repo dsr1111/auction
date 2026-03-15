@@ -27,7 +27,7 @@ type MyBidItem = {
   bid_time: string;
 };
 
-export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void }) {
+export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { onItemAdded?: () => void, guildType?: 'guild1' | 'guild2' }) {
   const { data: session } = useSession();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +79,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
         return;
       }
 
-      const response = await fetch('/api/auction/summary?guildType=guild1');
+      const response = await fetch(`/api/auction/summary?guildType=${guildType}`);
       if (!response.ok) return;
 
       const data = await response.json();
@@ -98,7 +98,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/auction/items');
+      const response = await fetch(`/api/auction/items?guildType=${guildType}`);
       if (!response.ok) {
         throw new Error('Failed to fetch items');
       }
@@ -123,7 +123,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   // 백그라운드 데이터 새로고침 (로딩 상태 없이 조용히 업데이트)
   const refreshItemsSilently = useCallback(async () => {
     try {
-      const response = await fetch('/api/auction/items');
+      const response = await fetch(`/api/auction/items?guildType=${guildType}`);
       if (!response.ok) return;
 
       const data = await response.json();
@@ -142,7 +142,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
   const updateSingleItem = useCallback(async (itemId: number) => {
     try {
       const { data, error } = await supabase
-        .from('items')
+        .from(guildType === 'guild2' ? 'items_guild2' : 'items')
         .select('*')
         .eq('id', itemId)
         .maybeSingle();
@@ -485,6 +485,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
               // 블라인드 경매: 입찰/마감 시 조용히 데이터 새로고침 (깜빡임 없음)
               refreshItemsSilently();
             }}
+            guildType={guildType}
           />
         ))}
         {/* 관리자에게만 새 아이템 추가 카드 표시 */}
@@ -492,6 +493,7 @@ export default function AuctionItems({ onItemAdded }: { onItemAdded?: () => void
           <AddItemCard
             onItemAdded={fetchItems}
             currentItems={items}
+            guildType={guildType}
           />
         )}
       </div>

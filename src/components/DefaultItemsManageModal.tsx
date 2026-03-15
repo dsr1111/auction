@@ -13,9 +13,10 @@ interface DefaultItem {
 interface DefaultItemsManageModalProps {
     isOpen: boolean;
     onClose: () => void;
+    guildType?: 'guild1' | 'guild2';
 }
 
-const DefaultItemsManageModal = ({ isOpen, onClose }: DefaultItemsManageModalProps) => {
+const DefaultItemsManageModal = ({ isOpen, onClose, guildType = 'guild1' }: DefaultItemsManageModalProps) => {
     const [items, setItems] = useState<DefaultItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -27,7 +28,7 @@ const DefaultItemsManageModal = ({ isOpen, onClose }: DefaultItemsManageModalPro
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/default-items', {
+            const response = await fetch(`/api/default-items?guildType=${guildType}`, {
                 credentials: 'include',
             });
             if (response.ok) {
@@ -87,7 +88,7 @@ const DefaultItemsManageModal = ({ isOpen, onClose }: DefaultItemsManageModalPro
             }
 
             // 기존 기본 아이템 모두 삭제
-            const deleteResponse = await fetch('/api/default-items/manage', {
+            const deleteResponse = await fetch(`/api/default-items/manage?guildType=${guildType}`, {
                 method: 'DELETE',
                 credentials: 'include',
             });
@@ -110,7 +111,8 @@ const DefaultItemsManageModal = ({ isOpen, onClose }: DefaultItemsManageModalPro
                         name: item.name,
                         price: item.price,
                         quantity: item.quantity || 1,
-                        sort_order: i + 1
+                        sort_order: i + 1,
+                        guildType
                     }),
                 });
 
