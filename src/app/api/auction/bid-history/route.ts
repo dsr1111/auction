@@ -48,6 +48,16 @@ export async function GET(request: NextRequest) {
         const isEnded = itemData.end_time ? new Date(itemData.end_time) <= new Date() : false;
 
         let visibleBids = [];
+        let overallHighestBidId = null;
+
+        if (allBids && allBids.length > 0) {
+            const sortedBids = [...allBids].sort((a, b) => {
+                if (b.bid_amount !== a.bid_amount) return b.bid_amount - a.bid_amount;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
+            overallHighestBidId = sortedBids[0].id;
+        }
+
         if (isEnded) {
             // 마감 후: 모든 입찰 정보 반환 (정렬: 가격 높은 순, 시간 빠른 순)
             visibleBids = [...(allBids || [])].sort((a, b) => {
@@ -56,8 +66,19 @@ export async function GET(request: NextRequest) {
             });
         } else {
             // 마감 전: 본인의 입찰만 반환 (관리자도 본인 것만)
-            visibleBids = (allBids || []).filter(bid => bid.bidder_discord_id === currentUserId);
+            visibleBids = (allBids || [])
+                .filter(bid => bid.bidder_discord_id === currentUserId)
+                .sort((a, b) => {
+                    if (b.bid_amount !== a.bid_amount) return b.bid_amount - a.bid_amount;
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                });
         }
+
+        // Add is_highest flag to the visible bids
+        visibleBids = visibleBids.map(bid => ({
+            ...bid,
+            is_highest: bid.id === overallHighestBidId
+        }));
 
         // counts
         const totalBidsCount = allBids?.length || 0;

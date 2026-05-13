@@ -23,6 +23,7 @@ type ItemCardProps = {
     timeLeft?: string;
     isEnded?: boolean;
     bidder_count?: number; // 블라인드 경매: 입찰 인원 수
+    is_my_highest_bid?: boolean;
   };
   getServerTimeOffset?: () => number; // getter 함수로 변경 (언제나 최신 값 참조)
   onBidSuccess?: () => void;
@@ -244,20 +245,27 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
                 <span className="text-xs text-gray-500">
                   {isEnded ? '최고 입찰자' : '입찰 현황'}
                 </span>
-                <span className={`text-xs ${isEnded
-                  ? (last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400')
-                  : (item.bidder_count && item.bidder_count > 0 ? 'font-medium text-purple-600' : 'text-gray-400')
-                  }`}>
-                  {loadingResult
-                    ? '확인 중...'
-                    : (isEnded
-                      ? (last_bidder_nickname || '입찰자 없음')
-                      : (item.bidder_count && item.bidder_count > 0
-                        ? `${item.bidder_count}명 입찰 중`
-                        : '입찰자 없음')
-                    )
-                  }
-                </span>
+                <div className="flex items-center space-x-1.5">
+                  {guildType === 'guild2' && !isEnded && item.is_my_highest_bid && (
+                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold" title="현재 나의 입찰가가 가장 높습니다">
+                      최고가
+                    </span>
+                  )}
+                  <span className={`text-xs ${isEnded
+                    ? (last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400')
+                    : (item.bidder_count && item.bidder_count > 0 ? 'font-medium text-purple-600' : 'text-gray-400')
+                    }`}>
+                    {loadingResult
+                      ? '확인 중...'
+                      : (isEnded
+                        ? (last_bidder_nickname || '입찰자 없음')
+                        : (item.bidder_count && item.bidder_count > 0
+                          ? `${item.bidder_count}명 입찰 중`
+                          : '입찰자 없음')
+                      )
+                    }
+                  </span>
+                </div>
               </div>
 
               {end_time && (
@@ -348,6 +356,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
     prevProps.item.quantity === nextProps.item.quantity &&
     prevProps.item.remaining_quantity === nextProps.item.remaining_quantity &&
     prevProps.item.bidder_count === nextProps.item.bidder_count && // 블라인드 경매: 입찰 인원 수
+    prevProps.item.is_my_highest_bid === nextProps.item.is_my_highest_bid &&
     prevProps.guildType === nextProps.guildType
   );
 });

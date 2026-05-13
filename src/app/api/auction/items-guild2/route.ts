@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('items_guild2')
@@ -16,7 +20,7 @@ export async function GET() {
     // 각 아이템의 입찰 인원 수 및 최고 입찰 정보 가져오기
     const itemIds = data?.map(item => item.id) || [];
     const bidderCounts: Record<number, number> = {};
-    const highestBids: Record<number, { bid_amount: number; bidder_nickname: string }> = {};
+    const highestBids: Record<number, { bid_amount: number; bidder_nickname: string; bidder_discord_id: string | null }> = {};
 
     if (itemIds.length > 0) {
       // 각 아이템별 입찰 정보 조회
@@ -42,7 +46,8 @@ export async function GET() {
           if (!highestBids[bid.item_id]) {
             highestBids[bid.item_id] = {
               bid_amount: bid.bid_amount,
-              bidder_nickname: bid.bidder_nickname
+              bidder_nickname: bid.bidder_nickname,
+              bidder_discord_id: bid.bidder_discord_id
             };
           }
         });
@@ -88,7 +93,7 @@ export async function GET() {
 
       // 블라인드 경매: 마감 전에는 입찰 정보 숨김
       const bidderCount = bidderCounts[item.id] || 0;
-
+      const isMyHighestBid = userId && highestBids[item.id]?.bidder_discord_id === userId;
 
       if (!isEnded) {
         // 마감 전: 시작가만 표시, 입찰자 정보 숨김
@@ -97,6 +102,7 @@ export async function GET() {
           current_bid: item.price, // 시작가로 표시
           last_bidder_nickname: null, // 숨김
           bidder_count: bidderCount, // 입찰 인원 수
+          is_my_highest_bid: isMyHighestBid,
           timeLeft,
           isEnded,
           serverTime: now

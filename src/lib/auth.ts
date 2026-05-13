@@ -66,7 +66,8 @@ export const authOptions = {
             const member: DiscordGuildMember = await guildResponse.json();
             
             // 관리자 역할 확인 (길드1과 길드2 모두 동일한 관리자 역할 사용)
-            const isAdminGuild1 = member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID!);
+            const isAdminGuild1 = member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID!) || 
+                                 (process.env.DISCORD_ADMIN_ROLE_ID_2 ? member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID_2) : false);
             const isAdminGuild2 = isAdminGuild1;
             
             // 일반 멤버 역할 확인 (길드1과 길드2 모두 동일한 멤버 역할 사용)

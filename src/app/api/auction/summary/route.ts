@@ -96,24 +96,51 @@ export async function GET(request: NextRequest) {
             const itemMap = new Map();
             items.forEach(item => itemMap.set(item.id, item));
 
-            // Fetch user's bids specifically sorted by created_at desc (mimicking calculateMyTotalBidAmount)
-            const myBidHistoryData = bidHistoryData
+            // Group user's bids by item_id
+            const myBidsByItem = new Map<number, typeof bidHistoryData>();
+            bidHistoryData
                 .filter(b => b.bidder_discord_id === currentUserId)
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                .forEach(bid => {
+                    if (!myBidsByItem.has(bid.item_id)) {
+                        myBidsByItem.set(bid.item_id, []);
+                    }
+                    myBidsByItem.get(bid.item_id)!.push(bid);
+                });
 
-            myBidHistoryData.forEach(bid => {
-                const item = itemMap.get(bid.item_id);
+            myBidsByItem.forEach((bids, itemId) => {
+                const item = itemMap.get(itemId);
                 if (item) {
-                    myBids.push({
-                        item_id: bid.item_id,
-                        item_name: item.name,
-                        bid_amount: bid.bid_amount,
-                        bid_quantity: bid.bid_quantity,
-                        bid_time: bid.created_at
+                    // Sort by bid_amount descending, then created_at descending
+                    bids.sort((a, b) => {
+                        if (b.bid_amount !== a.bid_amount) return b.bid_amount - a.bid_amount;
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                     });
-                    myTotalBidAmount += bid.bid_amount * bid.bid_quantity;
+
+                    let remainingItemQuantity = item.quantity || 1;
+                    
+                    // Only keep bids that are within the item's total quantity
+                    for (const bid of bids) {
+                        if (remainingItemQuantity <= 0) break;
+                        
+                        const quantityToUse = Math.min(remainingItemQuantity, bid.bid_quantity);
+                        
+                        if (quantityToUse > 0) {
+                            myBids.push({
+                                item_id: bid.item_id,
+                                item_name: item.name,
+                                bid_amount: bid.bid_amount,
+                                bid_quantity: quantityToUse,
+                                bid_time: bid.created_at
+                            });
+                            myTotalBidAmount += bid.bid_amount * quantityToUse;
+                            remainingItemQuantity -= quantityToUse;
+                        }
+                    }
                 }
             });
+            
+            // Sort myBids by time descending so the latest bids appear first in the UI
+            myBids.sort((a, b) => new Date(b.bid_time).getTime() - new Date(a.bid_time).getTime());
         }
 
         return NextResponse.json({

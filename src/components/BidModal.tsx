@@ -45,6 +45,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
+  const [currentBidCount, setCurrentBidCount] = useState<number | null>(null);
   const hasInitialized = useRef(false);
   const isUserTyping = useRef(false); // 사용자가 직접 입력 중인지 추적
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 타이핑 타이머 참조
@@ -61,6 +62,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
     } else if (!isOpen) {
       hasInitialized.current = false;
       isUserTyping.current = false;
+      setCurrentBidCount(null);
       // 타이머 정리
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
@@ -68,6 +70,22 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
       }
     }
   }, [isOpen, item]);
+
+  // 길드2인 경우 유저의 현재 입찰 횟수 가져오기
+  useEffect(() => {
+    if (isOpen && guildType === 'guild2' && session?.user?.id) {
+      const fetchBidCount = async () => {
+        const { count } = await supabase
+          .from('bid_history_guild2')
+          .select('*', { count: 'exact', head: true })
+          .eq('item_id', item.id)
+          .eq('bidder_discord_id', session.user.id);
+        
+        setCurrentBidCount(count || 0);
+      };
+      fetchBidCount();
+    }
+  }, [isOpen, guildType, session?.user?.id, item.id, supabase]);
 
   // 현재 입찰가가 업데이트되면 입력 필드도 자동 업데이트
   useEffect(() => {
@@ -216,6 +234,27 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
         return;
       }
 
+      // 크랙 경매(guild2)인 경우, 유저당 최대 입찰 횟수 3회 제한
+      if (guildType === 'guild2' && session?.user?.id) {
+        const { count, error: countError } = await supabase
+          .from(historyTableName)
+          .select('*', { count: 'exact', head: true })
+          .eq('item_id', item.id)
+          .eq('bidder_discord_id', session.user.id);
+          
+        if (countError) {
+          setError('입찰 기록 확인 중 오류가 발생했습니다.');
+          setIsLoading(false);
+          return;
+        }
+        
+        if (count !== null && count >= 3) {
+          setError('이 아이템에 대한 입찰 횟수 제한(3회)을 초과했습니다.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // 블라인드 경매: 입찰 내역만 저장 (items 테이블 업데이트 없음)
       const { error: historyError } = await supabase
         .from(historyTableName)
@@ -314,6 +353,20 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
             입찰 내역은 경매 마감 후 공개됩니다. 입찰 후 수정/취소 불가합니다.
           </p>
         </div>
+
+        {/* 크랙 경매 전용 입찰 횟수 표시 */}
+        {guildType === 'guild2' && currentBidCount !== null && (
+          <div className={`border rounded-lg p-3 ${currentBidCount >= 3 ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+            <div className="flex items-center space-x-2">
+              <span className={`text-sm font-medium ${currentBidCount >= 3 ? 'text-red-700' : 'text-blue-700'}`}>
+                현재 내 입찰 횟수: {currentBidCount} / 3회
+              </span>
+            </div>
+            {currentBidCount >= 3 && (
+              <p className="text-xs text-red-600 mt-1">입찰 횟수 제한에 도달하여 더 이상 입찰할 수 없습니다.</p>
+            )}
+          </div>
+        )}
 
         <div className="bg-gray-50 p-3 rounded-md">
           <p className="text-sm text-gray-600">시작가 (개당)</p>
@@ -426,7 +479,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
 
         <button
           onClick={handlePlaceBid}
-          disabled={isLoading}
+          disabled={isLoading || (guildType === 'guild2' && currentBidCount !== null && currentBidCount >= 3)}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
         >
           {isLoading ? (
