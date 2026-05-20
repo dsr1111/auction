@@ -475,7 +475,7 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
                             <span className="text-sm font-medium text-gray-700">
                               {bid.bidder_nickname}
                               {isMyBid && <span className="ml-1 text-xs text-blue-600">(나)</span>}
-                              {bid.is_highest && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">최고가</span>}
+                              {guildType === 'guild2' && bid.is_highest && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">최고가</span>}
                             </span>
                             {bid.bidder_discord_name ? (
                               <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center space-x-1">
