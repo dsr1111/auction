@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 type CompletedAuctionItem = {
@@ -61,24 +61,40 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [previewData, setPreviewData] = useState<ProcessedData | null>(null);
 
-  // 관리자 권한 확인 (미사용 - 참고용)
   const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
 
-  // 로그인한 사용자만 볼 수 있음
-  if (!session) {
+  useEffect(() => {
+    if (!showModal) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowModal(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showModal]);
+
+  // 낙찰자 정보는 관리자에게만 노출합니다.
+  if (!session || !isAdmin) {
     return null;
   }
 
   const fetchCompletedItems = async () => {
     const response = await fetch(`/api/auction/completed?guildType=${guildType}`);
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`마감된 아이템 정보를 가져오는데 실패했습니다. (${response.status}: ${response.statusText})`);
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `마감된 아이템 정보를 가져오는데 실패했습니다. (${response.status})`);
     }
     const responseData = await response.json();
     const { data: completedItems, message } = responseData;
@@ -146,6 +162,7 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
   const handleOpenPreview = async () => {
     setIsLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const completedItems = await fetchCompletedItems();
@@ -155,8 +172,7 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
       console.error('데이터 로드 실패:', err);
-      // 에러 발생 시 붉은 창(setError) 대신 alert만 표시
-      alert(`데이터 로드 실패: ${errorMessage}`);
+      setError(`데이터 로드 실패: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +181,7 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
   const handleDownloadExcel = async () => {
     setIsLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const completedItems = await fetchCompletedItems();
@@ -418,11 +435,11 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert(`낙찰 내역이 ${fileName}로 다운로드되었습니다.`);
+      setSuccessMessage(`낙찰 내역이 ${fileName}로 다운로드되었습니다.`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
       console.error('다운로드 실패:', err);
-      alert(`다운로드 실패: ${errorMessage}`);
+      setError(`다운로드 실패: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -462,18 +479,28 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-3">
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 mt-3">
             <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+        {successMessage && (
+          <div role="status" className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
+            <p className="text-green-700 text-sm">{successMessage}</p>
           </div>
         )}
       </div>
 
       {showModal && previewData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowModal(false);
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="completed-auction-title" className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-              <h3 className="text-lg font-bold text-gray-800">낙찰 내역 미리보기</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 p-2">
+              <h3 id="completed-auction-title" className="text-lg font-bold text-gray-800">낙찰 내역 미리보기</h3>
+              <button aria-label="낙찰 내역 닫기" onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 p-2">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

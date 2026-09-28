@@ -35,7 +35,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
   const [error, setError] = useState<string | null>(null);
   const [currentItemData, setCurrentItemData] = useState<{ current_bid: number, last_bidder_nickname: string | null, end_time: string | null } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isInconsistent, setIsInconsistent] = useState(false);
   const [totalBidsCount, setTotalBidsCount] = useState<number>(0);
   const [myBidsCount, setMyBidsCount] = useState<number>(0);
 
@@ -73,14 +72,41 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
       setTotalBidsCount(data.totalBidsCount || 0);
       setMyBidsCount(data.myBidsCount || 0);
 
-      // 데이터 불일치 여부 확인은 별도로 처리
-      setIsInconsistent(false); // 임시로 false 설정
     } catch {
       setError('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [item.id, supabase, guildType]);
+  }, [item.id, guildType]);
+
+  // 데이터 불일치 여부 확인 (블라인드 경매: 마감 후에만 체크)
+  const isDataInconsistent = useCallback(async () => {
+    if (!currentItemData || !isEnded) return false;
+
+    if (bidHistory.length === 0) {
+      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+      const { data: itemData } = await supabase
+        .from(itemsTable)
+        .select('price')
+        .eq('id', item.id)
+        .single();
+
+      return itemData
+        ? currentItemData.current_bid !== itemData.price || currentItemData.last_bidder_nickname !== null
+        : false;
+    }
+
+    const highestBid = bidHistory.reduce((highest, current) => {
+      if (current.bid_amount > highest.bid_amount) return current;
+      if (current.bid_amount === highest.bid_amount) {
+        return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
+      }
+      return highest;
+    });
+
+    return currentItemData.current_bid !== highestBid.bid_amount ||
+      currentItemData.last_bidder_nickname !== highestBid.bidder_nickname;
+  }, [bidHistory, currentItemData, guildType, isEnded, item.id, supabase]);
 
   useEffect(() => {
     if (isOpen && item.id) {
@@ -93,8 +119,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
     if (currentItemData && bidHistory.length >= 0) {
       const checkAndAutoSync = async () => {
         const inconsistent = await isDataInconsistent();
-        setIsInconsistent(inconsistent);
-
         // 마감 후 데이터 불일치 시 자동 동기화
         if (inconsistent && isEnded && !isSyncing) {
           // handleSyncData 로직 직접 실행
@@ -141,7 +165,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
 
             // 데이터 다시 가져오기
             await fetchBidHistory();
-            setIsInconsistent(false);
           } catch (error) {
             console.error('자동 동기화 실패:', error);
           } finally {
@@ -151,7 +174,7 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
       };
       checkAndAutoSync();
     }
-  }, [currentItemData, bidHistory, isEnded, guildType, item.id, supabase, fetchBidHistory, isSyncing]);
+  }, [currentItemData, bidHistory, isEnded, guildType, item.id, supabase, fetchBidHistory, isSyncing, isDataInconsistent]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -254,119 +277,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
       alert('입찰 삭제 중 오류가 발생했습니다.');
     }
   };
-
-  // 데이터 동기화 함수
-  const handleSyncData = async () => {
-    if (!isAdmin || !currentItemData) return;
-
-    setIsSyncing(true);
-
-    try {
-      // 실제 입찰 내역에서 최고 입찰 찾기
-      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
-
-      if (bidHistory.length === 0) {
-        // 입찰 내역이 없으면 아이템의 시작가(price)로 되돌리기
-        const { data: itemData, error: itemError } = await supabase
-          .from(itemsTable)
-          .select('price')
-          .eq('id', item.id)
-          .single();
-
-        if (itemError) {
-          alert('아이템 정보를 가져오는데 실패했습니다.');
-          return;
-        }
-
-        const { error: updateError } = await supabase
-          .from(itemsTable)
-          .update({
-            current_bid: itemData.price, // 시작가로 설정
-            last_bidder_nickname: null
-          })
-          .eq('id', item.id);
-
-        if (updateError) {
-          alert('동기화에 실패했습니다.');
-          return;
-        }
-      } else {
-        // 최고 입찰 찾기
-        // 최고 입찰 찾기 (같은 가격일 경우 먼저 입찰한 사람 우선)
-        const highestBid = bidHistory.reduce((highest, current) => {
-          if (current.bid_amount > highest.bid_amount) return current;
-          if (current.bid_amount === highest.bid_amount) {
-            return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
-          }
-          return highest;
-        });
-
-        // 아이템 정보 업데이트
-        const { error: updateError } = await supabase
-          .from(itemsTable)
-          .update({
-            current_bid: highestBid.bid_amount,
-            last_bidder_nickname: highestBid.bidder_nickname
-          })
-          .eq('id', item.id);
-
-        if (updateError) {
-          alert('동기화에 실패했습니다.');
-          return;
-        }
-      }
-
-      // 실시간 업데이트 알림
-      await notifyItemUpdate('bid', item.id);
-
-      // 데이터 다시 로드
-      await fetchBidHistory();
-
-      // 불일치 상태 업데이트
-      const inconsistent = await isDataInconsistent();
-      setIsInconsistent(inconsistent);
-
-      alert('데이터가 동기화되었습니다.');
-    } catch {
-      alert('동기화 중 오류가 발생했습니다.');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // 데이터 불일치 여부 확인 (블라인드 경매: 마감 후에만 체크)
-  const isDataInconsistent = useCallback(async () => {
-    if (!currentItemData) return false;
-
-    // 블라인드 경매: 마감 전에는 불일치 체크하지 않음
-    if (!isEnded) return false;
-
-    if (bidHistory.length === 0) {
-      // 입찰 내역이 없을 때는 시작가와 current_bid가 같아야 함
-      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
-      const { data: itemData } = await supabase
-        .from(itemsTable)
-        .select('price')
-        .eq('id', item.id)
-        .single();
-
-      if (itemData) {
-        return currentItemData.current_bid !== itemData.price || currentItemData.last_bidder_nickname !== null;
-      }
-      return false;
-    }
-
-    const highestBid = bidHistory.reduce((highest, current) => {
-      if (current.bid_amount > highest.bid_amount) return current;
-      if (current.bid_amount === highest.bid_amount) {
-        return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
-      }
-      return highest;
-    });
-
-    return currentItemData.current_bid !== highestBid.bid_amount ||
-      currentItemData.last_bidder_nickname !== highestBid.bidder_nickname;
-  }, [currentItemData, bidHistory, item.id, supabase, guildType, isEnded]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} - 입찰 내역`}>

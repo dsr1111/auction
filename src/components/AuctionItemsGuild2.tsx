@@ -30,7 +30,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
   // 총 입찰 금액 계산
   const calculateTotalBidAmount = useCallback(async () => {
     try {
-      if (loading || !items || items.length === 0) {
+      if (loading || items.length === 0) {
         if (!loading) {
           setTotalBidAmount(0);
         }
@@ -101,7 +101,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
             const newOffset = timeData.timestamp - clientTime;
             serverTimeOffsetRef.current = newOffset; // ref로 변경
           }
-        } catch (err) {
+        } catch {
           // 서버 시간 가져오기 실패 시 기존 오프셋 유지 (에러 무시)
         }
 
@@ -128,7 +128,7 @@ export default function AuctionItemsGuild2({ onItemAdded }: { onItemAdded?: () =
       // 에러 발생 시 로그만 남김 (새로고침 루프 방지)
       console.error('아이템 업데이트 중 오류:', err);
     }
-  }, [supabase, fetchItems, calculateTotalBidAmount]); // items 제거 - setItems 콜백 형태 사용으로 불필요
+  }, [supabase, calculateTotalBidAmount]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {

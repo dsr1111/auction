@@ -72,9 +72,6 @@ export default function UltimatePotentialPage() {
   const [filteredSellItems, setFilteredSellItems] = useState<UltimatePotentialItem[]>([]);
   const [filteredBuyItems, setFilteredBuyItems] = useState<UltimatePotentialBuyItem[]>([]);
   
-  // 디버깅용 상태
-  const [debugInfo, setDebugInfo] = useState<string>('');
-
   // 필터링 창 토글 상태
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -82,7 +79,7 @@ export default function UltimatePotentialPage() {
   const supabase = createClient();
 
   // 아이템 목록 불러오기
-  const fetchSellItems = async () => {
+  const fetchSellItems = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -113,9 +110,9 @@ export default function UltimatePotentialPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
 
-  const fetchBuyItems = async () => {
+  const fetchBuyItems = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -146,7 +143,7 @@ export default function UltimatePotentialPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
 
   // 필터 적용
   const applyFilters = useCallback(async () => {
@@ -319,7 +316,7 @@ export default function UltimatePotentialPage() {
   useEffect(() => {
     fetchSellItems();
     fetchBuyItems();
-  }, []);
+  }, [fetchBuyItems, fetchSellItems]);
 
   // 모달 관련 핸들러들
   const handleAddItemClick = () => {
@@ -635,7 +632,7 @@ export default function UltimatePotentialPage() {
   const handleAddItemSubmit = async (itemData: UltimatePotentialData) => {
     try {
       // 판매 아이템 등록 로직
-              const { data: newItem, error } = await supabase
+      const { error } = await supabase
           .from('ultimate_potential_items')
           .insert([{
             level: itemData.level,
@@ -665,7 +662,7 @@ export default function UltimatePotentialPage() {
   const handleAddBuyItemSubmit = async (itemData: UltimatePotentialData) => {
     try {
       // 구매 아이템 등록 로직
-              const { data: newItem, error } = await supabase
+      const { error } = await supabase
           .from('ultimate_potential_buy_items')
           .insert([{
             level: itemData.level,

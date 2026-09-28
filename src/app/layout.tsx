@@ -11,8 +11,8 @@ const notoSans = Noto_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "경매",
-  description: "경매",
+  title: "DSR 길드 경매",
+  description: "디지몬 슈퍼럼블 길드 경매 관리 서비스",
 };
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body
         className={`${notoSans.variable} font-sans antialiased`}
       >

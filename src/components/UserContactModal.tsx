@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -28,14 +28,7 @@ export default function UserContactModal({ isOpen, onClose }: UserContactModalPr
   
   const supabase = createClient();
 
-  // 현재 사용자의 연락처 정보 불러오기
-  useEffect(() => {
-    if (isOpen && session?.user && (session.user as { id?: string }).id) {
-      fetchUserContact();
-    }
-  }, [isOpen, session?.user]);
-
-  const fetchUserContact = async () => {
+  const fetchUserContact = useCallback(async () => {
     if (!session?.user || !(session.user as { id?: string }).id) return;
     
     const userId = (session.user as { id?: string }).id;
@@ -73,7 +66,14 @@ export default function UserContactModal({ isOpen, onClose }: UserContactModalPr
     } finally {
       setLoading(false);
     }
-  };
+  }, [session?.user, supabase]);
+
+  // 현재 사용자의 연락처 정보 불러오기
+  useEffect(() => {
+    if (isOpen && session?.user && (session.user as { id?: string }).id) {
+      fetchUserContact();
+    }
+  }, [fetchUserContact, isOpen, session?.user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

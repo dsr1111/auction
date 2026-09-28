@@ -3,15 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-interface DefaultItem {
-  id?: number;
-  name: string;
-  price: number;
-  quantity: number;
-  sort_order: number;
-  is_active: boolean;
-}
-
 // 기본 아이템 생성
 export async function POST(request: NextRequest) {
   try {

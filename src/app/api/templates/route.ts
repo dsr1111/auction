@@ -3,21 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-interface TemplateItem {
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-interface Template {
-  id: number;
-  name: string;
-  items: TemplateItem[];
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
-
 // 템플릿 목록 조회
 export async function GET() {
   try {

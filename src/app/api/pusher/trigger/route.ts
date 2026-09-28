@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Pusher from 'pusher';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -11,14 +13,28 @@ const pusher = new Pusher({
 
 export async function POST(request: NextRequest) {
   try {
-    // 환경 변수 확인
-    
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { channel, event, data } = await request.json();
-    
-    await pusher.trigger(channel, event, data);
+
+    const isValidAction = data?.action === 'bid' || data?.action === 'added' || data?.action === 'deleted';
+    const isValidItemId = data?.itemId === undefined || (Number.isInteger(data.itemId) && data.itemId > 0);
+
+    if (channel !== 'auction-updates' || event !== 'item-updated' || !isValidAction || !isValidItemId) {
+      return NextResponse.json({ error: 'Invalid event payload' }, { status: 400 });
+    }
+
+    await pusher.trigger('auction-updates', 'item-updated', {
+      action: data.action,
+      itemId: data.itemId,
+      timestamp: Date.now(),
+    });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: '트리거 실패' }, { status: 500 });
   }
 }

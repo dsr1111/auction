@@ -42,7 +42,7 @@ type EquipmentOption = {
   created_at: string;
 };
 
-const TradeItemCard = ({ item, onEditClick, onContactClick }: TradeItemCardProps) => {
+const TradeItemCard = ({ item, onEditClick }: TradeItemCardProps) => {
   const {
     id,
     base_equipment_name,
@@ -125,14 +125,14 @@ const TradeItemCard = ({ item, onEditClick, onContactClick }: TradeItemCardProps
     const fetchOptions = async () => {
       setLoadingOptions(true);
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('timer_equipment_options')
           .select('*')
           .eq('item_id', id)
           .order('option_line', { ascending: true });
 
         setOptions(data || []);
-      } catch (error) {
+      } catch {
         setOptions([]);
       } finally {
         setLoadingOptions(false);

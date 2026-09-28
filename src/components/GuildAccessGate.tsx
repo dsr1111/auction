@@ -1,7 +1,6 @@
 "use client";
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 
 interface GuildUser {
   id: string;
@@ -20,8 +19,6 @@ interface GuildAccessGateProps {
 
 export default function GuildAccessGate({ children, allowedGuild }: GuildAccessGateProps) {
   const { data: session, status } = useSession();
-  const router = useRouter();
-
   // 세션 로딩 중
   if (status === 'loading') {
     return (

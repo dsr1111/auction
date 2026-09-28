@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 
 export type UltimatePotentialData = {
   level: number;
@@ -34,7 +33,6 @@ export default function AddUltimatePotentialModal({
   onComplete,
   onDelete
 }: AddUltimatePotentialModalProps) {
-  const { data: session } = useSession();
   const [formData, setFormData] = useState<UltimatePotentialData>({
     level: 4,
     name: '궁극체 포텐셜 4',
@@ -116,30 +114,6 @@ export default function AddUltimatePotentialModal({
       name: getItemName(newLevel),
       potential_board: Array.from({ length: 16 }, () => ({ stat: '', active: false }))
     }));
-  };
-
-  // 보드 칸 클릭 처리
-  const handleBoardClick = (index: number) => {
-    const maxOptions = getMaxOptions(formData.level);
-    const currentOptions = formData.potential_board.filter(item => item.active).length;
-    
-    if (formData.potential_board[index].active) {
-      // 이미 선택된 칸이면 제거
-      setFormData(prev => ({
-        ...prev,
-        potential_board: prev.potential_board.map((item, i) => 
-          i === index ? { ...item, active: false, stat: '' } : item
-        )
-      }));
-    } else if (currentOptions < maxOptions) {
-      // 새로운 칸 선택
-      setFormData(prev => ({
-        ...prev,
-        potential_board: prev.potential_board.map((item, i) => 
-          i === index ? { ...item, active: true } : item
-        )
-      }));
-    }
   };
 
   // 옵션 선택 모달 열기

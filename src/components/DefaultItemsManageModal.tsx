@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface DefaultItem {
     id?: number;
@@ -24,7 +24,7 @@ const DefaultItemsManageModal = ({ isOpen, onClose, guildType = 'guild1' }: Defa
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // 기본 아이템 목록 불러오기
-    const fetchDefaultItems = async () => {
+    const fetchDefaultItems = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -45,7 +45,7 @@ const DefaultItemsManageModal = ({ isOpen, onClose, guildType = 'guild1' }: Defa
         } finally {
             setLoading(false);
         }
-    };
+    }, [guildType]);
 
     // 모달 열릴 때 데이터 로드
     useEffect(() => {
@@ -53,7 +53,7 @@ const DefaultItemsManageModal = ({ isOpen, onClose, guildType = 'guild1' }: Defa
             fetchDefaultItems();
             setSuccessMessage(null);
         }
-    }, [isOpen]);
+    }, [fetchDefaultItems, isOpen]);
 
     const addItem = () => {
         setItems([...items, { name: '', price: 0, quantity: 1 }]);

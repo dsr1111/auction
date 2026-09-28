@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
 import DefaultItemsManageModal from './DefaultItemsManageModal';
 
 interface BatchItem {
@@ -27,8 +26,7 @@ interface BatchAuctionModalProps {
   currentItems?: CurrentAuctionItem[];
 }
 
-const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', currentItems = [] }: BatchAuctionModalProps) => {
-  const { data: session } = useSession();
+const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1' }: BatchAuctionModalProps) => {
   const [items, setItems] = useState<BatchItem[]>([]);
   const [endTime, setEndTime] = useState('');
   const [clearExisting, setClearExisting] = useState(true);
@@ -54,7 +52,6 @@ const BatchAuctionModal = ({ isOpen, onClose, onSuccess, guildType = 'guild1', c
       setItems([{ name: '', price: 0, quantity: 1 }]);
       setIsPresetMenuOpen(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // 프리셋 메뉴 외부 클릭 시 닫기

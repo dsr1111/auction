@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { createClient } from '@/lib/supabase/client';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
@@ -37,7 +36,6 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
   const [myBids, setMyBids] = useState<MyBidItem[]>([]);
   const [showMyBidsModal, setShowMyBidsModal] = useState(false); // 아코디언 펼침 상태
   const serverTimeOffsetRef = useRef<number>(0);
-  const supabase = createClient();
 
   // 아이템 정렬 함수
   const sortItems = useCallback((itemsToSort: Item[]) => {
@@ -70,7 +68,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
   // 총 입찰 금액 및 나의 입찰 금액 요약정보 가져오기
   const fetchBidSummary = useCallback(async () => {
     try {
-      if (loading || !items || items.length === 0) {
+      if (loading || items.length === 0) {
         if (!loading) {
           setTotalBidAmount(0);
           setMyTotalBidAmount(0);
@@ -91,7 +89,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
       setMyTotalBidAmount(0);
       setMyBids([]);
     }
-  }, [loading, items.length]);
+  }, [guildType, loading, items.length]);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -118,7 +116,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
     } finally {
       setLoading(false);
     }
-  }, [sortItems]);
+  }, [guildType, sortItems]);
 
   // 백그라운드 데이터 새로고침 (로딩 상태 없이 조용히 업데이트)
   const refreshItemsSilently = useCallback(async () => {
@@ -136,55 +134,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
       setItems(sortItems(data.items || []));
     } catch {
     }
-  }, [sortItems]);
-
-  // 개별 아이템 업데이트 (깜빡임 없음)
-  const updateSingleItem = useCallback(async (itemId: number) => {
-    try {
-      const { data, error } = await supabase
-        .from(guildType === 'guild2' ? 'items_guild2' : 'items')
-        .select('*')
-        .eq('id', itemId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('아이템 업데이트 실패:', error);
-        return;
-      }
-
-      if (data) {
-        try {
-          const timeResponse = await fetch('/api/time');
-          if (timeResponse.ok) {
-            const timeData = await timeResponse.json();
-            const clientTime = Date.now();
-            const newOffset = timeData.timestamp - clientTime;
-            serverTimeOffsetRef.current = newOffset;
-          }
-        } catch (err) {
-        }
-
-        setItems(prevItems => {
-          const updatedItems = prevItems.map(item =>
-            item.id === itemId ? data : item
-          );
-
-          // 업데이트된 리스트 다시 정렬
-          return sortItems(updatedItems);
-        });
-
-        setTimeout(() => {
-          fetchBidSummary();
-        }, 100);
-      } else {
-        console.log(`아이템 ${itemId}이(가) 존재하지 않음 (삭제된 것으로 추정)`);
-        return;
-      }
-    } catch (err) {
-      console.error('아이템 업데이트 중 오류:', err);
-    }
-  }, [supabase, fetchItems, fetchBidSummary, sortItems]);
-
+  }, [guildType, sortItems]);
 
   // Pusher로 실시간 업데이트 (스마트 업데이트)
   useEffect(() => {
@@ -416,10 +366,6 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
                             // 총 수량과 총 금액 계산
                             const totalQuantity = group.bids.reduce((sum, b) => sum + b.quantity, 0);
                             const totalAmount = group.bids.reduce((sum, b) => sum + (b.amount * b.quantity), 0);
-                            // 가장 최근 입찰 시간
-                            const latestTime = group.bids.reduce((latest, b) =>
-                              new Date(b.time) > new Date(latest) ? b.time : latest, group.bids[0].time);
-
                             return (
                               <div
                                 key={itemId}

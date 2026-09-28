@@ -33,12 +33,9 @@ export default function UltimatePotentialCard({ item, onEditClick }: UltimatePot
     name,
     potential_board,
     price,
-    current_bid,
-    last_bidder_nickname,
     seller_nickname,
     comment,
     created_at,
-    end_time,
     is_active,
     user_id
   } = item;
@@ -210,7 +207,7 @@ export default function UltimatePotentialCard({ item, onEditClick }: UltimatePot
                         tooltip.style.top = `${e.clientY - 10}px`;
                       }
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={() => {
                       // 마우스가 이미지에서 벗어날 때만 툴팁 제거
                       const tooltip = document.querySelector('.board-tooltip');
                       if (tooltip) {

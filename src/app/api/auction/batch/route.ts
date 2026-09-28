@@ -18,93 +18,115 @@ interface BatchAuctionRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Batch auction API called');
-    
     // NextAuth 세션 확인
     const session = await getServerSession(authOptions);
-    console.log('Session:', session?.user);
-    
     if (!session || !(session.user as { isAdmin?: boolean })?.isAdmin) {
-      console.log('Unauthorized access attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
 
     const body: BatchAuctionRequest = await request.json();
-    console.log('Request body:', body);
     const { items, endTime, clearExisting = true, guildType = 'guild1' } = body;
+
+    if (guildType !== 'guild1' && guildType !== 'guild2') {
+      return NextResponse.json({ error: 'Invalid guild type' }, { status: 400 });
+    }
+
     const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
-    
-    console.log('Items received:', items.map(item => ({ name: item.name, price: item.price, quantity: item.quantity })));
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Items array is required' }, { status: 400 });
     }
 
-    if (!endTime) {
-      return NextResponse.json({ error: 'End time is required' }, { status: 400 });
+    const parsedEndTime = new Date(endTime);
+    if (!endTime || Number.isNaN(parsedEndTime.getTime()) || parsedEndTime.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'A valid future end time is required' }, { status: 400 });
     }
 
-    // 기존 경매 아이템 삭제 (선택사항)
+    const normalizedItems = items.map((item) => ({
+      name: typeof item.name === 'string' ? item.name.trim() : '',
+      price: Number(item.price),
+      quantity: Number(item.quantity),
+    }));
+
+    const hasInvalidItem = normalizedItems.some((item) =>
+      !item.name ||
+      !Number.isInteger(item.price) || item.price <= 0 ||
+      !Number.isInteger(item.quantity) || item.quantity <= 0
+    );
+
+    if (hasInvalidItem) {
+      return NextResponse.json({ error: 'Each item requires a name, positive integer price, and positive integer quantity' }, { status: 400 });
+    }
+
+    let existingItemIds: number[] = [];
     if (clearExisting) {
-      const { error: deleteError } = await supabase
+      const { data: existingItems, error: existingItemsError } = await supabase
         .from(tableName)
-        .delete()
-        .neq('id', 0); // 모든 아이템 삭제
+        .select('id');
 
-      if (deleteError) {
-        console.error('Error deleting existing items:', deleteError);
-        return NextResponse.json({ error: 'Failed to clear existing items' }, { status: 500 });
+      if (existingItemsError) {
+        console.error('Error fetching existing items:', existingItemsError);
+        return NextResponse.json({ error: 'Failed to read existing items' }, { status: 500 });
       }
+
+      existingItemIds = (existingItems || []).map((item) => item.id);
     }
 
-    // 새 아이템들 일괄 삽입
-    const itemsToInsert = items.map(item => {
-      const price = typeof item.price === 'string' ? parseInt(item.price) : item.price;
-      console.log(`Item ${item.name}: original price=${item.price}, parsed price=${price}`);
-      
-      return {
+    // 새 데이터가 정상 저장된 뒤에만 기존 데이터를 제거해 삽입 실패 시 원본을 보존합니다.
+    const createdAt = new Date().toISOString();
+    const itemsToInsert = normalizedItems.map((item) => ({
         name: item.name,
-        price: price,
-        current_bid: price,
+        price: item.price,
+        current_bid: item.price,
         last_bidder_nickname: null,
-        end_time: endTime,
-        quantity: item.quantity || 1,
-        created_at: new Date().toISOString()
-      };
-    });
-
-    console.log('Items to insert:', JSON.stringify(itemsToInsert, null, 2));
+        end_time: parsedEndTime.toISOString(),
+        quantity: item.quantity,
+        remaining_quantity: item.quantity,
+        created_at: createdAt,
+      }));
 
     const { data, error } = await supabase
       .from(tableName)
       .insert(itemsToInsert)
       .select();
 
-    console.log('Insert result:', { data, error });
-
     if (error) {
       console.error('Error inserting batch items:', error);
       return NextResponse.json({ error: 'Failed to create batch auction' }, { status: 500 });
     }
 
-    // 삽입된 데이터 확인을 위해 다시 조회
-    if (data && data.length > 0) {
-      const { data: insertedItems, error: selectError } = await supabase
+    const insertedIds = (data || []).map((item) => item.id);
+
+    if (clearExisting && existingItemIds.length > 0) {
+      const { error: deleteError } = await supabase
         .from(tableName)
-        .select('id, name, price, current_bid, quantity')
-        .in('id', data.map(item => item.id));
-      
-      console.log('Inserted items from database:', insertedItems);
-      if (selectError) {
-        console.error('Error selecting inserted items:', selectError);
+        .delete()
+        .in('id', existingItemIds);
+
+      if (deleteError) {
+        const { error: rollbackError } = await supabase
+          .from(tableName)
+          .delete()
+          .in('id', insertedIds);
+
+        console.error('Error replacing existing items:', deleteError);
+        if (rollbackError) {
+          console.error('Failed to roll back newly inserted items:', rollbackError);
+        }
+
+        return NextResponse.json({
+          error: rollbackError
+            ? 'Failed to replace existing items; manual cleanup may be required'
+            : 'Failed to replace existing items; original items were preserved',
+        }, { status: 500 });
       }
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: `${items.length}개의 아이템이 성공적으로 등록되었습니다.`,
+      message: `${normalizedItems.length}개의 아이템이 성공적으로 등록되었습니다.`,
       items: data 
     });
 

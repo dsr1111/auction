@@ -55,7 +55,7 @@ export async function GET() {
       serverTime,
       timestamp: Date.now()
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to get server time' },
       { status: 500 }

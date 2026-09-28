@@ -1,175 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+
+type GuildType = 'guild1' | 'guild2';
+
+type BidRow = {
+  id: number;
+  item_id: number;
+  bid_amount: number;
+  bid_quantity: number | null;
+  bidder_nickname: string;
+  bidder_discord_id: string | null;
+  bidder_discord_name: string | null;
+  created_at: string;
+};
+
+function getGuildType(request: NextRequest): GuildType | null {
+  const guildType = request.nextUrl.searchParams.get('guildType') || 'guild1';
+  return guildType === 'guild1' || guildType === 'guild2' ? guildType : null;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('API 호출 시작: /api/auction/completed');
+    const session = await getServerSession(authOptions);
+    if (!session || !(session.user as { isAdmin?: boolean })?.isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
+    const guildType = getGuildType(request);
+    if (!guildType) {
+      return NextResponse.json({ error: 'Invalid guild type' }, { status: 400 });
+    }
+
+    const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+    const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+    const now = new Date().toISOString();
     const supabase = await createClient();
-    console.log('Supabase 클라이언트 생성 완료');
 
-    // guildType에 따라 테이블 선택
-    const url = new URL(request.url);
-    const guildType = url.searchParams.get('guildType') || 'guild1';
+    const { data: completedItems, error: itemsError } = await supabase
+      .from(itemsTable)
+      .select('id, name, price, current_bid, end_time, created_at, quantity, remaining_quantity, last_bidder_nickname')
+      .not('end_time', 'is', null)
+      .lt('end_time', now)
+      .order('end_time', { ascending: false });
 
-    const possibleTables = guildType === 'guild2'
-      ? ['items_guild2']
-      : ['timer_equipment_items', 'equipment_items', 'auction_items', 'items'];
-
-    let completedItems = null;
-    let actualTableName = null;
-
-    // 각 테이블을 시도해보기
-    for (const tableName of possibleTables) {
-      console.log(`테이블 ${tableName} 시도 중...`);
-
-      try {
-        // 1단계: 테이블 존재 여부 확인
-        const { data: testData, error: testError } = await supabase
-          .from(tableName)
-          .select('*')
-          .limit(1);
-
-        if (testError) {
-          console.log(`테이블 ${tableName} 접근 실패:`, testError.message);
-          continue;
-        }
-
-        console.log(`테이블 ${tableName} 접근 성공, 샘플 데이터:`, testData);
-
-        // 2단계: end_time이 있는 아이템들 확인
-        const { data: itemsWithEndTime } = await supabase
-          .from(tableName)
-          .select('*')
-          .not('end_time', 'is', null);
-
-        console.log(`테이블 ${tableName}에서 end_time이 있는 아이템들:`, itemsWithEndTime?.length);
-
-        if (itemsWithEndTime && itemsWithEndTime.length > 0) {
-          console.log(`테이블 ${tableName}에서 end_time 샘플:`, itemsWithEndTime.slice(0, 2));
-
-          // 3단계: 마감된 아이템들을 가져옴 (end_time이 지난 아이템들)
-          const now = new Date();
-          console.log('현재 시간:', now.toISOString());
-
-          const { data: items, error: error } = await supabase
-            .from(tableName)
-            .select('*')
-            .not('end_time', 'is', null)
-            .lt('end_time', now.toISOString())
-            .order('end_time', { ascending: false });
-
-          if (error) {
-            console.error(`테이블 ${tableName}에서 마감된 아이템 조회 에러:`, error);
-            continue;
-          }
-
-          if (items && items.length > 0) {
-            console.log(`테이블 ${tableName}에서 ${items.length}개의 마감된 아이템을 찾았습니다.`);
-            completedItems = items;
-            actualTableName = tableName;
-            break;
-          } else {
-            console.log(`테이블 ${tableName}에서 마감된 아이템이 없습니다.`);
-          }
-        }
-
-      } catch (tableError) {
-        console.log(`테이블 ${tableName} 처리 중 에러:`, tableError);
-        continue;
-      }
+    if (itemsError) {
+      console.error('Failed to fetch completed auction items:', itemsError);
+      return NextResponse.json({ error: '마감된 아이템 조회에 실패했습니다.' }, { status: 500 });
     }
 
     if (!completedItems || completedItems.length === 0) {
-      console.log('모든 테이블에서 마감된 아이템을 찾을 수 없습니다.');
-      return NextResponse.json({
-        data: [],
-        message: '마감된 아이템이 없습니다.',
-        debug: {
-          triedTables: possibleTables,
-          currentTime: new Date().toISOString()
-        }
-      });
+      return NextResponse.json({ data: [], message: '마감된 아이템이 없습니다.' });
     }
 
-    console.log(`테이블 ${actualTableName}에서 ${completedItems.length}개의 마감된 아이템을 찾았습니다.`);
+    const itemIds = completedItems.map((item) => item.id);
+    const { data: bidHistory, error: bidsError } = await supabase
+      .from(historyTable)
+      .select('id, item_id, bid_amount, bid_quantity, bidder_nickname, bidder_discord_id, bidder_discord_name, created_at')
+      .in('item_id', itemIds)
+      .order('bid_amount', { ascending: false })
+      .order('created_at', { ascending: true });
 
-    // 4단계: 각 아이템의 입찰 내역을 별도로 가져옴 (bid_history 테이블이 있는 경우)
-    const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+    if (bidsError) {
+      console.error('Failed to fetch completed auction bids:', bidsError);
+      return NextResponse.json({ error: '입찰 내역 조회에 실패했습니다.' }, { status: 500 });
+    }
 
-    const itemsWithBids = await Promise.all(
-      completedItems.map(async (item) => {
-        try {
-          // 해당 아이템의 모든 입찰 내역을 가져옴
-          const { data: bidHistory, error: bidError } = await supabase
-            .from(historyTable)
-            .select('*')
-            .eq('item_id', item.id)
-            .order('bid_amount', { ascending: false }) // 높은 입찰가 순으로 정렬
-            .order('created_at', { ascending: true }); // 같은 가격이면 먼저 입찰한 순서대로 정렬
+    const bidsByItem = new Map<number, BidRow[]>();
+    for (const bid of (bidHistory || []) as BidRow[]) {
+      const itemBids = bidsByItem.get(bid.item_id) || [];
+      itemBids.push(bid);
+      bidsByItem.set(bid.item_id, itemBids);
+    }
 
-          if (bidError) {
-            console.log(`아이템 ${item.id}의 입찰 내역 조회 실패 (bid_history 테이블 없음):`, bidError.message);
-            return {
-              ...item,
-              bid_history: [],
-              winning_bids: [] // 낙찰 정보 추가
-            };
-          }
+    const itemsWithBids = completedItems.map((item) => {
+      const itemBids = bidsByItem.get(item.id) || [];
+      let remainingQuantity = item.quantity || 1;
 
-          // 낙찰 정보 계산 (총 입찰 금액 계산 방식과 동일)
-          const winningBids: Array<{
-            id: number;
-            bid_amount: number;
-            bid_quantity: number;
-            bidder_nickname: string;
-            bidder_discord_id: string | null;
-            bidder_discord_name: string | null;
-            created_at: string;
-            quantity_used: number;
-          }> = [];
-          if (bidHistory && bidHistory.length > 0) {
-            let remainingQuantity = item.quantity || 1;
+      const winningBids = itemBids.flatMap((bid) => {
+        if (remainingQuantity <= 0) return [];
 
-            for (const bid of bidHistory) {
-              if (remainingQuantity <= 0) break;
+        const quantityUsed = Math.min(remainingQuantity, bid.bid_quantity || 1);
+        remainingQuantity -= quantityUsed;
+        return [{ ...bid, quantity_used: quantityUsed }];
+      });
 
-              const quantityToUse = Math.min(remainingQuantity, bid.bid_quantity || 1);
-              winningBids.push({
-                ...bid,
-                quantity_used: quantityToUse
-              });
-
-              remainingQuantity -= quantityToUse;
-            }
-          }
-
-          return {
-            ...item,
-            bid_history: bidHistory || [],
-            winning_bids: winningBids // 낙찰 정보 추가
-          };
-        } catch (bidError) {
-          console.log(`아이템 ${item.id}의 입찰 내역 조회 중 에러:`, bidError);
-          return {
-            ...item,
-            bid_history: [],
-            winning_bids: []
-          };
-        }
-      })
-    );
-
-    console.log('입찰 내역 조회 완료');
-    return NextResponse.json({
-      data: itemsWithBids,
-      sourceTable: actualTableName
+      return {
+        ...item,
+        bid_history: itemBids,
+        winning_bids: winningBids,
+      };
     });
+
+    return NextResponse.json({ data: itemsWithBids, sourceTable: itemsTable });
   } catch (error) {
-    console.error('서버 에러:', error);
-    return NextResponse.json({
-      error: '서버 오류가 발생했습니다.',
-      details: error instanceof Error ? error.message : '알 수 없는 오류'
-    }, { status: 500 });
+    console.error('Completed auction API error:', error);
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

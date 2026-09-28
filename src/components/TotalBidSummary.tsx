@@ -1,24 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
-
-type Item = {
-  id: number;
-  name: string;
-  current_bid: number;
-  quantity: number;
-  end_time: string | null;
-};
 
 export default function TotalBidSummary() {
   const [totalBidAmount, setTotalBidAmount] = useState<number>(0);
   const [completedCount, setCompletedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
-  const supabase = createClient();
-
   const fetchSummary = useCallback(async () => {
     try {
       setLoading(true);

@@ -41,7 +41,7 @@ type BuyEquipmentOption = {
   option_text: string;
 };
 
-const BuyItemCard = ({ item, onEditClick, onContactClick }: BuyItemCardProps) => {
+const BuyItemCard = ({ item, onEditClick }: BuyItemCardProps) => {
   const {
     id,
     base_equipment_name,

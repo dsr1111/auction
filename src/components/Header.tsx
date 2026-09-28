@@ -18,7 +18,6 @@ interface ExtendedUser {
 const Header = () => {
     const { data: session } = useSession();
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-    const [isTradeDropdownOpen, setIsTradeDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);

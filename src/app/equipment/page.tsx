@@ -1039,7 +1039,7 @@ export default function EquipmentPage() {
       setIsEditBuyModalOpen(false);
       setEditingBuyItem(null);
       alert('구매 아이템이 성공적으로 삭제되었습니다.');
-    } catch (error) {
+    } catch {
       alert('구매 아이템 삭제 중 오류가 발생했습니다.');
     }
   };
@@ -1066,7 +1066,7 @@ export default function EquipmentPage() {
       setEditingItem(null);
       setEditingItemId(null);
       alert('판매완료 처리되었습니다.');
-    } catch (error) {
+    } catch {
       alert('판매완료 처리 중 오류가 발생했습니다.');
     }
   };
@@ -1093,7 +1093,7 @@ export default function EquipmentPage() {
       setEditingBuyItem(null);
       setEditingBuyItemId(null);
       alert('구매완료 처리되었습니다.');
-    } catch (error) {
+    } catch {
       alert('구매완료 처리 중 오류가 발생했습니다.');
     }
   };

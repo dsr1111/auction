@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface SellerContactModalProps {
@@ -28,14 +28,7 @@ export default function SellerContactModal({
   
   const supabase = createClient();
 
-  // 판매자의 연락처 정보 불러오기
-  useEffect(() => {
-    if (isOpen && sellerUserId) {
-      fetchSellerContact();
-    }
-  }, [isOpen, sellerUserId]);
-
-  const fetchSellerContact = async () => {
+  const fetchSellerContact = useCallback(async () => {
     if (!sellerUserId) return;
     
     setLoading(true);
@@ -61,7 +54,14 @@ export default function SellerContactModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [sellerUserId, supabase]);
+
+  // 판매자의 연락처 정보 불러오기
+  useEffect(() => {
+    if (isOpen && sellerUserId) {
+      fetchSellerContact();
+    }
+  }, [fetchSellerContact, isOpen, sellerUserId]);
 
   const handleCopyToClipboard = async (text: string, type: string) => {
     try {

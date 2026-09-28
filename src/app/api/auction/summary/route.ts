@@ -35,21 +35,26 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch bid history' }, { status: 500 });
         }
 
-        // 3. Calculate totalBidAmount strictly mimicking the client-side logic
-        const bidHistoryMap = new Map<number, number[]>();
+        // 3. 수량을 배열 원소로 복제하지 않고 입찰 행 단위로 집계합니다.
+        const bidHistoryMap = new Map<number, Array<{ amount: number; quantity: number; createdAt: string }>>();
         if (bidHistoryData && bidHistoryData.length > 0) {
             bidHistoryData.forEach(bid => {
                 if (!bidHistoryMap.has(bid.item_id)) {
                     bidHistoryMap.set(bid.item_id, []);
                 }
-                for (let i = 0; i < bid.bid_quantity; i++) {
-                    bidHistoryMap.get(bid.item_id)!.push(bid.bid_amount);
-                }
+                bidHistoryMap.get(bid.item_id)!.push({
+                    amount: bid.bid_amount,
+                    quantity: Math.max(1, bid.bid_quantity || 1),
+                    createdAt: bid.created_at,
+                });
             });
         }
 
         bidHistoryMap.forEach(bids => {
-            bids.sort((a, b) => b - a);
+            bids.sort((a, b) => {
+                if (b.amount !== a.amount) return b.amount - a.amount;
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            });
         });
 
         // 4. Calculate totalBidAmount and completedTotalBidAmount
@@ -74,10 +79,10 @@ export async function GET(request: NextRequest) {
                 let remainingQuantity = item.quantity || 1;
                 let itemTotal = 0;
 
-                for (let i = 0; i < itemBids.length && remainingQuantity > 0; i++) {
-                    const bidAmount = itemBids[i];
-                    const quantityToUse = Math.min(remainingQuantity, 1);
-                    itemTotal += bidAmount * quantityToUse;
+                for (const bid of itemBids) {
+                    if (remainingQuantity <= 0) break;
+                    const quantityToUse = Math.min(remainingQuantity, bid.quantity);
+                    itemTotal += bid.amount * quantityToUse;
                     remainingQuantity -= quantityToUse;
                 }
 
@@ -122,7 +127,7 @@ export async function GET(request: NextRequest) {
                     for (const bid of bids) {
                         if (remainingItemQuantity <= 0) break;
                         
-                        const quantityToUse = Math.min(remainingItemQuantity, bid.bid_quantity);
+                        const quantityToUse = Math.min(remainingItemQuantity, bid.bid_quantity || 1);
                         
                         if (quantityToUse > 0) {
                             myBids.push({

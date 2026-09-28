@@ -57,6 +57,13 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
   const [timeLeft, setTimeLeft] = useState<string>(initialTimeLeft || '');
   const [isEnded, setIsEnded] = useState<boolean>(initialIsEnded || false);
   const [loadingResult, setLoadingResult] = useState(false); // 마감 직후 결과 로딩 상태
+  const getServerTimeOffsetRef = useRef(getServerTimeOffset);
+  const onBidSuccessRef = useRef(onBidSuccess);
+
+  useEffect(() => {
+    getServerTimeOffsetRef.current = getServerTimeOffset;
+    onBidSuccessRef.current = onBidSuccess;
+  }, [getServerTimeOffset, onBidSuccess]);
 
   // 이미지 로드 실패 시 기본 이미지 사용
   const handleImageError = () => {
@@ -89,7 +96,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
 
     const calculateTimeLeft = () => {
       // getter 함수를 호출하여 항상 최신 오프셋 값 사용 (리렌더링 없음)
-      const serverTimeOffset = getServerTimeOffset ? getServerTimeOffset() : 0;
+      const serverTimeOffset = getServerTimeOffsetRef.current?.() ?? 0;
       const now = Date.now() + serverTimeOffset;
       const endTime = new Date(end_time).getTime();
       const difference = endTime - now;
@@ -105,7 +112,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
           setLoadingResult(true);
           // 약간의 지연 후 데이터 새로고침 (서버에서 마감 처리 완료 대기)
           setTimeout(() => {
-            onBidSuccess?.();
+            onBidSuccessRef.current?.();
             // 데이터 로드 완료 후 로딩 상태 해제
             setTimeout(() => {
               setLoadingResult(false);
@@ -140,7 +147,7 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [end_time, onBidSuccess]); // onBidSuccess 추가
+  }, [end_time]);
 
 
 
