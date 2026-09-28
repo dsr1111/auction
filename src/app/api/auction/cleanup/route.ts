@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     let spreadsheetAmount: number;
     try {
       const sheetResult = await updateAuctionWinningTotal(guildType, totalWinningAmount);
-      spreadsheetAmount = sheetResult.amountAfterFee;
+      spreadsheetAmount = sheetResult.spreadsheetAmount;
     } catch (sheetError) {
       console.error('Failed to update Google Sheets auction total:', sheetError);
       return NextResponse.json({

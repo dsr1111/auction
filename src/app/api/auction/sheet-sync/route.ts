@@ -97,8 +97,7 @@ export async function POST(request: NextRequest) {
       success: true,
       synced: true,
       totalWinningAmount,
-      feeAmount: result.feeAmount,
-      spreadsheetAmount: result.amountAfterFee,
+      spreadsheetAmount: result.spreadsheetAmount,
       spreadsheetRange: result.range,
     });
   } catch (error) {

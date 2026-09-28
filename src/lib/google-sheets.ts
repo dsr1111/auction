@@ -5,7 +5,6 @@ import { google } from 'googleapis';
 type GuildType = 'guild1' | 'guild2';
 
 const DEFAULT_SPREADSHEET_ID = '1xqbdYmgjB_gBiGobUJQsOMSiYAi2qFj704vaqqOQj9c';
-const AUCTION_FEE_PERCENT = 10;
 
 const SHEET_RANGES: Record<GuildType, string> = {
   guild1: '세계수!M2',
@@ -29,9 +28,6 @@ export async function updateAuctionWinningTotal(guildType: GuildType, totalWinni
     throw new Error('Invalid auction winning total');
   }
 
-  const feeAmount = Math.floor((totalWinningAmount * AUCTION_FEE_PERCENT) / 100);
-  const amountAfterFee = totalWinningAmount - feeAmount;
-
   const { spreadsheetId, clientEmail, privateKey } = getGoogleSheetsConfig();
   const auth = new google.auth.JWT({
     email: clientEmail,
@@ -47,7 +43,7 @@ export async function updateAuctionWinningTotal(guildType: GuildType, totalWinni
     valueInputOption: 'RAW',
     requestBody: {
       majorDimension: 'ROWS',
-      values: [[amountAfterFee]],
+      values: [[totalWinningAmount]],
     },
   });
 
@@ -59,7 +55,6 @@ export async function updateAuctionWinningTotal(guildType: GuildType, totalWinni
     range,
     updatedCells: response.data.updatedCells,
     totalWinningAmount,
-    feeAmount,
-    amountAfterFee,
+    spreadsheetAmount: totalWinningAmount,
   };
 }
