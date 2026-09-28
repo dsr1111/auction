@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
-import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
 import { useSession } from 'next-auth/react';
 import { signIn } from 'next-auth/react';
@@ -50,8 +49,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   const isUserTyping = useRef(false); // 사용자가 직접 입력 중인지 추적
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 타이핑 타이머 참조
   const bidInputRef = useRef<HTMLInputElement | null>(null); // 입력 필드 참조
-  const supabase = createClient();
-
   // 모달이 새로 열릴 때만 입찰가와 수량 초기화
   useEffect(() => {
     if (isOpen && !hasInitialized.current) {
@@ -75,17 +72,17 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   useEffect(() => {
     if (isOpen && guildType === 'guild2' && session?.user?.id) {
       const fetchBidCount = async () => {
-        const { count } = await supabase
-          .from('bid_history_guild2')
-          .select('*', { count: 'exact', head: true })
-          .eq('item_id', item.id)
-          .eq('bidder_discord_id', session.user.id);
-        
-        setCurrentBidCount(count || 0);
+        try {
+          const response = await fetch(`/api/auction/bids?guildType=guild2&itemId=${item.id}`, { cache: 'no-store' });
+          const data = await response.json();
+          setCurrentBidCount(response.ok ? data.count || 0 : null);
+        } catch {
+          setCurrentBidCount(null);
+        }
       };
       fetchBidCount();
     }
-  }, [isOpen, guildType, session?.user?.id, item.id, supabase]);
+  }, [isOpen, guildType, session?.user?.id, item.id]);
 
   // 현재 입찰가가 업데이트되면 입력 필드도 자동 업데이트
   useEffect(() => {
@@ -211,64 +208,21 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
     setIsLoading(true);
 
     try {
-      // 블라인드 경매: items 테이블 업데이트 없이 bid_history에만 기록
-      const nowIso = new Date().toISOString();
-      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
-      const historyTableName = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+      const response = await fetch('/api/auction/bids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guildType,
+          itemId: item.id,
+          bidAmount,
+          bidQuantity: quantityToBid,
+          bidderName,
+        }),
+      });
+      const data = await response.json();
 
-      // 마감 여부 확인 (서버사이드 체크)
-      const { data: itemData, error: checkError } = await supabase
-        .from(tableName)
-        .select('end_time')
-        .eq('id', item.id)
-        .single();
-
-      if (checkError) {
-        setError('아이템 정보를 확인할 수 없습니다.');
-        return;
-      }
-
-      // 마감 시간 체크
-      if (itemData.end_time && new Date(itemData.end_time) <= new Date(nowIso)) {
-        setError('경매가 이미 마감되었습니다.');
-        return;
-      }
-
-      // 크랙 경매(guild2)인 경우, 유저당 최대 입찰 횟수 3회 제한
-      if (guildType === 'guild2' && session?.user?.id) {
-        const { count, error: countError } = await supabase
-          .from(historyTableName)
-          .select('*', { count: 'exact', head: true })
-          .eq('item_id', item.id)
-          .eq('bidder_discord_id', session.user.id);
-          
-        if (countError) {
-          setError('입찰 기록 확인 중 오류가 발생했습니다.');
-          setIsLoading(false);
-          return;
-        }
-        
-        if (count !== null && count >= 3) {
-          setError('이 아이템에 대한 입찰 횟수 제한(3회)을 초과했습니다.');
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // 블라인드 경매: 입찰 내역만 저장 (items 테이블 업데이트 없음)
-      const { error: historyError } = await supabase
-        .from(historyTableName)
-        .insert({
-          item_id: item.id,
-          bid_amount: bidAmount,
-          bid_quantity: quantityToBid,
-          bidder_nickname: bidderName,
-          bidder_discord_id: session?.user?.id || null,
-          bidder_discord_name: session?.user?.name || null,
-        });
-
-      if (historyError) {
-        setError(`입찰에 실패했습니다: ${historyError.message}`);
+      if (!response.ok) {
+        setError(data.error || '입찰에 실패했습니다.');
         return;
       }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 type GuildType = 'guild1' | 'guild2';
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
     const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
     const now = new Date().toISOString();
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: completedItems, error: itemsError } = await supabase
       .from(itemsTable)

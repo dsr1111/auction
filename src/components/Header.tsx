@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import LoginModal from './LoginModal';
 import UserContactModal from './UserContactModal';
+import CorrectionRequestModal from './CorrectionRequestModal';
 
 interface ExtendedUser {
     name?: string | null;
@@ -20,8 +21,11 @@ const Header = () => {
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const pathname = usePathname();
+    const isAdmin = Boolean((session?.user as ExtendedUser | undefined)?.isAdmin);
+    const currentGuildType = pathname === '/crack' ? 'guild2' : 'guild1';
 
     const handleSignOut = () => {
         signOut({ callbackUrl: '/' });
@@ -182,6 +186,14 @@ const Header = () => {
                                     )}
                                 </div>
 
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCorrectionModalOpen(true)}
+                                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                >
+                                    정정신청
+                                </button>
+
                                 {/* 로그아웃 버튼 */}
                                 <button
                                     onClick={handleSignOut}
@@ -310,6 +322,16 @@ const Header = () => {
                                 {session?.user ? (
                                     <>
                                         <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsCorrectionModalOpen(true);
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
+                                        >
+                                            정정신청
+                                        </button>
+                                        <button
                                             onClick={() => {
                                                 setIsContactModalOpen(true);
                                                 setIsMobileMenuOpen(false);
@@ -353,10 +375,18 @@ const Header = () => {
 
             {/* 연락처 설정 모달 */}
             {session?.user && (
-                <UserContactModal
-                    isOpen={isContactModalOpen}
-                    onClose={() => setIsContactModalOpen(false)}
-                />
+                <>
+                    <UserContactModal
+                        isOpen={isContactModalOpen}
+                        onClose={() => setIsContactModalOpen(false)}
+                    />
+                    <CorrectionRequestModal
+                        isOpen={isCorrectionModalOpen}
+                        onClose={() => setIsCorrectionModalOpen(false)}
+                        isAdmin={isAdmin}
+                        defaultGuildType={currentGuildType}
+                    />
+                </>
             )}
         </header>
     );

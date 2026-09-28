@@ -11,8 +11,8 @@ const notoSans = Noto_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "DSR 길드 경매",
-  description: "디지몬 슈퍼럼블 길드 경매 관리 서비스",
+  title: "경매",
+  description: "경매",
 };
 
 export default function RootLayout({

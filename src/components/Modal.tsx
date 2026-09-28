@@ -8,9 +8,10 @@ type ModalProps = {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
+  size?: 'md' | 'xl';
 };
 
-const Modal = ({ isOpen, onClose, children, title }: ModalProps) => {
+const Modal = ({ isOpen, onClose, children, title, size = 'md' }: ModalProps) => {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -91,7 +92,7 @@ const Modal = ({ isOpen, onClose, children, title }: ModalProps) => {
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : '대화상자'}
         tabIndex={-1}
-        className="bg-white p-8 rounded-3xl shadow-2xl max-w-lg w-full relative text-gray-900 overflow-y-auto max-h-[90vh] modal-content"
+        className={`bg-white p-8 rounded-3xl shadow-2xl w-full relative text-gray-900 overflow-y-auto max-h-[90vh] modal-content ${size === 'xl' ? 'max-w-4xl' : 'max-w-lg'}`}
       >
         <button
           type="button"

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
         const session = await getServerSession(authOptions);
         const currentUserId = (session?.user as { id?: string })?.id;
 
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         // 1. Fetch all items (we need quantity and name)
         const { data: items, error: itemsError } = await supabase

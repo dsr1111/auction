@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         const session = await getServerSession(authOptions);
         const currentUserId = (session?.user as { id?: string })?.id;
 
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
         const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';

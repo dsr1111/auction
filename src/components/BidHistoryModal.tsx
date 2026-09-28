@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Modal from './Modal';
 import { createClient } from '@/lib/supabase/client';
-import { notifyItemUpdate } from '@/utils/pusher';
 
 type BidHistoryModalProps = {
   isOpen: boolean;
@@ -39,9 +38,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
   const [myBidsCount, setMyBidsCount] = useState<number>(0);
 
   const supabase = createClient();
-
-  // 관리자 권한 확인
-  const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
 
   // 현재 사용자 Discord ID
   const currentUserId = (session?.user as { id?: string })?.id;
@@ -187,97 +183,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
     });
   };
 
-  // 개별 입찰 삭제 함수
-  const handleDeleteBid = async (bidId: number) => {
-    if (!isAdmin) return;
-
-    if (!confirm('이 입찰을 삭제하시겠습니까?')) return;
-
-    try {
-      // 삭제할 입찰 정보 가져오기
-      const bidToDelete = bidHistory.find(bid => bid.id === bidId);
-      if (!bidToDelete) {
-        alert('삭제할 입찰을 찾을 수 없습니다.');
-        return;
-      }
-
-      // 입찰 내역에서 삭제
-      const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
-      const { error: deleteError } = await supabase
-        .from(historyTable)
-        .delete()
-        .eq('id', bidId);
-
-      if (deleteError) {
-        alert('입찰 삭제에 실패했습니다.');
-        return;
-      }
-
-      // 삭제된 입찰이 현재 최고 입찰이었는지 여부를 서버에서 바로 확인
-      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
-
-      // 서버에서 남은 입찰 목록 다 가져와서 최고 입찰 찾기
-      const { data: remainingBidsData } = await supabase
-        .from(historyTable)
-        .select('*')
-        .eq('item_id', item.id)
-        .order('bid_amount', { ascending: false });
-
-      if (remainingBidsData && remainingBidsData.length > 0) {
-        // 최고 입찰 찾기 (같은 가격일 경우 먼저 입찰한 사람 우선)
-        const newHighestBid = remainingBidsData.reduce((highest, current) => {
-          if (current.bid_amount > highest.bid_amount) return current;
-          if (current.bid_amount === highest.bid_amount) {
-            return new Date(current.created_at) < new Date(highest.created_at) ? current : highest;
-          }
-          return highest;
-        });
-
-        // 아이템의 현재 입찰가와 입찰자 정보 업데이트
-        const { error: updateError } = await supabase
-          .from(itemsTable)
-          .update({
-            current_bid: newHighestBid.bid_amount,
-            last_bidder_nickname: newHighestBid.bidder_nickname
-          })
-          .eq('id', item.id);
-
-        if (updateError) {
-          console.error('아이템 업데이트 실패:', updateError);
-        }
-      } else {
-        // 남은 입찰이 없으면 아이템을 초기 상태(시작가)로 되돌리기
-        const { data: itemData } = await supabase
-          .from(itemsTable)
-          .select('price')
-          .eq('id', item.id)
-          .single();
-
-        const { error: updateError } = await supabase
-          .from(itemsTable)
-          .update({
-            current_bid: itemData ? itemData.price : 0,
-            last_bidder_nickname: null
-          })
-          .eq('id', item.id);
-
-        if (updateError) {
-          console.error('아이템 초기화 실패:', updateError);
-        }
-      }
-
-      // 로컬 상태에서 삭제된 입찰 제거
-      setBidHistory(prev => prev.filter(bid => bid.id !== bidId));
-
-      // 실시간 업데이트 알림
-      await notifyItemUpdate('bid', item.id);
-
-      alert('입찰이 삭제되었습니다.');
-    } catch {
-      alert('입찰 삭제 중 오류가 발생했습니다.');
-    }
-  };
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${item.name} - 입찰 내역`}>
       <div className="flex flex-col gap-4">
@@ -356,7 +261,7 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
           return (
             <>
               {/* 블라인드 경매 안내 (마감 전) */}
-              {!isEnded && !isAdmin && (
+              {!isEnded && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-3">
                   <div className="flex items-center space-x-2">
                     <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -412,8 +317,8 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
                             />
                           </p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg font-bold text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold tabular-nums text-gray-900">
                             {(bid.bid_amount * bid.bid_quantity).toLocaleString()}
                           </span>
                           <img
@@ -421,17 +326,6 @@ const BidHistoryModal = ({ isOpen, onClose, item, guildType = 'guild1' }: BidHis
                             alt="bit"
                             className="w-5 h-5 object-contain"
                           />
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleDeleteBid(bid.id)}
-                              className="ml-2 p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors duration-200"
-                              title="입찰 삭제"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          )}
                         </div>
                       </div>
                     );

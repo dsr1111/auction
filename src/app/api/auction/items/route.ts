@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
     const bidHistoryTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from(itemsTable)
       .select('*, quantity')

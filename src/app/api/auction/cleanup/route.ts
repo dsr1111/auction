@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 type BidRow = {
   item_id: number;
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
     const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
     const archiveTable = guildType === 'guild2' ? 'auction_results_archive_guild2' : 'auction_results_archive';
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const now = new Date().toISOString();
 
     const { data: expiredItems, error: fetchError } = await supabase
