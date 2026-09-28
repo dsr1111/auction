@@ -2,7 +2,7 @@
 "use client";
 
 import { useSession, signOut } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import LoginModal from './LoginModal';
@@ -23,6 +23,7 @@ const Header = () => {
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
     const pathname = usePathname();
     const isAdmin = Boolean((session?.user as ExtendedUser | undefined)?.isAdmin);
     const currentGuildType = pathname === '/crack' ? 'guild2' : 'guild1';
@@ -38,6 +39,34 @@ const Header = () => {
     const handleLoginModalClose = () => {
         setIsLoginModalOpen(false);
     };
+
+    const fetchPendingCorrectionCount = useCallback(async () => {
+        if (!isAdmin) {
+            setPendingCorrectionCount(0);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/correction-requests/count', { cache: 'no-store' });
+            if (!response.ok) return;
+            const data = await response.json();
+            setPendingCorrectionCount(data.count || 0);
+        } catch {
+            // 다음 자동 갱신 또는 창 포커스 시 다시 시도합니다.
+        }
+    }, [isAdmin]);
+
+    useEffect(() => {
+        fetchPendingCorrectionCount();
+        if (!isAdmin) return;
+
+        const intervalId = window.setInterval(fetchPendingCorrectionCount, 30_000);
+        window.addEventListener('focus', fetchPendingCorrectionCount);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', fetchPendingCorrectionCount);
+        };
+    }, [fetchPendingCorrectionCount, isAdmin]);
 
     // 드롭다운 외부 클릭 시 닫기
     useEffect(() => {
@@ -197,9 +226,14 @@ const Header = () => {
                                 <button
                                     type="button"
                                     onClick={() => setIsCorrectionModalOpen(true)}
-                                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                    className="relative bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                                 >
                                     정정신청
+                                    {isAdmin && pendingCorrectionCount > 0 && (
+                                        <span aria-label={`미처리 정정 신청 ${pendingCorrectionCount}건`} className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none tabular-nums text-white shadow-sm ring-2 ring-white">
+                                            {pendingCorrectionCount}
+                                        </span>
+                                    )}
                                 </button>
                             </div>
                         ) : (
@@ -345,9 +379,14 @@ const Header = () => {
                                                 setIsCorrectionModalOpen(true);
                                                 setIsMobileMenuOpen(false);
                                             }}
-                                            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
+                                            className="relative w-full bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
                                         >
                                             정정신청
+                                            {isAdmin && pendingCorrectionCount > 0 && (
+                                                <span aria-label={`미처리 정정 신청 ${pendingCorrectionCount}건`} className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none tabular-nums text-white shadow-sm ring-2 ring-white">
+                                                    {pendingCorrectionCount}
+                                                </span>
+                                            )}
                                         </button>
                                     </>
                                 ) : (
@@ -385,6 +424,7 @@ const Header = () => {
                         onClose={() => setIsCorrectionModalOpen(false)}
                         isAdmin={isAdmin}
                         defaultGuildType={currentGuildType}
+                        onPendingCountChange={setPendingCorrectionCount}
                     />
                 </>
             )}

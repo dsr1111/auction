@@ -44,6 +44,7 @@ type CorrectionRequestModalProps = {
   onClose: () => void;
   isAdmin: boolean;
   defaultGuildType: GuildType;
+  onPendingCountChange?: (count: number) => void;
 };
 
 const GUILD_LABELS: Record<GuildType, string> = {
@@ -56,6 +57,7 @@ export default function CorrectionRequestModal({
   onClose,
   isAdmin,
   defaultGuildType,
+  onPendingCountChange,
 }: CorrectionRequestModalProps) {
   const [activeView, setActiveView] = useState<'form' | 'requests'>(isAdmin ? 'requests' : 'form');
   const [guildType, setGuildType] = useState<GuildType>(defaultGuildType);
@@ -82,13 +84,15 @@ export default function CorrectionRequestModal({
       const response = await fetch('/api/correction-requests', { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '정정 신청을 불러오지 못했습니다.');
-      setRequests(data.requests || []);
+      const nextRequests = data.requests || [];
+      setRequests(nextRequests);
+      onPendingCountChange?.(nextRequests.filter((requestItem: CorrectionRequest) => requestItem.status === 'open').length);
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : '정정 신청을 불러오지 못했습니다.');
     } finally {
       setIsLoadingRequests(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, onPendingCountChange]);
 
   const fetchMyBids = useCallback(async (targetGuildType: GuildType) => {
     setIsLoadingBids(true);
@@ -183,6 +187,7 @@ export default function CorrectionRequestModal({
       )));
       setEditingRequestId(null);
       setEditingBidAmount('');
+      onPendingCountChange?.(Math.max(0, requests.filter((item) => item.status === 'open').length - 1));
       await notifyItemUpdate('bid', data.itemId);
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : '정정 신청을 처리하지 못했습니다.');
