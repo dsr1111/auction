@@ -35,7 +35,10 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
   const [myTotalBidAmount, setMyTotalBidAmount] = useState<number>(0);
   const [myBids, setMyBids] = useState<MyBidItem[]>([]);
   const [showMyBidsModal, setShowMyBidsModal] = useState(false); // 아코디언 펼침 상태
+  const [clockTick, setClockTick] = useState(0);
   const serverTimeOffsetRef = useRef<number>(0);
+  const sheetSyncKeyRef = useRef<string | null>(null);
+  const isAdmin = Boolean((session?.user as { isAdmin?: boolean })?.isAdmin);
 
   // 아이템 정렬 함수
   const sortItems = useCallback((itemsToSort: Item[]) => {
@@ -150,6 +153,8 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
       lastUpdateTime = now;
 
       if (data.action === 'bid') {
+        // 마감 후 입찰 정정이 발생하면 낙찰 합계를 다시 반영할 수 있게 합니다.
+        sheetSyncKeyRef.current = null;
         // 입찰: 조용히 업데이트 (깜빡임 없음)
         setTimeout(() => {
           refreshItemsSilently();
@@ -181,6 +186,9 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
         }
       } catch (err) {
         console.error('서버 시간 동기화 실패:', err);
+      } finally {
+        // 시간 API 오류가 있어도 브라우저 시간을 기준으로 마감 여부를 다시 확인합니다.
+        setClockTick((tick) => tick + 1);
       }
     };
 
@@ -190,6 +198,36 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
     // 컴포넌트 언마운트 시 인터벌 정리
     return () => clearInterval(timeSyncInterval);
   }, [items.length]);
+
+  // 관리자 화면이 열려 있으면 경매 마감 후 지정된 Google Sheets 셀을 자동 갱신합니다.
+  // 화면이 열려 있지 않았던 경우에는 관리자가 다음에 접속했을 때 한 번 갱신됩니다.
+  useEffect(() => {
+    if (!isAdmin || loading || items.length === 0) return;
+
+    const now = Date.now() + serverTimeOffsetRef.current;
+    const allEnded = items.every((item) => (
+      item.end_time !== null && new Date(item.end_time).getTime() <= now
+    ));
+    if (!allEnded) return;
+
+    const syncKey = `${guildType}:${items
+      .map((item) => `${item.id}:${item.end_time}:${item.current_bid}`)
+      .sort()
+      .join('|')}`;
+    if (sheetSyncKeyRef.current === syncKey) return;
+
+    sheetSyncKeyRef.current = syncKey;
+    void fetch(`/api/auction/sheet-sync?guildType=${guildType}`, {
+      method: 'POST',
+    }).then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        console.error('Google Sheets 자동 반영 실패:', data?.error || response.statusText);
+      }
+    }).catch((syncError) => {
+      console.error('Google Sheets 자동 반영 실패:', syncError);
+    });
+  }, [clockTick, guildType, isAdmin, items, loading]);
 
   // 컴포넌트 마운트 시 아이템 로드
   useEffect(() => {
@@ -438,7 +476,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
           />
         ))}
         {/* 관리자에게만 새 아이템 추가 카드 표시 */}
-        {(session?.user as { isAdmin?: boolean })?.isAdmin && (
+        {isAdmin && (
           <AddItemCard
             onItemAdded={fetchItems}
             currentItems={items}

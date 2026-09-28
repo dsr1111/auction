@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { updateAuctionWinningTotal } from '@/lib/google-sheets';
 
 type BidRow = {
   item_id: number;
@@ -147,6 +148,51 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const failedCount = expiredItems.length - archivedItemIds.length;
+    if (failedCount > 0) {
+      return NextResponse.json({
+        success: false,
+        message: `${archivedItemIds.length}개는 아카이브됐지만 ${failedCount}개가 실패해 원본과 스프레드시트를 그대로 유지했습니다.`,
+        deletedCount: 0,
+        archivedCount: archivedItemIds.length,
+        failedCount,
+        archiveResults,
+      }, { status: 207 });
+    }
+
+    const { data: archivedTotals, error: totalsError } = await supabase
+      .from(archiveTable)
+      .select('item_id, total_winning_amount')
+      .in('item_id', expiredItemIds);
+
+    if (totalsError || !archivedTotals || archivedTotals.length !== expiredItemIds.length) {
+      console.error('Failed to verify archived auction totals:', totalsError);
+      return NextResponse.json({
+        error: '아카이브 합계를 확인하지 못해 원본과 스프레드시트를 그대로 유지했습니다.',
+        archivedCount: archivedItemIds.length,
+        archiveResults,
+      }, { status: 500 });
+    }
+
+    const totalWinningAmount = archivedTotals.reduce(
+      (sum, archive) => sum + Number(archive.total_winning_amount || 0),
+      0,
+    );
+
+    let spreadsheetAmount: number;
+    try {
+      const sheetResult = await updateAuctionWinningTotal(guildType, totalWinningAmount);
+      spreadsheetAmount = sheetResult.amountAfterFee;
+    } catch (sheetError) {
+      console.error('Failed to update Google Sheets auction total:', sheetError);
+      return NextResponse.json({
+        error: 'Google 스프레드시트 기록에 실패해 경매 원본을 보존했습니다. 설정을 확인한 뒤 다시 시도해주세요.',
+        archivedCount: archivedItemIds.length,
+        totalWinningAmount,
+        archiveResults,
+      }, { status: 502 });
+    }
+
     if (archivedItemIds.length > 0) {
       const { error: deleteError } = await supabase
         .from(itemsTable)
@@ -163,20 +209,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const failedCount = expiredItems.length - archivedItemIds.length;
     return NextResponse.json({
-      success: failedCount === 0,
-      message: failedCount === 0
-        ? `${archivedItemIds.length}개의 아이템이 아카이브되고 삭제되었습니다.`
-        : `${archivedItemIds.length}개는 처리됐고 ${failedCount}개는 아카이브 실패로 원본을 보존했습니다.`,
+      success: true,
+      message: `${archivedItemIds.length}개의 아이템이 아카이브되고, 낙찰 합계가 스프레드시트에 기록된 뒤 삭제되었습니다.`,
       deletedCount: archivedItemIds.length,
       archivedCount: archivedItemIds.length,
-      failedCount,
+      failedCount: 0,
+      totalWinningAmount,
+      spreadsheetAmount,
+      spreadsheetRange: guildType === 'guild2' ? '크랙!M2' : '세계수!M2',
       archiveResults,
       deletedItems: expiredItems
         .filter((item) => archivedItemIds.includes(item.id))
         .map((item) => ({ id: item.id, name: item.name })),
-    }, { status: failedCount === 0 ? 200 : 207 });
+    });
   } catch (error) {
     console.error('Cleanup error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
