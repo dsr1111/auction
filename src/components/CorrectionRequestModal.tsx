@@ -127,6 +127,10 @@ export default function CorrectionRequestModal({
       setFormMessage({ type: 'error', text: '정정 신청할 입찰을 선택해주세요.' });
       return;
     }
+    if (!details.trim()) {
+      setFormMessage({ type: 'error', text: '내용을 입력해주세요.' });
+      return;
+    }
 
     setIsSubmitting(true);
     setFormMessage(null);
@@ -192,11 +196,11 @@ export default function CorrectionRequestModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="정정 신청" size={activeView === 'requests' ? 'xl' : 'md'}>
       {isAdmin && (
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
-          <button type="button" onClick={() => setActiveView('requests')} className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${activeView === 'requests' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
+        <div className="mb-6 grid grid-cols-2 border-b border-gray-200">
+          <button type="button" onClick={() => setActiveView('requests')} className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeView === 'requests' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'}`}>
             신청 목록
           </button>
-          <button type="button" onClick={() => setActiveView('form')} className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${activeView === 'form' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
+          <button type="button" onClick={() => setActiveView('form')} className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeView === 'form' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'}`}>
             신청 작성
           </button>
         </div>
@@ -204,12 +208,8 @@ export default function CorrectionRequestModal({
 
       {activeView === 'form' ? (
         <form onSubmit={handleSubmit} className="space-y-5">
-          <p className="text-sm leading-6 text-gray-600">
-            경매 종류를 선택한 뒤 본인이 입찰한 내역 중 정정할 항목을 선택해주세요.
-          </p>
-
-          <label className="block text-sm font-medium text-gray-700">
-            경매 종류
+          <label className="block">
+            <span className="sr-only">경매 종류</span>
             <select
               value={guildType}
               onChange={(event) => setGuildType(event.target.value as GuildType)}
@@ -264,9 +264,10 @@ export default function CorrectionRequestModal({
           </fieldset>
 
           <label className="block text-sm font-medium text-gray-700">
-            코멘트 <span className="font-normal text-gray-400">(선택)</span>
+            내용 <span className="font-normal text-red-500">(필수)</span>
             <textarea
               maxLength={1000}
+              required
               rows={4}
               value={details}
               onChange={(event) => setDetails(event.target.value)}
@@ -282,8 +283,8 @@ export default function CorrectionRequestModal({
             </div>
           )}
 
-          <button type="submit" disabled={isSubmitting || isLoadingBids || !selectedBidId} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300">
-            {isSubmitting ? '접수 중...' : '선택한 입찰 정정 신청'}
+          <button type="submit" disabled={isSubmitting || isLoadingBids || !selectedBidId || !details.trim()} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300">
+            {isSubmitting ? '접수 중...' : '정정 신청'}
           </button>
         </form>
       ) : (

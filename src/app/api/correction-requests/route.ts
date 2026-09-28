@@ -26,7 +26,39 @@ export async function GET() {
       return NextResponse.json({ error: '정정 신청을 불러오지 못했습니다.' }, { status: 500 });
     }
 
-    return NextResponse.json({ requests: data || [] });
+    const requests = data || [];
+    const missingNameRequests = requests.filter((requestItem) => !requestItem.item_name && requestItem.item_id);
+    const itemNameMap = new Map<string, string>();
+
+    await Promise.all((['guild1', 'guild2'] as const).map(async (guildType) => {
+      const itemIds = [...new Set(
+        missingNameRequests
+          .filter((requestItem) => requestItem.guild_type === guildType)
+          .map((requestItem) => requestItem.item_id),
+      )];
+      if (itemIds.length === 0) return;
+
+      const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
+      const { data: items, error: itemsError } = await supabase
+        .from(itemsTable)
+        .select('id, name')
+        .in('id', itemIds);
+
+      if (itemsError) {
+        console.error(`Failed to restore ${guildType} correction item names:`, itemsError);
+        return;
+      }
+      (items || []).forEach((item) => itemNameMap.set(`${guildType}:${item.id}`, item.name));
+    }));
+
+    return NextResponse.json({
+      requests: requests.map((requestItem) => ({
+        ...requestItem,
+        item_name: requestItem.item_name ||
+          itemNameMap.get(`${requestItem.guild_type}:${requestItem.item_id}`) ||
+          `경매 품목 #${requestItem.item_id}`,
+      })),
+    });
   } catch (error) {
     console.error('Correction requests GET error:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
@@ -53,7 +85,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '정정할 입찰을 선택해주세요.' }, { status: 400 });
     }
     if (details.length > 1000) {
-      return NextResponse.json({ error: '코멘트는 1,000자 이내로 입력해주세요.' }, { status: 400 });
+      return NextResponse.json({ error: '내용은 1,000자 이내로 입력해주세요.' }, { status: 400 });
+    }
+    if (!details) {
+      return NextResponse.json({ error: '내용을 입력해주세요.' }, { status: 400 });
     }
 
     const supabase = createAdminClient();
