@@ -31,6 +31,11 @@ type ItemCardProps = {
   guildType?: 'guild1' | 'guild2';
 };
 
+const formatBidderNickname = (nickname: string) => {
+  const characters = Array.from(nickname);
+  return characters.length > 7 ? `${characters.slice(0, 7).join('')}..` : nickname;
+};
+
 interface ExtendedUser {
   name?: string | null;
   image?: string | null;
@@ -258,14 +263,17 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
                       최고가
                     </span>
                   )}
-                  <span className={`text-xs ${isEnded
+                  <span
+                    title={isEnded && last_bidder_nickname ? last_bidder_nickname : undefined}
+                    className={`text-xs ${isEnded
                     ? (last_bidder_nickname ? 'font-semibold text-gray-700' : 'text-gray-400')
                     : (item.bidder_count && item.bidder_count > 0 ? 'font-medium text-purple-600' : 'text-gray-400')
-                    }`}>
+                    }`}
+                  >
                     {loadingResult
                       ? '확인 중...'
                       : (isEnded
-                        ? (last_bidder_nickname || '입찰자 없음')
+                        ? (last_bidder_nickname ? formatBidderNickname(last_bidder_nickname) : '입찰자 없음')
                         : (item.bidder_count && item.bidder_count > 0
                           ? `${item.bidder_count}명 입찰 중`
                           : '입찰자 없음')

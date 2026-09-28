@@ -197,11 +197,11 @@ export default function CorrectionRequestModal({
     <Modal isOpen={isOpen} onClose={onClose} title="정정 신청" size={activeView === 'requests' ? 'xl' : 'md'}>
       {isAdmin && (
         <div className="mb-6 grid grid-cols-2 border-b border-gray-200">
-          <button type="button" onClick={() => setActiveView('requests')} className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeView === 'requests' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'}`}>
-            신청 목록
-          </button>
           <button type="button" onClick={() => setActiveView('form')} className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeView === 'form' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'}`}>
             신청 작성
+          </button>
+          <button type="button" onClick={() => setActiveView('requests')} className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeView === 'requests' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'}`}>
+            신청 목록
           </button>
         </div>
       )}

@@ -254,6 +254,9 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
             <span className="font-semibold">@ 반드시 인게임 닉네임으로 입찰해 주세요. 장난칠 시 입찰 삭제합니다.</span>
             <br />
             <br />
+            <span className="font-semibold">@ 잘못 입찰한 경우 상단 정정 신청 부탁드립니다.</span>
+            <br />
+            <br />
             <span className="font-semibold">@ 가격이 블라인드된 경매입니다. 마감 직전에 입찰할 필요 없이 여유 있게 입찰해 주세요.</span>
           </p>
         </div>

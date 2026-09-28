@@ -186,20 +186,20 @@ const Header = () => {
                                     )}
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setIsCorrectionModalOpen(true)}
-                                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                                >
-                                    정정신청
-                                </button>
-
                                 {/* 로그아웃 버튼 */}
                                 <button
                                     onClick={handleSignOut}
                                     className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
                                 >
                                     로그아웃
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCorrectionModalOpen(true)}
+                                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                >
+                                    정정신청
                                 </button>
                             </div>
                         ) : (
@@ -322,14 +322,13 @@ const Header = () => {
                                 {session?.user ? (
                                     <>
                                         <button
-                                            type="button"
                                             onClick={() => {
-                                                setIsCorrectionModalOpen(true);
+                                                handleSignOut();
                                                 setIsMobileMenuOpen(false);
                                             }}
-                                            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
+                                            className="w-full bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
                                         >
-                                            정정신청
+                                            로그아웃
                                         </button>
                                         <button
                                             onClick={() => {
@@ -341,13 +340,14 @@ const Header = () => {
                                             연락처 설정
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => {
-                                                handleSignOut();
+                                                setIsCorrectionModalOpen(true);
                                                 setIsMobileMenuOpen(false);
                                             }}
-                                            className="w-full bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
+                                            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
                                         >
-                                            로그아웃
+                                            정정신청
                                         </button>
                                     </>
                                 ) : (

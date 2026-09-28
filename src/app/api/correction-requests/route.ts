@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     const { data: item, error: itemError } = await supabase
       .from(itemsTable)
-      .select('id, name')
+      .select('id, name, end_time')
       .eq('id', bid.item_id)
       .maybeSingle();
 
@@ -121,6 +121,9 @@ export async function POST(request: NextRequest) {
     }
     if (!item) {
       return NextResponse.json({ error: '이미 종료되어 정리된 경매는 정정 신청할 수 없습니다.' }, { status: 409 });
+    }
+    if (item.end_time && new Date(item.end_time).getTime() <= Date.now()) {
+      return NextResponse.json({ error: '마감된 경매의 입찰은 정정 신청할 수 없습니다.' }, { status: 409 });
     }
 
     const { data, error } = await supabase
