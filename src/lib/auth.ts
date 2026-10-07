@@ -30,6 +30,9 @@ export const authOptions = {
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+      // Discord OAuth callbacks include the RFC 9207 `iss` parameter.
+      // NextAuth v4/openid-client requires the expected issuer to validate it.
+      issuer: 'https://discord.com',
       authorization: {
         params: {
           scope: 'identify guilds guilds.members.read',
