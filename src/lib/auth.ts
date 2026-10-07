@@ -50,23 +50,53 @@ export const authOptions = {
     async signIn({ user, account }: { user: ExtendedUser; account: DiscordAccount | null }) {
       if (account?.provider === 'discord') {
         try {
-          if (!process.env.DISCORD_GUILD_ID || !account.access_token) {
+          const guildId = process.env.DISCORD_GUILD_ID;
+          if (!guildId || (!account.access_token && !process.env.DISCORD_BOT_TOKEN)) {
             console.error('Discord login configuration is incomplete');
             return false;
           }
 
-          // OAuth에서 동의받은 guilds.members.read 권한으로 로그인 사용자의 멤버 정보를 조회합니다.
-          const guildResponse = await fetch(
-            `https://discord.com/api/v10/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`,
-            {
-              headers: {
-                Authorization: `Bearer ${account.access_token}`,
-              },
-              cache: 'no-store',
-            }
-          );
+          let guildResponse: Response | null = null;
 
-          if (guildResponse.ok) {
+          // 우선 OAuth에서 동의받은 guilds.members.read 권한으로 본인의 멤버 정보를 조회합니다.
+          if (account.access_token) {
+            const oauthResponse = await fetch(
+              `https://discord.com/api/v10/users/@me/guilds/${guildId}/member`,
+              {
+                headers: {
+                  Authorization: `Bearer ${account.access_token}`,
+                },
+                cache: 'no-store',
+              }
+            );
+
+            if (oauthResponse.ok) {
+              guildResponse = oauthResponse;
+            } else {
+              console.error('Discord OAuth member lookup failed:', oauthResponse.status);
+            }
+          }
+
+          // OAuth 조회가 실패하면 길드에 설치된 봇으로 한 번 더 확인합니다.
+          if (!guildResponse && process.env.DISCORD_BOT_TOKEN) {
+            const botResponse = await fetch(
+              `https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`,
+              {
+                headers: {
+                  Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                },
+                cache: 'no-store',
+              }
+            );
+
+            if (botResponse.ok) {
+              guildResponse = botResponse;
+            } else {
+              console.error('Discord bot member lookup failed:', botResponse.status);
+            }
+          }
+
+          if (guildResponse) {
             const member: DiscordGuildMember = await guildResponse.json();
             
             // 관리자 역할 확인 (길드1과 길드2 모두 동일한 관리자 역할 사용)
@@ -103,7 +133,6 @@ export const authOptions = {
             // Discord 로그인 성공
             return true; // 모든 Discord 사용자 로그인 허용 (테스트용)
           } else {
-            console.error('Discord member lookup failed:', guildResponse.status);
             return false; // API 호출 실패 시 로그인 거부
           }
         } catch (error) {
