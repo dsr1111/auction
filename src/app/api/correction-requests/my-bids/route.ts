@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const { data: items, error: itemsError } = await supabase
       .from(itemsTable)
-      .select('id, name, end_time');
+      .select('id, name, end_time, price, quantity');
 
     if (itemsError) {
       console.error('Failed to fetch bid items:', itemsError);
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const activeItemIds = activeItems.map((item) => item.id);
     const { data: bids, error: bidsError } = await supabase
       .from(historyTable)
-      .select('id, item_id, bid_amount, bid_quantity, created_at')
+      .select('id, item_id, bid_amount, bid_quantity, bidder_nickname, created_at')
       .eq('bidder_discord_id', userId)
       .in('item_id', activeItemIds)
       .order('created_at', { ascending: false })
@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
       return [{
         ...bid,
         item_name: item.name,
+        item_price: item.price,
+        item_quantity: item.quantity || 1,
         end_time: item.end_time,
       }];
     });

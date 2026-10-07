@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { validateCorrectionValues } from '@/lib/correction-validation';
 
 const GUILD_TYPES = ['guild1', 'guild2'] as const;
 
@@ -17,7 +18,7 @@ export async function GET() {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('correction_requests')
-      .select('id, user_id, requester_name, guild_type, category, bid_id, item_id, item_name, bid_amount, bid_quantity, details, status, resolution_action, resolved_bid_amount, created_at, updated_at, resolved_at, resolved_by')
+      .select('id, user_id, requester_name, guild_type, category, bid_id, item_id, item_name, bid_amount, bid_quantity, bidder_nickname, requested_bid_amount, requested_bid_quantity, requested_bidder_nickname, details, status, resolution_action, resolved_bid_amount, resolved_bid_quantity, resolved_bidder_nickname, created_at, updated_at, resolved_at, resolved_by')
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
     const { data: bid, error: bidError } = await supabase
       .from(historyTable)
-      .select('id, item_id, bid_amount, bid_quantity')
+      .select('id, item_id, bid_amount, bid_quantity, bidder_nickname')
       .eq('id', bidId)
       .eq('bidder_discord_id', user.id)
       .maybeSingle();
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     const { data: item, error: itemError } = await supabase
       .from(itemsTable)
-      .select('id, name, end_time')
+      .select('id, name, end_time, price, quantity')
       .eq('id', bid.item_id)
       .maybeSingle();
 
@@ -126,6 +127,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '마감된 경매의 입찰은 정정 신청할 수 없습니다.' }, { status: 409 });
     }
 
+    // Null fields mean no change (also supports requests from an older client).
+    const requestedAmount = body.requestedBidAmount == null ? null : Number(body.requestedBidAmount);
+    const requestedQuantity = body.requestedBidQuantity == null ? null : Number(body.requestedBidQuantity);
+    const requestedNickname = body.requestedBidderNickname == null ? null :
+      (typeof body.requestedBidderNickname === 'string' ? body.requestedBidderNickname.trim() : '');
+    const values = {
+      bidAmount: requestedAmount ?? Number(bid.bid_amount),
+      bidQuantity: requestedQuantity ?? (bid.bid_quantity || 1),
+      bidderNickname: requestedNickname ?? bid.bidder_nickname,
+    };
+    const validationError = validateCorrectionValues(values);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+    if (values.bidAmount < Number(item.price)) {
+      return NextResponse.json({ error: '입찰 가격은 시작가 이상이어야 합니다.' }, { status: 400 });
+    }
+    if (values.bidQuantity > (item.quantity || 1)) {
+      return NextResponse.json({ error: `입찰 수량은 ${item.quantity || 1}개를 초과할 수 없습니다.` }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from('correction_requests')
       .insert({
@@ -138,6 +160,10 @@ export async function POST(request: NextRequest) {
         item_name: item.name,
         bid_amount: bid.bid_amount,
         bid_quantity: bid.bid_quantity || 1,
+        bidder_nickname: bid.bidder_nickname,
+        requested_bid_amount: requestedAmount,
+        requested_bid_quantity: requestedQuantity,
+        requested_bidder_nickname: requestedNickname,
         details,
       })
       .select('id, created_at')

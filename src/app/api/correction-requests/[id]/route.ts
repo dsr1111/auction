@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { validateCorrectionValues } from '@/lib/correction-validation';
 
 type GuildType = 'guild1' | 'guild2';
 type RouteContext = {
@@ -61,7 +62,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const { id: idValue } = await context.params;
-    const requestId = Number.parseInt(idValue, 10);
+    const requestId = Number(idValue);
     const body = await request.json();
     const action = body.action;
 
@@ -105,7 +106,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { itemsTable, historyTable } = getTables(guildType);
     const { data: currentBid, error: bidError } = await supabase
       .from(historyTable)
-      .select('id, item_id, bid_amount, bidder_discord_id')
+      .select('id, item_id, bid_amount, bid_quantity, bidder_nickname, bidder_discord_id')
       .eq('id', correctionRequest.bid_id)
       .eq('item_id', correctionRequest.item_id)
       .maybeSingle();
@@ -118,10 +119,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: '신청자와 연결된 입찰자가 일치하지 않습니다.' }, { status: 409 });
     }
 
+    const bidQuantity = body.bidQuantity === undefined ? (currentBid.bid_quantity || 1) : Number(body.bidQuantity);
+    const bidderNickname = body.bidderNickname === undefined ? currentBid.bidder_nickname :
+      (typeof body.bidderNickname === 'string' ? body.bidderNickname.trim() : '');
+
     if (action === 'update') {
+      const validationError = validateCorrectionValues({ bidAmount, bidQuantity, bidderNickname });
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
       const { data: item, error: itemError } = await supabase
         .from(itemsTable)
-        .select('price')
+        .select('price, quantity')
         .eq('id', correctionRequest.item_id)
         .maybeSingle();
       if (itemError) throw itemError;
@@ -131,10 +140,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (bidAmount < item.price) {
         return NextResponse.json({ error: '입찰 가격은 시작가 이상이어야 합니다.' }, { status: 400 });
       }
+      if (bidQuantity > (item.quantity || 1)) {
+        return NextResponse.json({ error: `입찰 수량은 ${item.quantity || 1}개를 초과할 수 없습니다.` }, { status: 400 });
+      }
 
       const { error: updateBidError } = await supabase
         .from(historyTable)
-        .update({ bid_amount: bidAmount })
+        .update({ bid_amount: bidAmount, bid_quantity: bidQuantity, bidder_nickname: bidderNickname })
         .eq('id', currentBid.id);
       if (updateBidError) throw updateBidError;
     } else {
@@ -154,12 +166,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         status: 'resolved',
         resolution_action: action,
         resolved_bid_amount: action === 'update' ? bidAmount : currentBid.bid_amount,
+        resolved_bid_quantity: action === 'update' ? bidQuantity : (currentBid.bid_quantity || 1),
+        resolved_bidder_nickname: action === 'update' ? bidderNickname : currentBid.bidder_nickname,
         resolved_at: now,
         resolved_by: user.id,
         updated_at: now,
       })
       .eq('id', requestId)
-      .select('id, status, resolution_action, resolved_bid_amount, resolved_at, resolved_by, updated_at')
+      .select('id, status, resolution_action, resolved_bid_amount, resolved_bid_quantity, resolved_bidder_nickname, resolved_at, resolved_by, updated_at')
       .single();
 
     if (resolveError) throw resolveError;
