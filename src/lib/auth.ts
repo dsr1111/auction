@@ -20,6 +20,11 @@ interface ExtendedUser {
   isAdmin?: boolean;
 }
 
+interface DiscordAccount {
+  provider: string;
+  access_token?: string;
+}
+
 export const authOptions = {
   providers: [
     DiscordProvider({
@@ -42,23 +47,22 @@ export const authOptions = {
   ],
   debug: process.env.NODE_ENV === 'development',
   callbacks: {
-    async signIn({ user, account }: { user: ExtendedUser; account: { provider: string } | null }) {
+    async signIn({ user, account }: { user: ExtendedUser; account: DiscordAccount | null }) {
       if (account?.provider === 'discord') {
         try {
-          // 환경 변수 디버깅
-
-          // 필수 환경 변수 확인
-          if (!process.env.DISCORD_GUILD_ID || !process.env.DISCORD_BOT_TOKEN) {
+          if (!process.env.DISCORD_GUILD_ID || !account.access_token) {
+            console.error('Discord login configuration is incomplete');
             return false;
           }
 
-          // Discord Guild API로 사용자의 서버 멤버 정보 가져오기
+          // OAuth에서 동의받은 guilds.members.read 권한으로 로그인 사용자의 멤버 정보를 조회합니다.
           const guildResponse = await fetch(
-            `https://discord.com/api/v9/guilds/${process.env.DISCORD_GUILD_ID}/members/${user.id}`,
+            `https://discord.com/api/v10/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`,
             {
               headers: {
-                Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+                Authorization: `Bearer ${account.access_token}`,
               },
+              cache: 'no-store',
             }
           );
 
@@ -99,10 +103,11 @@ export const authOptions = {
             // Discord 로그인 성공
             return true; // 모든 Discord 사용자 로그인 허용 (테스트용)
           } else {
-            // Discord Guild API 오류
+            console.error('Discord member lookup failed:', guildResponse.status);
             return false; // API 호출 실패 시 로그인 거부
           }
-        } catch {
+        } catch (error) {
+          console.error('Discord sign-in callback failed:', error);
           return false; // 오류 발생 시 로그인 거부
         }
       }
