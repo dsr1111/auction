@@ -24,7 +24,7 @@ function getGuildType(request: NextRequest): GuildType | null {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !(session.user as { isAdmin?: boolean })?.isAdmin) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

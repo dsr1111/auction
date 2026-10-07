@@ -21,7 +21,7 @@ export default function Home() {
           {/* 아이템 그리드 (총 입찰 금액 포함) */}
           <AuctionItems />
           
-          {/* 낙찰 완료 내역 엑셀 다운로드 (관리자 전용) */}
+          {/* 낙찰 완료 내역 조회 및 엑셀 다운로드 */}
           <CompletedAuctionExport />
         </div>
         

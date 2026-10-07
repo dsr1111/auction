@@ -67,8 +67,6 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
   const [showModal, setShowModal] = useState(false);
   const [previewData, setPreviewData] = useState<ProcessedData | null>(null);
 
-  const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
-
   useEffect(() => {
     if (!showModal) return;
 
@@ -85,8 +83,8 @@ const CompletedAuctionExport = ({ guildType = 'guild1' }: CompletedAuctionExport
     };
   }, [showModal]);
 
-  // 낙찰자 정보는 관리자에게만 노출합니다.
-  if (!session || !isAdmin) {
+  // 로그인한 사용자는 마감된 경매의 낙찰 결과를 확인할 수 있습니다.
+  if (!session) {
     return null;
   }
 
