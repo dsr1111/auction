@@ -70,9 +70,9 @@ export const authOptions = {
                                  (process.env.DISCORD_ADMIN_ROLE_ID_2 ? member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID_2) : false);
             const isAdminGuild2 = isAdminGuild1;
             
-            // 일반 멤버 역할 확인 (길드1과 길드2 모두 동일한 멤버 역할 사용)
+            // 길드별 일반 멤버 역할 확인
             const isGuild1Role = process.env.DISCORD_GUILD1_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD1_ROLE_ID) : false;
-            const isGuild2Role = isGuild1Role;
+            const isGuild2Role = process.env.DISCORD_GUILD2_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD2_ROLE_ID) : false;
             
             // 서버 닉네임 또는 글로벌 유저네임 설정
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
