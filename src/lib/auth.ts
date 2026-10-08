@@ -25,6 +25,12 @@ interface DiscordAccount {
   access_token?: string;
 }
 
+// 두 경매는 같은 Discord 역할을 사용합니다. 서버가 서명한 기존 세션도
+// 세계수 멤버십을 기준으로 정규화해 페이지와 입찰 API에 동일하게 반영합니다.
+function hasSharedGuildAccess(token: { isAdmin?: boolean; guild1Member?: boolean; isGuild1Member?: boolean }) {
+  return token.isAdmin === true || token.guild1Member === true || token.isGuild1Member === true;
+}
+
 export const authOptions = {
   providers: [
     DiscordProvider({
@@ -107,9 +113,9 @@ export const authOptions = {
                                  (process.env.DISCORD_ADMIN_ROLE_ID_2 ? member.roles.includes(process.env.DISCORD_ADMIN_ROLE_ID_2) : false);
             const isAdminGuild2 = isAdminGuild1;
             
-            // 길드별 일반 멤버 역할 확인
+            // 세계수·크랙 모두 세계수와 동일한 일반 멤버 역할을 사용합니다.
             const isGuild1Role = process.env.DISCORD_GUILD1_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD1_ROLE_ID) : false;
-            const isGuild2Role = process.env.DISCORD_GUILD2_ROLE_ID ? member.roles.includes(process.env.DISCORD_GUILD2_ROLE_ID) : false;
+            const isGuild2Role = isGuild1Role;
             
             // 서버 닉네임 또는 글로벌 유저네임 설정
             (user as ExtendedUser).displayName = member.nick || member.user.global_name || member.user.username;
@@ -157,17 +163,23 @@ export const authOptions = {
         token.isAdminGuild1 = (user as any).isAdminGuild1;
         token.isAdminGuild2 = (user as any).isAdminGuild2;
       }
+      const isMember = hasSharedGuildAccess(token);
+      token.guild1Member = isMember;
+      token.guild2Member = isMember;
+      token.isGuild1Member = isMember;
+      token.isGuild2Member = isMember;
       return token;
     },
     async session({ session, token }: { session: any; token: any }) {
       if (token) {
+        const isMember = hasSharedGuildAccess(token);
         (session.user as ExtendedUser).id = token.id as string;
         (session.user as ExtendedUser).displayName = token.displayName as string;
         (session.user as ExtendedUser).isAdmin = token.isAdmin as boolean;
-        (session.user as any).guild1Member = token.guild1Member;
-        (session.user as any).guild2Member = token.guild2Member;
-        (session.user as any).isGuild1Member = token.isGuild1Member;
-        (session.user as any).isGuild2Member = token.isGuild2Member;
+        (session.user as any).guild1Member = isMember;
+        (session.user as any).guild2Member = isMember;
+        (session.user as any).isGuild1Member = isMember;
+        (session.user as any).isGuild2Member = isMember;
         (session.user as any).isAdminGuild1 = token.isAdminGuild1;
         (session.user as any).isAdminGuild2 = token.isAdminGuild2;
       }
