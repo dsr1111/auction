@@ -7,6 +7,7 @@ import BidHistoryModal from './BidHistoryModal'; // Import BidHistoryModal
 import ItemEditModal from './ItemEditModal'; // Import ItemEditModal
 import CustomTooltip from './CustomTooltip';
 import { useSession } from 'next-auth/react';
+import { useMembership } from './MembershipProvider';
 
 
 
@@ -54,6 +55,8 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
     isEnded: initialIsEnded,
   } = item;
   const { data: session } = useSession();
+  const membership = useMembership();
+  const bidBlocked = membership.blockReason(guildType);
 
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [isBidHistoryModalOpen, setIsBidHistoryModalOpen] = useState(false);
@@ -301,13 +304,14 @@ const ItemCard = memo(({ item, getServerTimeOffset, onBidSuccess, onItemDeleted,
         <div className="flex space-x-2">
           <button
             onClick={() => setIsBidModalOpen(true)}
-            disabled={isEnded}
-            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${isEnded
+            disabled={isEnded || Boolean(bidBlocked)}
+            title={bidBlocked || undefined}
+            className={`flex-1 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200 ${isEnded || bidBlocked
               ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
               : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
               }`}
           >
-            {isEnded ? '경매 마감' : '입찰하기'}
+            {isEnded ? '경매 마감' : bidBlocked ? '입찰 제한' : '입찰하기'}
           </button>
           <button
             onClick={() => setIsBidHistoryModalOpen(true)}

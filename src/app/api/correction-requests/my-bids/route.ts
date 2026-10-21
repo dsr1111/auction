@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readMembership } from '@/lib/membership-server';
+import { membershipBlockReason } from '@/lib/membership';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +21,8 @@ export async function GET(request: NextRequest) {
     const historyTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
     const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
     const supabase = createAdminClient();
+    const state = await readMembership(userId, supabase);
+    const deleteOnly = Boolean(membershipBlockReason(state.settings, state.membership, guildType, true));
 
     const { data: items, error: itemsError } = await supabase
       .from(itemsTable)
@@ -57,6 +61,7 @@ export async function GET(request: NextRequest) {
       if (!item) return [];
       return [{
         ...bid,
+        delete_only: deleteOnly,
         item_name: item.name,
         item_price: item.price,
         item_quantity: item.quantity || 1,

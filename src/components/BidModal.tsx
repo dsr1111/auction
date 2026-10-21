@@ -1,4 +1,6 @@
 "use client";
+import { useMembership } from './MembershipProvider';
+import Link from 'next/link';
 
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
@@ -36,6 +38,8 @@ type BidModalProps = {
 };
 
 const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }: BidModalProps) => {
+  const membership = useMembership();
+  const bidBlocked = membership.blockReason(guildType);
   const { data: session, status } = useSession() as { data: ExtendedSession | null; status: string };
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [bidQuantity, setBidQuantity] = useState<number>(1);
@@ -164,6 +168,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
 
   const handlePlaceBid = async () => {
     setError(null);
+    if (bidBlocked) { setError(bidBlocked); return; }
     const MAX_BID_AMOUNT = 2000000000;
 
     if (isEnded) {
@@ -222,6 +227,7 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
       const data = await response.json();
 
       if (!response.ok) {
+        void membership.refresh();
         setError(data.error || '입찰에 실패했습니다.');
         return;
       }
@@ -236,6 +242,11 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
       setIsLoading(false);
     }
   };
+
+  if (bidBlocked) return <Modal isOpen={isOpen} onClose={onClose} title={item.name}>
+    <p className="py-4 text-gray-700">{bidBlocked}</p>
+    <Link href="/membership" onClick={onClose} className="text-blue-600 underline">내 길드 / 가입 신청</Link>
+  </Modal>;
 
   const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

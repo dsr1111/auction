@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateCorrectionValues } from '@/lib/correction-validation';
+import { readMembership } from '@/lib/membership-server';
+import { membershipBlockReason } from '@/lib/membership';
 
 type GuildType = 'guild1' | 'guild2';
 type RouteContext = {
@@ -124,6 +126,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       (typeof body.bidderNickname === 'string' ? body.bidderNickname.trim() : '');
 
     if (action === 'update') {
+      const state = await readMembership(correctionRequest.user_id, supabase);
+      if (membershipBlockReason(state.settings, state.membership, guildType, true)) {
+        return NextResponse.json({ error: '현재 소속·이용 상태에서는 입찰 삭제만 처리할 수 있습니다.' }, { status: 403 });
+      }
       const validationError = validateCorrectionValues({ bidAmount, bidQuantity, bidderNickname });
       if (validationError) {
         return NextResponse.json({ error: validationError }, { status: 400 });
@@ -148,6 +154,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         .from(historyTable)
         .update({ bid_amount: bidAmount, bid_quantity: bidQuantity, bidder_nickname: bidderNickname })
         .eq('id', currentBid.id);
+      if (updateBidError?.code === 'P0001') return NextResponse.json({ error: updateBidError.message }, { status: 409 });
       if (updateBidError) throw updateBidError;
     } else {
       const { error: deleteBidError } = await supabase

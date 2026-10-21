@@ -10,6 +10,7 @@ type RequestStatus = 'open' | 'resolved';
 type ResolutionAction = 'update' | 'delete' | null;
 
 type MyBid = {
+  delete_only?: boolean;
   id: number;
   item_id: number;
   item_name: string;
@@ -23,6 +24,7 @@ type MyBid = {
 };
 
 type CorrectionRequest = {
+  can_update?: boolean;
   id: number;
   user_id: string;
   requester_name: string;
@@ -165,11 +167,11 @@ export default function CorrectionRequestModal({
       bidderNickname: requestedNickname ?? selectedBid.bidder_nickname,
     };
     const validationError = validateCorrectionValues(values);
-    if (validationError) {
+    if (!selectedBid.delete_only && validationError) {
       setFormMessage({ type: 'error', text: validationError });
       return;
     }
-    if (values.bidAmount < Number(selectedBid.item_price) || values.bidQuantity > selectedBid.item_quantity) {
+    if (!selectedBid.delete_only && (values.bidAmount < Number(selectedBid.item_price) || values.bidQuantity > selectedBid.item_quantity)) {
       setFormMessage({ type: 'error', text: `시작가 ${Number(selectedBid.item_price).toLocaleString()} bit 이상, 수량 ${selectedBid.item_quantity}개 이하로 입력해주세요.` });
       return;
     }
@@ -182,9 +184,9 @@ export default function CorrectionRequestModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           guildType, bidId: selectedBidId, details,
-          requestedBidAmount: requestedAmount,
-          requestedBidQuantity: requestedQuantity,
-          requestedBidderNickname: requestedNickname,
+          requestedBidAmount: selectedBid.delete_only ? null : requestedAmount,
+          requestedBidQuantity: selectedBid.delete_only ? null : requestedQuantity,
+          requestedBidderNickname: selectedBid.delete_only ? null : requestedNickname,
         }),
       });
       const data = await response.json();
@@ -324,7 +326,8 @@ export default function CorrectionRequestModal({
             </div>
           </fieldset>
 
-          {selectedBidId && (
+          {selectedBidId && myBids.find(bid => bid.id === selectedBidId)?.delete_only && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">현재 소속·이용 상태에서는 삭제 정정만 가능합니다. 아래 내용에 삭제 사유를 작성해주세요.</p>}
+          {selectedBidId && !myBids.find(bid => bid.id === selectedBidId)?.delete_only && (
             <fieldset disabled={isSubmitting} className="space-y-3">
               <legend className="text-sm font-medium text-gray-700">변경 요청</legend>
               <p className="text-xs text-gray-500">변경할 항목만 입력해주세요. 입찰 삭제는 내용에 적어주세요.</p>
@@ -427,6 +430,7 @@ export default function CorrectionRequestModal({
 
                   {requestItem.status === 'open' ? (
                     <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                      {requestItem.can_update === false && <p className="w-full text-sm text-amber-800">현재 소속·이용 상태에서는 삭제만 가능합니다.</p>}
                       {editingRequestId === requestItem.id ? (
                         <>
                           <fieldset disabled={updatingRequestId !== null} className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
@@ -458,7 +462,7 @@ export default function CorrectionRequestModal({
                         </>
                       ) : (
                         <>
-                          <button type="button" disabled={updatingRequestId !== null} onClick={() => {
+                          <button type="button" disabled={updatingRequestId !== null || requestItem.can_update === false} onClick={() => {
                             setEditingRequestId(requestItem.id);
                             setEditingBidAmount(String(requestItem.requested_bid_amount ?? requestItem.bid_amount));
                             setEditingBidQuantity(String(requestItem.requested_bid_quantity ?? requestItem.bid_quantity ?? 1));

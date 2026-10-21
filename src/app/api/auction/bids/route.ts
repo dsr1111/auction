@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { hasAuctionAccess, membershipBlockReason } from '@/lib/membership';
+import { readMembership } from '@/lib/membership-server';
 
 type GuildType = 'guild1' | 'guild2';
 
@@ -11,16 +13,13 @@ type SessionUser = {
   guild1Member?: boolean;
   guild2Member?: boolean;
   isAdmin?: boolean;
+  canUseAuction?: boolean;
 };
 
 const MAX_BID_AMOUNT = 2_000_000_000;
 
 function isGuildType(value: unknown): value is GuildType {
   return value === 'guild1' || value === 'guild2';
-}
-
-function canAccessGuild(user: SessionUser, guildType: GuildType) {
-  return Boolean(user.isAdmin || (guildType === 'guild1' ? user.guild1Member : user.guild2Member));
 }
 
 function getTables(guildType: GuildType) {
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (!isGuildType(guildTypeValue) || !Number.isInteger(itemId) || itemId <= 0) {
       return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
     }
-    if (!canAccessGuild(user, guildTypeValue)) {
+    if (!hasAuctionAccess(user)) {
       return NextResponse.json({ error: '이 경매에 접근할 권한이 없습니다.' }, { status: 403 });
     }
 
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
     if (!isGuildType(guildType)) {
       return NextResponse.json({ error: '경매 종류가 올바르지 않습니다.' }, { status: 400 });
     }
-    if (!canAccessGuild(user, guildType)) {
+    if (!hasAuctionAccess(user)) {
       return NextResponse.json({ error: '이 경매에 접근할 권한이 없습니다.' }, { status: 403 });
     }
     if (!Number.isInteger(itemId) || itemId <= 0) {
@@ -98,6 +97,11 @@ export async function POST(request: NextRequest) {
 
     const { itemsTable, historyTable } = getTables(guildType);
     const supabase = createAdminClient();
+    // Fresh state for everyone, including administrators. The DB trigger repeats
+    // this under the transfer lock immediately before saving the bid.
+    const state = await readMembership(user.id, supabase);
+    const blocked = membershipBlockReason(state.settings, state.membership, guildType);
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
     const { data: item, error: itemError } = await supabase
       .from(itemsTable)
       .select('id, price, quantity, end_time')
@@ -140,6 +144,7 @@ export async function POST(request: NextRequest) {
       bidder_discord_name: user.name || null,
     });
 
+    if (insertError?.code === 'P0001') return NextResponse.json({ error: insertError.message }, { status: 409 });
     if (insertError) throw insertError;
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {

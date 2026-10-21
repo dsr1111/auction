@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateCorrectionValues } from '@/lib/correction-validation';
+import { readMembership } from '@/lib/membership-server';
+import { membershipBlockReason, Membership } from '@/lib/membership';
 
 const GUILD_TYPES = ['guild1', 'guild2'] as const;
 
@@ -28,6 +30,12 @@ export async function GET() {
     }
 
     const requests = data || [];
+    const state = await readMembership(session.user.id, supabase);
+    const userIds = [...new Set(requests.map(item => item.user_id))];
+    const members = userIds.length ? await supabase.from('auction_memberships')
+      .select('user_id, guild_type, status').in('user_id', userIds) : { data: [], error: null };
+    if (members.error) throw members.error;
+    const memberMap = new Map((members.data || []).map(member => [member.user_id, member]));
     const missingNameRequests = requests.filter((requestItem) => !requestItem.item_name && requestItem.item_id);
     const itemNameMap = new Map<string, string>();
 
@@ -55,6 +63,7 @@ export async function GET() {
     return NextResponse.json({
       requests: requests.map((requestItem) => ({
         ...requestItem,
+        can_update: !membershipBlockReason(state.settings, (memberMap.get(requestItem.user_id) ?? null) as Membership | null, requestItem.guild_type as GuildType, true),
         item_name: requestItem.item_name ||
           itemNameMap.get(`${requestItem.guild_type}:${requestItem.item_id}`) ||
           `경매 품목 #${requestItem.item_id}`,
@@ -132,19 +141,26 @@ export async function POST(request: NextRequest) {
     const requestedQuantity = body.requestedBidQuantity == null ? null : Number(body.requestedBidQuantity);
     const requestedNickname = body.requestedBidderNickname == null ? null :
       (typeof body.requestedBidderNickname === 'string' ? body.requestedBidderNickname.trim() : '');
+    const changesRequested = requestedAmount !== null || requestedQuantity !== null || requestedNickname !== null;
+    if (changesRequested) {
+      const state = await readMembership(user.id, supabase);
+      if (membershipBlockReason(state.settings, state.membership, guildType, true)) {
+        return NextResponse.json({ error: '이 입찰은 삭제 정정만 신청할 수 있습니다. 변경 항목은 비우고 내용에 삭제 사유를 작성해주세요.' }, { status: 403 });
+      }
+    }
     const values = {
       bidAmount: requestedAmount ?? Number(bid.bid_amount),
       bidQuantity: requestedQuantity ?? (bid.bid_quantity || 1),
       bidderNickname: requestedNickname ?? bid.bidder_nickname,
     };
     const validationError = validateCorrectionValues(values);
-    if (validationError) {
+    if (changesRequested && validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
-    if (values.bidAmount < Number(item.price)) {
+    if (changesRequested && values.bidAmount < Number(item.price)) {
       return NextResponse.json({ error: '입찰 가격은 시작가 이상이어야 합니다.' }, { status: 400 });
     }
-    if (values.bidQuantity > (item.quantity || 1)) {
+    if (changesRequested && values.bidQuantity > (item.quantity || 1)) {
       return NextResponse.json({ error: `입찰 수량은 ${item.quantity || 1}개를 초과할 수 없습니다.` }, { status: 400 });
     }
 

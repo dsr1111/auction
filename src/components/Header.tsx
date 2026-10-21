@@ -8,6 +8,8 @@ import { usePathname } from 'next/navigation';
 import LoginModal from './LoginModal';
 import UserContactModal from './UserContactModal';
 import CorrectionRequestModal from './CorrectionRequestModal';
+import { useMembership } from './MembershipProvider';
+import { hasAuctionAccess, GUILD_NAMES } from '@/lib/membership';
 
 interface ExtendedUser {
     name?: string | null;
@@ -18,6 +20,7 @@ interface ExtendedUser {
 
 const Header = () => {
     const { data: session } = useSession();
+    const membership = useMembership();
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -89,6 +92,15 @@ const Header = () => {
 
     return (
         <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+            {session?.user && hasAuctionAccess(session.user) && <div className="border-b border-gray-100 bg-gray-50">
+                <div className="max-w-7xl mx-auto flex flex-wrap justify-end gap-4 px-4 py-2 text-xs sm:px-6 lg:px-8">
+                    <Link href="/membership" className="text-blue-700 hover:underline">내 길드: {membership.data?.membership ? GUILD_NAMES[membership.data.membership.guild_type] : '가입 신청'}</Link>
+                    {isAdmin && <Link href="/admin/members" className="relative text-blue-700 hover:underline">
+                        길드원 관리
+                        {(membership.data?.pendingCount ?? 0) > 0 && <span aria-label={`가입 승인 대기 ${membership.data!.pendingCount}건`} className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] text-white">{membership.data!.pendingCount}</span>}
+                    </Link>}
+                </div>
+            </div>}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* PC 메뉴 */}

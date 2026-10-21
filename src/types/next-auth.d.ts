@@ -1,8 +1,12 @@
 
 
 
+import 'next-auth';
+import 'next-auth/jwt';
+
 declare module "next-auth" {
   interface User {
+    canUseAuction?: boolean
     displayName?: string
     isAdmin?: boolean
     guild1Member?: boolean
@@ -13,6 +17,7 @@ declare module "next-auth" {
   
   interface Session {
     user: {
+      canUseAuction?: boolean
       id: string
       name?: string | null
       email?: string | null
@@ -29,6 +34,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
+    canUseAuction?: boolean
     displayName?: string
     isAdmin?: boolean
     guild1Member?: boolean

@@ -23,13 +23,14 @@ function load(source, dependencies) {
 }
 
 const validation = load('src/lib/correction-validation.ts', {});
+const membership = load('src/lib/membership.ts', {});
 const normalUser = { id: 'owner', name: 'Discord name' };
 const adminUser = { id: 'admin', isAdmin: true };
 const bid = { id: 7, item_id: 12, bid_amount: 20000, bid_quantity: 1, bidder_nickname: '이전닉', bidder_discord_id: 'owner' };
 const item = { id: 12, name: '테스트 품목', price: 10000, quantity: 3, end_time: null };
 const correction = { id: 8, user_id: 'owner', status: 'open', guild_type: 'guild1', bid_id: 7, item_id: 12 };
 
-function setup(route, user, responses) {
+function setup(route, user, responses, state = { settings: { enforcement_enabled: false, bidding_paused: false }, membership: null }) {
   const queries = [];
   const supabase = {
     from(table) {
@@ -57,6 +58,8 @@ function setup(route, user, responses) {
     '@/lib/auth': { authOptions: {} },
     '@/lib/supabase/admin': { createAdminClient: () => supabase },
     '@/lib/correction-validation': validation,
+    '@/lib/membership': membership,
+    '@/lib/membership-server': { readMembership: async () => state },
   });
   return { api, queries, responses };
 }
@@ -66,6 +69,19 @@ const bodyRequest = (body) => ({ json: async () => body });
 const context = { params: Promise.resolve({ id: '8' }) };
 const postBody = { guildType: 'guild1', bidId: 7, details: '입력 실수 정정', requestedBidAmount: 30000, requestedBidQuantity: 2, requestedBidderNickname: ' 새닉 ' };
 const patchBody = { action: 'update', bidAmount: 30000, bidQuantity: 2, bidderNickname: ' 새닉 ' };
+
+test('cross-guild and suspended bids support deletion requests but not edits', async () => {
+  for (const member of [null, { guild_type: 'guild2', status: 'active' }, { guild_type: 'guild1', status: 'suspended' }]) {
+    const state = { settings: { enforcement_enabled: true, bidding_paused: false }, membership: member };
+    let fixture = setup(postRoute, normalUser, [bid, item], state);
+    assert.equal((await fixture.api.POST(bodyRequest(postBody))).status, 403);
+    fixture = setup(postRoute, normalUser, [bid, item, { id: 8 }], state);
+    assert.equal((await fixture.api.POST(bodyRequest({ guildType: 'guild1', bidId: 7, details: '오입찰 삭제해주세요' }))).status, 201);
+    fixture = setup(patchRoute, adminUser, [correction, bid], state);
+    assert.equal((await fixture.api.PATCH(bodyRequest(patchBody), context)).status, 403);
+    assert.equal(fixture.queries.filter(query => query.action !== 'select').length, 0);
+  }
+});
 
 test('validation rejects invalid prices, quantities and nicknames', () => {
   const valid = { bidAmount: 10000, bidQuantity: 1, bidderNickname: '닉네임' };
