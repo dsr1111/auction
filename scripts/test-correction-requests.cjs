@@ -30,7 +30,8 @@ const bid = { id: 7, item_id: 12, bid_amount: 20000, bid_quantity: 1, bidder_nic
 const item = { id: 12, name: '테스트 품목', price: 10000, quantity: 3, end_time: null };
 const correction = { id: 8, user_id: 'owner', status: 'open', guild_type: 'guild1', bid_id: 7, item_id: 12 };
 
-function setup(route, user, responses, state = { settings: { enforcement_enabled: false, bidding_paused: false }, membership: null }) {
+const approvedState = guild => ({ settings: { enforcement_enabled: true, bidding_paused: false }, membership: { user_id: 'owner', guild_type: guild, status: 'active' } });
+function setup(route, user, responses, state = approvedState('guild1')) {
   const queries = [];
   const supabase = {
     from(table) {
@@ -99,7 +100,7 @@ test('validation rejects invalid prices, quantities and nicknames', () => {
 
 for (const guildType of ['guild1', 'guild2']) {
   test(`${guildType}: request saves original and requested values without editing bid`, async () => {
-    const { api, queries } = setup(postRoute, normalUser, [bid, item, { id: 8 }]);
+    const { api, queries } = setup(postRoute, normalUser, [bid, item, { id: 8 }], approvedState(guildType));
     const response = await api.POST(bodyRequest({ ...postBody, guildType }));
     assert.equal(response.status, 201);
     assert.equal(queries[0].table, guildType === 'guild1' ? 'bid_history' : 'bid_history_guild2');
@@ -118,7 +119,7 @@ for (const guildType of ['guild1', 'guild2']) {
     const { api, queries, responses } = setup(patchRoute, adminUser, [
       { ...correction, guild_type: guildType }, bid, item, null,
       { bid_amount: 30000, bidder_nickname: '새닉' }, null, { id: 8, status: 'resolved' },
-    ]);
+    ], approvedState(guildType));
     assert.equal((await api.PATCH(bodyRequest(patchBody), context)).status, 200);
     assert.equal(responses.length, 0);
     const updated = queries[3];

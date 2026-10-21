@@ -80,10 +80,23 @@ async function main() {
     await db.query('delete from bid_history_guild2 where id=$1',[foreign]);
     await assign(carol,'guild1');
 
-    await fail(() => command(admin,'enforce',{reason:'제한 적용'}), /모든 경매를 마감/);
+    // Upgrade an existing preparation installation while auctions are still open.
+    // Preserve all memberships, live bids, pending requests, and pause state.
+    const pendingAtUpgrade = await command(dana,'apply',{guildType:'guild1',nickname:'대기자',reason:''});
+    const bidCountAtUpgrade = await scalar('select count(*) from bid_history');
+    await command(admin,'pause',{reason:'업그레이드 점검'});
+    await db.exec('reset role');
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261021234857_immediate_guild_membership.sql'),'utf8'));
+    await db.exec('set role service_role');
+    assert.equal(await scalar('select enforcement_enabled from auction_membership_settings'),true); checks++;
+    assert.equal(await scalar('select bidding_paused from auction_membership_settings'),true); checks++;
+    assert.equal(await scalar('select count(*) from bid_history'),bidCountAtUpgrade); checks++;
+    assert.equal(await scalar(`select status from guild_membership_requests where id=${pendingAtUpgrade.id}`),'pending'); checks++;
+    await fail(()=>db.query('update auction_membership_settings set enforcement_enabled=false'),/check constraint/);
+    await command(admin,'resume_bidding',{reason:'점검 완료'});
+    await fail(()=>bid(dana),/승인된 소속 길드/);
     await db.exec("update items set end_time=now()-interval '1 second'; update items_guild2 set end_time=now()-interval '1 second'");
     await fail(() => bid(alice), /마감/);
-    await command(admin,'enforce',{reason:'등록 완료'});
     await fail(() => command(admin,'enforce',{reason:'중복'}), /이미 소속 제한/);
     await db.exec("update items set end_time=now()+interval '1 hour'; update items_guild2 set end_time=now()+interval '1 hour'");
     await bid(alice);

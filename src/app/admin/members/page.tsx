@@ -106,10 +106,10 @@ export default function MembersAdminPage() {
     <p className="text-sm text-gray-600">공통 Discord 역할을 바꾸지 않고 소속을 관리합니다. 이 화면에는 진행 중인 입찰 가격이나 전체 입찰 내역이 표시되지 않습니다.</p>
     {(message || membership.error) && <p role="status" className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">{message || membership.error}</p>}
     <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
-      <h2 className="font-semibold">운영 상태: {settings ? settings.enforcement_enabled ? '소속별 입찰 제한 적용 중' : '등록 준비 단계' : '확인 중'}{settings?.bidding_paused ? ' · 신규 입찰 중지' : ''}</h2>
-      <p className="text-sm text-gray-600">기존 회원을 등록한 뒤, 양쪽 경매가 모두 마감된 시점에 제한을 활성화하세요. 활성화 이후에는 준비 단계로 되돌리지 않으며, 문제가 생기면 신규 입찰만 일시 중지할 수 있습니다.</p>
+      <h2 className="font-semibold">운영 상태: {settings ? '소속별 입찰 제한 적용 중' : '확인 중'}{settings?.bidding_paused ? ' · 신규 입찰 중지' : ''}</h2>
+      <p className="text-sm text-gray-600">준비 단계 없이 승인된 소속 길드에서만 입찰할 수 있습니다. 미등록 회원의 신청을 승인하거나 직접 등록해주세요. 문제가 생기면 신규 입찰만 일시 중지할 수 있습니다.</p>
+      {settings && !settings.enforcement_enabled && <p role="alert" className="text-sm text-red-700">DB 추가 SQL 적용이 필요합니다. 서버에서는 소속을 제한하지만 DB 보호를 완료하려면 immediate_guild_membership SQL을 실행해주세요.</p>}
       <div className="flex flex-wrap gap-2">
-        {!settings?.enforcement_enabled && <button className={buttonClass} disabled={!settings || busy} onClick={() => openAction({ action: 'enforce', title: '소속별 입찰 제한 활성화' })}>소속 제한 활성화</button>}
         <button className={buttonClass} disabled={!settings || busy} onClick={() => openAction({ action: settings?.bidding_paused ? 'resume_bidding' : 'pause', title: settings?.bidding_paused ? '신규 입찰 재개' : '신규 입찰 일시 중지' })}>{settings?.bidding_paused ? '신규 입찰 재개' : '신규 입찰 일시 중지'}</button>
       </div>
     </section>
@@ -157,7 +157,6 @@ export default function MembersAdminPage() {
     <Modal isOpen={!!dialog} onClose={() => { if (!busy) setDialog(null); }} title={dialog?.title || '길드 관리'}>
       <form onSubmit={perform} className="space-y-4">
         {dialog?.action === 'assign' && <><label className="block text-sm">소속 길드<select value={guild} onChange={event => setGuild(event.target.value as GuildType)} className={`${fieldClass} mt-2`}><option value="guild1">세계수</option><option value="guild2">크랙</option></select></label><label className="block text-sm">게임 닉네임<input value={nickname} onChange={event => setNickname(event.target.value)} required maxLength={100} className={`${fieldClass} mt-2`} /></label><p className="text-sm text-gray-600">소속 변경은 과거 입찰이나 정산을 이동시키지 않습니다. 다른 길드의 진행 중인 입찰이 있으면 변경이 차단됩니다.</p></>}
-        {dialog?.action === 'enforce' && <p className="text-sm text-red-700">기존 회원을 충분히 등록했는지 확인해주세요. 활성화 후 미등록·대기 중인 사용자는 입찰할 수 없습니다. 관리자 본인도 소속 등록이 필요합니다.</p>}
         <label className="block text-sm">처리 사유 {dialog?.action === 'approve' ? '(선택)' : '(필수)'}<textarea value={reason} onChange={event => setReason(event.target.value)} required={dialog?.action !== 'approve'} maxLength={1000} rows={3} className={`${fieldClass} mt-2`} /></label>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} required className="mt-1" />대상과 작업 내용을 확인했습니다.</label>
         {message && <p role="alert" className="text-sm text-red-700">{message}</p>}

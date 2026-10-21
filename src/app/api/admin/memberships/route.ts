@@ -5,7 +5,7 @@ import { privateJson, membershipError, validMembershipWrite } from '@/lib/member
 
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 30;
-const ACTIONS = ['approve', 'reject', 'assign', 'suspend', 'resume', 'enforce', 'pause', 'resume_bidding'];
+const ACTIONS = ['approve', 'reject', 'assign', 'suspend', 'resume', 'pause', 'resume_bidding'];
 
 export async function GET(request: Request) {
   try {

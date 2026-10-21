@@ -67,8 +67,18 @@ test('eligibility is not guild assignment; explicit false cannot inherit an obso
   assert.equal(membership.membershipBlockReason(settings,member,'guild1'),null);
   assert.ok(membership.membershipBlockReason(settings,member,'guild2'));
   assert.ok(membership.membershipBlockReason(settings,{...member,status:'suspended'},'guild1'));
-  assert.equal(membership.membershipBlockReason({...settings,enforcement_enabled:false},null,'guild2'),null);
+  assert.ok(membership.membershipBlockReason({...settings,enforcement_enabled:false},null,'guild2'));
   assert.ok(membership.membershipBlockReason({...settings,enforcement_enabled:false},{...member,status:'suspended'},'guild1'));
+});
+test('entry defaults to the approved guild without redirect loops or blocking management/results',()=>{
+  assert.equal(membership.membershipEntryTarget(null,'/',null),null);
+  const crack={...member,guild_type:'guild2'};
+  assert.equal(membership.membershipEntryTarget(crack,'/',null).path,'/crack');
+  assert.equal(membership.membershipEntryTarget(member,'/crack',null).path,'/');
+  assert.equal(membership.membershipEntryTarget(crack,'/',`${user.id}:guild2`),null);
+  assert.equal(membership.membershipEntryTarget(crack,'/admin/members',null),null);
+  assert.equal(membership.membershipEntryTarget(crack,'/membership',null),null);
+  assert.equal(membership.membershipEntryTarget(crack,'/',`${user.id}:guild1`).path,'/crack');
 });
 test('pausing new bids preserves corrections for eligible guild members',()=>{
   assert.ok(membership.membershipBlockReason({...settings,bidding_paused:true},member,'guild1'));
