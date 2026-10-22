@@ -119,6 +119,33 @@ test('application form asks only for guild and nickname, and sends no note',asyn
   assert.equal(requests.length,1); assert.equal(requests[0].reason,undefined);
 });
 
+test('pending application keeps submitted fields, disables completion button and cannot resubmit',()=>{
+  const jsx=(type,props)=>({type,props}); const requests=[];
+  const context={data:{membership:null,request:{id:1,status:'pending',guild_type:'guild2',game_nickname:'크랙회원'},settings:{}},refresh:async()=>{}};
+  const Panel=load('src/components/MembershipPanel.tsx',{
+    'react/jsx-runtime':{jsx,jsxs:jsx},react:{useState:initial=>[initial,()=>{}]},
+    'next-auth/react':{useSession:()=>({data:{user:{id:'123',canUseAuction:true}},status:'authenticated'})},
+    'next/link':{default:'Link'},'@/lib/membership':membership,
+    '@/components/MembershipProvider':{useMembership:()=>context},
+  },{fetch:async()=>{requests.push('unexpected');return {ok:true,json:async()=>({})};}}).default;
+  const tree=Panel({embedded:true}); const elements=nodes(tree);
+  assert.ok(!JSON.stringify(tree).includes('최근 신청'));
+  assert.ok(!JSON.stringify(tree).includes('신청 취소'));
+  const select=elements.find(node=>node.type==='select');
+  const input=elements.find(node=>node.type==='input');
+  const button=elements.find(node=>node.type==='button');
+  assert.equal(select.props.value,'guild2'); assert.equal(select.props.disabled,true);
+  assert.equal(input.props.value,'크랙회원'); assert.equal(input.props.disabled,true);
+  assert.equal(button.props.children,'신청 완료'); assert.equal(button.props.disabled,true);
+  elements.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});
+  assert.equal(requests.length,0);
+  context.data.request={...context.data.request,status:'rejected',review_reason:'닉네임 확인 필요'};
+  const rejected=Panel({embedded:true});
+  assert.ok(JSON.stringify(rejected).includes('닉네임 확인 필요'));
+  assert.equal(nodes(rejected).find(node=>node.type==='button').props.children,'승인 신청');
+  assert.equal(nodes(rejected).find(node=>node.type==='button').props.disabled,false);
+});
+
 test('unregistered auction pages show neither a duplicate banner nor auction contents',()=>{
   const jsx=(type,props)=>({type,props});
   const context={data:{membership:null},loading:false,blockReason:()=> '미등록'};

@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useMembership } from '@/components/MembershipProvider';
 import { GUILD_NAMES, GuildType, hasAuctionAccess } from '@/lib/membership';
 
-const STATUS_LABELS = { pending: '승인 대기', approved: '승인 완료', rejected: '거절', cancelled: '신청 취소' };
-
 export default function MembershipPanel({ embedded = false }: { embedded?: boolean }) {
   const { data: session, status } = useSession();
   const { data, error, loading, refresh } = useMembership();
@@ -17,6 +15,7 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
   const [message, setMessage] = useState('');
 
   async function submit(action: 'apply' | 'cancel') {
+    if (busy || (action === 'apply' && data?.request?.status === 'pending')) return;
     if (action === 'cancel' && !confirm('대기 중인 가입·변경 신청을 취소할까요?')) return;
     setBusy(true); setMessage('');
     try {
@@ -47,22 +46,17 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
       {member && <Link href={member.guild_type === 'guild1' ? '/' : '/crack'} className="inline-block text-sm font-medium text-blue-700 underline">소속 길드 경매로 이동</Link>}
       {session.user.isAdmin && <Link className="inline-block text-sm font-medium text-blue-700 underline" href="/admin/members">길드원 관리</Link>}
     </section>
-    {data?.request && <section className="border-t border-gray-100 pt-5 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="membership-section-title">최근 신청</h2><span className="membership-badge">{STATUS_LABELS[data.request.status]}</span></div>
-      <p className="break-words text-sm font-medium">{GUILD_NAMES[data.request.guild_type]} / {data.request.game_nickname}</p>
-      {data.request.note && <p className="text-sm whitespace-pre-wrap break-words">{data.request.note}</p>}
-      {data.request.review_reason && <p className="text-sm text-gray-600 whitespace-pre-wrap">처리 사유: {data.request.review_reason}</p>}
-      {pending && <><p className="text-sm leading-relaxed text-gray-600">관리자 승인 후 소속이 적용됩니다. 신청 정보를 바꾸려면 취소 후 다시 신청해주세요.</p><button disabled={busy} onClick={() => void submit('cancel')} className="membership-button">신청 취소</button></>}
-    </section>}
-    {!pending && member?.status !== 'suspended' && <form onSubmit={event => { event.preventDefault(); void submit('apply'); }} className="space-y-5">
+    {!pending && data?.request?.status === 'rejected' && data.request.review_reason && <p className="membership-warning whitespace-pre-wrap break-words">신청 거절 사유: {data.request.review_reason}</p>}
+    {(pending || member?.status !== 'suspended') && <form onSubmit={event => { event.preventDefault(); void submit('apply'); }} className="space-y-5">
       {member && <h2 className="membership-section-title">소속·닉네임 변경 신청</h2>}
       <label className="membership-label">소속 길드 (필수)
-        <select required value={guild} onChange={event => setGuild(event.target.value as GuildType)} className="membership-field mt-2"><option value="" disabled>소속 길드를 선택해주세요</option><option value="guild1">세계수</option><option value="guild2">크랙</option></select>
+        <select required disabled={pending || busy} value={pending ? data.request!.guild_type : guild} onChange={event => setGuild(event.target.value as GuildType)} className="membership-field mt-2"><option value="" disabled>소속 길드를 선택해주세요</option><option value="guild1">세계수</option><option value="guild2">크랙</option></select>
       </label>
       <label className="membership-label">게임 닉네임 (필수)
-        <input value={nickname} onChange={event => setNickname(event.target.value)} required maxLength={100} className="membership-field mt-2" />
+        <input disabled={pending || busy} value={pending ? data.request!.game_nickname : nickname} onChange={event => setNickname(event.target.value)} required maxLength={100} className="membership-field mt-2" />
       </label>
-      <button disabled={busy || !data || !!error} className="membership-button membership-primary w-full min-h-12">{busy ? '처리 중...' : '승인 신청'}</button>
+      <button disabled={pending || busy || !data || !!error} className="membership-button membership-primary w-full min-h-12">{pending ? '신청 완료' : busy ? '처리 중...' : '승인 신청'}</button>
     </form>}
+    {!embedded && pending && <button disabled={busy} onClick={() => void submit('cancel')} className="membership-button">신청 취소</button>}
   </div>;
 }
