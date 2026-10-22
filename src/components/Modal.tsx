@@ -8,11 +8,12 @@ type ModalProps = {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
-  size?: 'md' | 'xl';
+  size?: 'md' | 'lg' | 'xl';
   dismissible?: boolean;
+  appearance?: 'default' | 'membership';
 };
 
-const Modal = ({ isOpen, onClose, children, title, size = 'md', dismissible = true }: ModalProps) => {
+const Modal = ({ isOpen, onClose, children, title, size = 'md', dismissible = true, appearance = 'default' }: ModalProps) => {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -93,17 +94,17 @@ const Modal = ({ isOpen, onClose, children, title, size = 'md', dismissible = tr
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : '대화상자'}
         tabIndex={-1}
-        className={`bg-white p-8 rounded-3xl shadow-2xl w-full relative text-gray-900 overflow-y-auto max-h-[90vh] modal-content ${size === 'xl' ? 'max-w-4xl' : 'max-w-lg'}`}
+        className={`w-full relative overflow-y-auto max-h-[90dvh] modal-content ${appearance === 'membership' ? 'membership-dialog membership-ui' : 'bg-white p-8 rounded-3xl shadow-2xl text-gray-900'} ${size === 'xl' ? 'max-w-4xl' : size === 'lg' ? 'max-w-xl' : 'max-w-lg'}`}
       >
         {dismissible && <button
           type="button"
           aria-label="닫기"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-3xl transition-colors duration-200 hover:scale-110 transform focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-xl text-2xl text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
         >
           &times;
         </button>}
-        {title && <h2 id={titleId} className="text-2xl font-bold mb-6 text-gray-800">{title}</h2>}
+        {title && <h2 id={titleId} className={appearance === 'membership' ? 'membership-dialog-title' : 'text-2xl font-bold mb-6 text-gray-800'}>{title}</h2>}
         {children}
       </div>
     </div>,

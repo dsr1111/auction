@@ -133,6 +133,30 @@ test('cross-site writes rejected for own and admin API',async()=>{
     assert.equal(calls.length,0);
   }
 });
+
+test('membership removal is admin-only, versioned, reason-required and uses signed actor',async()=>{
+  const body={action:'remove',userId:user.id,version:2,reason:'탈퇴 요청',p_actor:'forged'};
+  for(const actor of [null,user]) {
+    const {api,calls}=setup(adminRoute,actor);
+    assert.equal((await api.POST(request(body))).status,403); assert.equal(calls.length,0);
+  }
+  const {api,calls}=setup(adminRoute,admin);
+  for(const invalid of [{...body,reason:' '},{...body,version:0},{...body,version:undefined},{...body,userId:'fake'},{...body,action:'suspend'},{...body,action:'resume'}]) {
+    assert.equal((await api.POST(request(invalid))).status,400);
+  }
+  assert.equal((await api.POST(request(body,'https://evil.test'))).status,403);
+  assert.equal(calls.length,0);
+  assert.equal((await api.POST(request(body))).status,200);
+  assert.equal(calls[0].name,'auction_membership_remove');
+  assert.equal(calls[0].args.p_actor,admin.id);
+  assert.equal(calls[0].args.p_user_id,user.id);
+  assert.equal(calls[0].args.p_version,2);
+  for(const code of ['PGRST202','42883']) {
+    const missing=setup(adminRoute,admin,{rpcError:{code}});
+    const response=await missing.api.POST(request(body));
+    assert.equal(response.status,503); assert.match(response.body.error,/추가 SQL/);
+  }
+});
 test('database business conflicts return actionable messages without falling open',async()=>{
   const {api}=setup(adminRoute,admin,{rpcError:{code:'P0001',message:'이미 처리된 신청'}});
   const response=await api.POST(request({action:'approve',requestId:1,reason:''}));

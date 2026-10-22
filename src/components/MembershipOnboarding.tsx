@@ -33,11 +33,11 @@ export default function MembershipOnboarding({ children }: { children: React.Rea
   const open = ready && !data.membership && promptAllowed;
   return <>
     {target && target.path !== pathname ? <p className="py-16 text-center text-gray-600" role="status">소속 길드 경매로 이동 중...</p> : children}
-    <Modal isOpen={open} onClose={() => {}} dismissible={false} title={data?.request?.status === 'pending' ? '소속 승인 대기' : '소속 신청'} size="xl">
+    <Modal isOpen={open} onClose={() => {}} dismissible={false} title={data?.request?.status === 'pending' ? '소속 승인 대기' : '소속 신청'} size="lg" appearance="membership">
       {open && <MembershipPanel embedded />}
-      <div className="mt-4 flex flex-wrap justify-end gap-3 text-sm">
-        <button type="button" onClick={() => void refresh()} className="text-blue-600 underline">승인 상태 새로고침</button>
-        <button type="button" onClick={() => void signOut({ callbackUrl: '/' })} className="text-gray-600 underline">로그아웃</button>
+      <div className="membership-footer">
+        <button type="button" onClick={() => void refresh()} className="membership-button">승인 상태 새로고침</button>
+        <button type="button" onClick={() => void signOut({ callbackUrl: '/' })} className="membership-button">로그아웃</button>
       </div>
     </Modal>
   </>;

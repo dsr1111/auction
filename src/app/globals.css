@@ -36,6 +36,41 @@
     z-index: 0;
     position: relative;
   }
+
+  /* Membership surfaces inherit the auction's light palette and Noto/system font.
+     Radius scale: panels 16px, dialogs 24px, controls 12px. No automatic motion.
+     Existing header/modal/tooltip layer tokens above remain the only layers. */
+  .membership-ui { @apply text-gray-900; }
+  .membership-card { @apply min-w-0 rounded-2xl border border-gray-200 bg-white shadow-sm; }
+  .membership-card-head { @apply border-b border-gray-100 px-5 py-4 sm:px-6; }
+  .membership-section-title { @apply text-base font-bold tracking-tight text-gray-900; }
+  .membership-label { @apply block text-sm font-medium text-gray-700; }
+  .membership-field {
+    @apply min-h-11 w-full min-w-0 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500;
+    @apply focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .membership-button {
+    @apply inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700;
+    @apply hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .membership-primary { @apply border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700; }
+  .membership-danger { @apply border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100; }
+  .membership-danger-solid { @apply border-red-700 bg-red-700 text-white hover:border-red-800 hover:bg-red-800; }
+  .membership-tab {
+    @apply inline-flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-gray-600;
+    @apply hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600;
+  }
+  .membership-tab[aria-pressed="true"] { @apply bg-white text-blue-700 shadow-sm; }
+  .membership-badge { @apply inline-flex shrink-0 items-center rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700; }
+  .membership-note { @apply rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-relaxed text-blue-900; }
+  .membership-warning { @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-800; }
+  .membership-dialog { @apply rounded-3xl border border-gray-200 bg-white p-5 text-gray-900 shadow-xl sm:p-7; }
+  .membership-dialog-title { @apply mb-5 border-b border-gray-100 pb-5 pr-10 text-xl font-bold tracking-tight; }
+  .membership-footer { @apply mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4; }
+  @media (prefers-reduced-motion: no-preference) {
+    .membership-button { transition: background-color 120ms, border-color 120ms; }
+    .membership-button:active:not(:disabled) { transform: scale(0.98); }
+  }
 }
 
 .tooltip {

@@ -133,6 +133,48 @@ async function main() {
     await db.exec('reset role');
     const rls = await db.query("select relname,relrowsecurity from pg_class where relname in ('auction_memberships','guild_membership_requests','guild_membership_events','auction_membership_settings')");
     assert.equal(rls.rows.length,4); assert.ok(rls.rows.every(row => row.relrowsecurity)); checks++;
+
+    // A capability migration must not remove existing memberships on deployment.
+    const beforeUpgrade = await scalar('select count(*) from auction_memberships');
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261022102548_remove_guild_membership.sql'),'utf8'));
+    assert.equal(await scalar('select count(*) from auction_memberships'),beforeUpgrade); checks++;
+    const remove = (userId,version,reason='탈퇴 요청') => db.query('select public.auction_membership_remove($1,$2,$3,$4)',[admin,userId,version,reason]);
+    for(const role of ['anon','authenticated']) {
+      await db.exec(`set role ${role}`);
+      await fail(()=>remove(bob,2),/permission denied/);
+      await fail(()=>db.query('delete from auction_memberships'),/permission denied/);
+      await db.exec('reset role');
+    }
+    await db.exec('grant insert on guild_membership_events to service_role; set role service_role');
+    const pendingRemoval = await command(bob,'apply',{guildType:'guild1',nickname:'이전 신청'});
+    const bidsBeforeRemoval = await db.query('select * from bid_history_guild2 order by id');
+    await fail(()=>remove(bob,1),/소속 정보가 변경/);
+    await fail(()=>remove(bob,2,' '),/소속 삭제 사유/);
+    await db.exec('reset role; revoke insert on guild_membership_events from service_role; set role service_role');
+    await fail(()=>remove(bob,2),/permission denied/);
+    assert.equal(await scalar(`select version from auction_memberships where user_id='${bob}'`),2); checks++;
+    assert.equal(await scalar(`select status from guild_membership_requests where id=${pendingRemoval.id}`),'pending'); checks++;
+    await db.exec('reset role; grant insert on guild_membership_events to service_role; set role service_role');
+    await remove(bob,2);
+    assert.equal(Number(await scalar(`select count(*) from auction_memberships where user_id='${bob}'`)),0); checks++;
+    assert.equal(await scalar(`select status from guild_membership_requests where id=${pendingRemoval.id}`),'cancelled'); checks++;
+    assert.deepEqual((await db.query('select * from bid_history_guild2 order by id')).rows,bidsBeforeRemoval.rows); checks++;
+    const audit=(await db.query("select * from guild_membership_events where user_id=$1 and action='remove'",[bob])).rows[0];
+    assert.equal(audit.before_state.guild_type,'guild2'); assert.equal(audit.after_state,null); assert.equal(audit.actor_id,admin); checks++;
+    await fail(()=>bid(bob,'guild2'),/승인된 소속 길드/);
+    await fail(()=>remove(bob,2),/이미 소속이 삭제/);
+    await fail(()=>command(admin,'approve',{requestId:pendingRemoval.id,reason:''}),/이미 처리되었거나/);
+    const reapplied=await command(bob,'apply',{guildType:'guild2',nickname:'재가입'});
+    const reapproved=await command(admin,'approve',{requestId:reapplied.id,reason:''});
+    assert.ok(reapproved.version>2); assert.equal(reapproved.status,'active'); checks++;
+    await fail(()=>remove(bob,2),/소속 정보가 변경/);
+    await fail(()=>assign(bob,'guild2',2),/다른 관리자가/);
+    // Legacy suspended accounts are not silently converted, but can be removed.
+    await command(admin,'suspend',{userId:carol,version:1,reason:'이전 정지'});
+    await remove(carol,2);
+    const restored=await assign(carol,'guild1');
+    assert.equal(restored.status,'active'); assert.ok(restored.version>2); checks++;
+    await fail(()=>db.query('delete from guild_membership_events'),/permission denied/);
     console.log(`PASS: ${checks} isolated PostgreSQL integration checks. No production connection used.`);
   } finally { await db.close(); }
 }

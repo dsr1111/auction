@@ -5,7 +5,7 @@ import { privateJson, membershipError, validMembershipWrite } from '@/lib/member
 
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 30;
-const ACTIONS = ['approve', 'reject', 'assign', 'suspend', 'resume', 'pause', 'resume_bidding'];
+const ACTIONS = ['approve', 'reject', 'assign', 'remove', 'pause', 'resume_bidding'];
 
 export async function GET(request: Request) {
   try {
@@ -52,9 +52,18 @@ export async function POST(request: Request) {
     if (!ACTIONS.includes(body.action)) return privateJson({ error: '잘못된 작업입니다.' }, 400);
     if (typeof body.reason !== 'string' || body.reason.length > 1000) return privateJson({ error: '사유는 1,000자 이내로 입력해주세요.' }, 400);
     if (['approve','reject'].includes(body.action) && (!Number.isSafeInteger(body.requestId) || body.requestId <= 0)) return privateJson({ error: '신청 번호를 확인해주세요.' }, 400);
-    if (['assign','suspend','resume'].includes(body.action) && (
+    if (['assign','remove'].includes(body.action) && (
       typeof body.userId !== 'string' || !/^\d{17,20}$/.test(body.userId) || !Number.isInteger(body.version) || body.version < 0
     )) return privateJson({ error: 'Discord ID와 최신 소속 정보를 확인해주세요.' }, 400);
+    if (body.action === 'remove') {
+      if (!body.reason.trim() || body.version < 1) return privateJson({ error: '소속 삭제 사유와 최신 소속 정보를 확인해주세요.' }, 400);
+      const { data, error } = await createAdminClient().rpc('auction_membership_remove', {
+        p_actor: session.user.id, p_user_id: body.userId, p_version: body.version, p_reason: body.reason.trim(),
+      });
+      if (error?.code === 'PGRST202' || error?.code === '42883') return privateJson({ error: '소속 삭제 기능의 추가 SQL을 먼저 적용해주세요.' }, 503);
+      if (error) throw error;
+      return privateJson({ success: true, result: data });
+    }
     if (body.action === 'assign' && (!['guild1','guild2'].includes(body.guildType) || typeof body.nickname !== 'string' || !body.nickname.trim() || body.nickname.trim().length > 100)) return privateJson({ error: '길드와 닉네임을 확인해주세요.' }, 400);
     const { data, error } = await createAdminClient().rpc('auction_membership_command', {
       p_actor: session.user.id, p_action: body.action,
