@@ -46,8 +46,8 @@ export function membershipBlockReason(
   return null;
 }
 
-/** Route once on entry (or guild change), not every time someone views results
- * from the other guild. This also keeps both administration pages reachable. */
+/** Choose the landing page once per entry or guild change. GuildAccessGate
+ * separately denies cross-guild pages for non-admins on later navigation. */
 export function membershipEntryTarget(member: Membership | null, pathname: string, lastEntryKey: string | null) {
   if (!member || (pathname !== '/' && pathname !== '/crack')) return null;
   const key = `${member.user_id}:${member.guild_type}`;

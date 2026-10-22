@@ -132,3 +132,30 @@ test('unregistered auction pages show neither a duplicate banner nor auction con
   context.data.membership={guild_type:'guild1'}; context.blockReason=()=> null;
   assert.ok(JSON.stringify(Gate({children:'AUCTION',allowedGuild:'guild1'})).includes('AUCTION'));
 });
+
+test('other guild pages deny members but preserve admin management access',()=>{
+  const jsx=(type,props)=>({type,props});
+  const user={canUseAuction:true,isAdmin:false};
+  const context={data:{membership:{guild_type:'guild1'}},loading:false,error:null,blockReason:()=> '세계수 소속입니다. 소속 길드 경매에서 입찰해주세요.'};
+  const Gate=load('src/components/GuildAccessGate.tsx',{
+    'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
+    'next-auth/react':{useSession:()=>({data:{user},status:'authenticated'})},
+    'next/link':{default:'Link'},'@/lib/membership':membership,
+    './MembershipProvider':{useMembership:()=>context},
+  }).default;
+  for (const ownGuild of ['guild1','guild2']) {
+    context.data.membership.guild_type=ownGuild;
+    const denied=Gate({children:'AUCTION_CONTENT',allowedGuild:ownGuild==='guild1'?'guild2':'guild1'});
+    assert.ok(JSON.stringify(denied).includes('접근 권한이 없습니다'));
+    assert.ok(!JSON.stringify(denied).includes('AUCTION_CONTENT'));
+    assert.ok(!JSON.stringify(denied).includes('소속 길드 경매에서 입찰해주세요'));
+    assert.equal(nodes(denied).find(node=>node.type==='Link').props.href,ownGuild==='guild1'?'/':'/crack');
+    user.isAdmin=true;
+    const admin=Gate({children:'AUCTION_CONTENT',allowedGuild:ownGuild==='guild1'?'guild2':'guild1'});
+    assert.ok(JSON.stringify(admin).includes('AUCTION_CONTENT'));
+    assert.ok(!JSON.stringify(admin).includes('소속 길드 경매에서 입찰해주세요'));
+    user.isAdmin=false;
+  }
+  context.error='Lookup failed'; context.data=null;
+  assert.ok(!JSON.stringify(Gate({children:'AUCTION_CONTENT',allowedGuild:'guild1'})).includes('AUCTION_CONTENT'));
+});

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useMembership } from '@/components/MembershipProvider';
 import { GUILD_NAMES, GuildType, hasAuctionAccess } from '@/lib/membership';
 
-const STATUS_LABELS = { pending: '승인 대기', approved: '승인 완료', rejected: '반려', cancelled: '신청 취소' };
+const STATUS_LABELS = { pending: '승인 대기', approved: '승인 완료', rejected: '거절', cancelled: '신청 취소' };
 
 export default function MembershipPanel({ embedded = false }: { embedded?: boolean }) {
   const { data: session, status } = useSession();

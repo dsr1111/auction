@@ -9,7 +9,7 @@ import { GUILD_NAMES, GuildType, Membership, MembershipRequest } from '@/lib/mem
 type MemberEvent = { id: number; action: string; actor_id: string; reason: string; created_at: string; before_state: { guild_type?: GuildType; status?: string } | null; after_state: { guild_type?: GuildType; status?: string } | null };
 type Detail = { membership: Membership | null; activeBids: Record<GuildType, number>; events: MemberEvent[]; total: number };
 type ActionDialog = { action: string; userId?: string; requestId?: number; version?: number; title: string };
-const ACTION_LABELS: Record<string,string> = { apply: '신청', cancel: '신청 취소', approve: '승인', reject: '반려', assign: '소속·닉네임 지정', suspend: '이용 정지', resume: '정지 해제', enforce: '입찰 제한 활성화', pause: '신규 입찰 일시 중지', resume_bidding: '신규 입찰 재개' };
+const ACTION_LABELS: Record<string,string> = { apply: '신청', cancel: '신청 취소', approve: '승인', reject: '거절', assign: '소속·닉네임 지정', suspend: '이용 정지', resume: '정지 해제', enforce: '입찰 제한 활성화', pause: '신규 입찰 일시 중지', resume_bidding: '신규 입찰 재개' };
 const fieldClass = 'w-full rounded-xl border border-gray-300 p-3 text-sm';
 const buttonClass = 'rounded-xl border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50';
 
@@ -27,6 +27,7 @@ export default function MembersAdminPage() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [listError, setListError] = useState('');
   const [manualId, setManualId] = useState('');
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailId, setDetailId] = useState('');
@@ -37,27 +38,42 @@ export default function MembersAdminPage() {
   const [nickname, setNickname] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const listController = useRef<AbortController | null>(null);
+  const loadedListKey = useRef<string | null>(null);
   const detailController = useRef<AbortController | null>(null);
 
-  const fetchList = useCallback(async () => {
+  const fetchList = useCallback(async (background = false) => {
     if (!isAdmin) return;
+    // Polls must not interrupt a slow initial/filter request or erase its loader.
+    if (background && listController.current) return;
     listController.current?.abort();
     const controller = new AbortController(); listController.current = controller;
-    setLoading(true);
+    const params = new URLSearchParams({ scope, guild: guildFilter, q: query, page: String(page) });
+    const listKey = `${session?.user?.id}:${params}`;
+    const hasCurrentList = loadedListKey.current === listKey;
+    if (!hasCurrentList) setLoading(true);
+    if (!hasCurrentList) setListError('');
     try {
-      const params = new URLSearchParams({ scope, guild: guildFilter, q: query, page: String(page) });
       const response = await fetch(`/api/admin/memberships?${params}`, { cache: 'no-store', signal: controller.signal });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      if (!controller.signal.aborted) { setRows(result.rows); setTotal(result.total); }
-    } catch (err) { if (!controller.signal.aborted) { setRows([]); setMessage(err instanceof Error ? err.message : '목록 조회 실패'); } }
-    finally { if (!controller.signal.aborted) setLoading(false); }
-  }, [scope, guildFilter, query, page, isAdmin]);
+      if (!controller.signal.aborted) {
+        setRows(previous => JSON.stringify(previous) === JSON.stringify(result.rows) ? previous : result.rows);
+        setTotal(result.total); loadedListKey.current = listKey; setListError('');
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        if (!hasCurrentList) setRows([]);
+        setListError(hasCurrentList ? '목록 갱신에 실패했습니다. 마지막으로 확인한 목록을 표시합니다.' : err instanceof Error ? err.message : '목록 조회 실패');
+      }
+    } finally {
+      if (!controller.signal.aborted) { setLoading(false); listController.current = null; }
+    }
+  }, [scope, guildFilter, query, page, isAdmin, session?.user?.id]);
 
   useEffect(() => {
     void fetchList();
-    const timer = window.setInterval(() => void fetchList(), 30_000);
-    const focus = () => void fetchList();
+    const timer = window.setInterval(() => void fetchList(true), 30_000);
+    const focus = () => void fetchList(true);
     window.addEventListener('focus', focus);
     return () => { listController.current?.abort(); clearInterval(timer); window.removeEventListener('focus', focus); };
   }, [fetchList]);
@@ -102,17 +118,13 @@ export default function MembersAdminPage() {
   const settings = membership.data?.settings;
 
   return <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
-    <h1 className="text-2xl font-bold">길드원 관리</h1>
-    <p className="text-sm text-gray-600">공통 Discord 역할을 바꾸지 않고 소속을 관리합니다. 이 화면에는 진행 중인 입찰 가격이나 전체 입찰 내역이 표시되지 않습니다.</p>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-2xl font-bold">길드원 관리</h1>
+      <button className={buttonClass} disabled={!settings || busy} onClick={() => openAction({ action: settings?.bidding_paused ? 'resume_bidding' : 'pause', title: settings?.bidding_paused ? '신규 입찰 재개' : '신규 입찰 일시 중지' })}>{settings?.bidding_paused ? '신규 입찰 재개' : '신규 입찰 일시 중지'}</button>
+    </div>
     {(message || membership.error) && <p role="status" className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">{message || membership.error}</p>}
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
-      <h2 className="font-semibold">운영 상태: {settings ? '소속별 입찰 제한 적용 중' : '확인 중'}{settings?.bidding_paused ? ' · 신규 입찰 중지' : ''}</h2>
-      <p className="text-sm text-gray-600">준비 단계 없이 승인된 소속 길드에서만 입찰할 수 있습니다. 미등록 회원의 신청을 승인하거나 직접 등록해주세요. 문제가 생기면 신규 입찰만 일시 중지할 수 있습니다.</p>
-      {settings && !settings.enforcement_enabled && <p role="alert" className="text-sm text-red-700">DB 추가 SQL 적용이 필요합니다. 서버에서는 소속을 제한하지만 DB 보호를 완료하려면 immediate_guild_membership SQL을 실행해주세요.</p>}
-      <div className="flex flex-wrap gap-2">
-        <button className={buttonClass} disabled={!settings || busy} onClick={() => openAction({ action: settings?.bidding_paused ? 'resume_bidding' : 'pause', title: settings?.bidding_paused ? '신규 입찰 재개' : '신규 입찰 일시 중지' })}>{settings?.bidding_paused ? '신규 입찰 재개' : '신규 입찰 일시 중지'}</button>
-      </div>
-    </section>
+    {settings?.bidding_paused && <p role="status" className="text-sm text-red-700">신규 입찰이 일시 중지되어 있습니다. 재개 버튼으로 다시 허용할 수 있습니다.</p>}
+    {settings && !settings.enforcement_enabled && <p role="alert" className="text-sm text-red-700">DB 추가 SQL 적용이 필요합니다. 서버에서는 소속을 제한하지만 DB 보호를 완료하려면 immediate_guild_membership SQL을 실행해주세요.</p>}
     <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
       <div className="flex gap-3 border-b border-gray-200 pb-3">
         <button onClick={() => { setScope('requests'); setPage(0); }} className={scope === 'requests' ? 'font-semibold text-blue-600' : 'text-gray-600'}>승인 대기 ({membership.data?.pendingCount ?? 0})</button>
@@ -123,13 +135,14 @@ export default function MembersAdminPage() {
         <input aria-label="닉네임 또는 Discord ID 검색" placeholder="닉네임 또는 Discord ID" value={search} onChange={event => setSearch(event.target.value)} maxLength={100} className="min-w-0 flex-1 rounded-xl border border-gray-300 p-2 text-sm" />
         <button className={buttonClass}>검색</button><button type="button" className={buttonClass} onClick={() => void fetchList()}>새로고침</button>
       </form>
+      {listError && <p role="status" className="text-sm text-red-700">{listError}</p>}
       {loading ? <p className="text-sm text-gray-500">불러오는 중...</p> : rows.length === 0 ? <p className="py-6 text-center text-sm text-gray-500">표시할 내역이 없습니다.</p> : <ul className="divide-y divide-gray-100">
         {rows.map(row => <li key={'id' in row ? row.id : row.user_id} className="py-4 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><p className="font-semibold">{GUILD_NAMES[row.guild_type]} · {row.game_nickname}{row.status === 'suspended' ? ' · 이용 정지' : ''}</p><p className="text-xs text-gray-500 break-all">{'requester_name' in row ? `${row.requester_name} · ` : ''}{row.user_id}</p></div>
             <div className="flex gap-2">
-              <button className={buttonClass} onClick={() => void inspect(row.user_id)}>소속 확인</button>
-              {'id' in row && <><button disabled={busy} className={buttonClass} onClick={() => openAction({ action: 'approve', requestId: row.id, title: `${GUILD_NAMES[row.guild_type]} · ${row.game_nickname} 승인` })}>승인</button><button disabled={busy} className={buttonClass} onClick={() => openAction({ action: 'reject', requestId: row.id, title: `${row.game_nickname} 신청 반려` })}>반려</button></>}
+              {!('id' in row) && <button className={buttonClass} onClick={() => void inspect(row.user_id)}>소속 확인</button>}
+              {'id' in row && <><button disabled={busy} className={buttonClass} onClick={() => openAction({ action: 'approve', requestId: row.id, title: `${GUILD_NAMES[row.guild_type]} · ${row.game_nickname} 승인` })}>승인</button><button disabled={busy} className={buttonClass} onClick={() => openAction({ action: 'reject', requestId: row.id, title: `${row.game_nickname} 신청 거절` })}>거절</button></>}
             </div>
           </div>
           {'note' in row && row.note && <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{row.note}</p>}
@@ -140,7 +153,7 @@ export default function MembersAdminPage() {
     <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
       <h2 className="font-semibold">기존 회원 수동 등록 / 소속 조회</h2>
       <p className="text-sm text-gray-600">Discord 개발자 모드에서 해당 사용자의 ID를 복사해 입력하세요. 닉네임이나 역할 ID가 아닌 사용자 ID입니다.</p>
-      <form className="flex gap-2" onSubmit={event => { event.preventDefault(); void inspect(manualId.trim()); }}><input aria-label="Discord 사용자 ID" value={manualId} onChange={event => setManualId(event.target.value)} inputMode="numeric" maxLength={20} placeholder="Discord 사용자 ID" className={fieldClass} /><button className={buttonClass}>조회</button></form>
+      <form className="flex w-full max-w-md gap-2" onSubmit={event => { event.preventDefault(); void inspect(manualId.trim()); }}><input aria-label="Discord 사용자 ID" value={manualId} onChange={event => setManualId(event.target.value)} inputMode="numeric" maxLength={20} placeholder="Discord 사용자 ID" className={`${fieldClass} min-w-0 flex-1`} /><button className={`${buttonClass} shrink-0 whitespace-nowrap`}>조회</button></form>
       {detailId && <p className="text-sm text-gray-500 break-all">선택한 계정: {detailId}</p>}
       {detail && <>
         <p>{detail.membership ? `${GUILD_NAMES[detail.membership.guild_type]} · ${detail.membership.game_nickname} · ${detail.membership.status === 'active' ? '정상' : '이용 정지'}` : '등록된 소속 없음'}</p>
@@ -149,9 +162,9 @@ export default function MembersAdminPage() {
           <button disabled={busy} className={buttonClass} onClick={() => openAction({ action: 'assign', userId: detailId, version: detail.membership?.version ?? 0, title: '소속·닉네임 지정' }, detail.membership)}>소속·닉네임 지정</button>
           {detail.membership && <button disabled={busy} className={buttonClass} onClick={() => openAction({ action: detail.membership?.status === 'active' ? 'suspend' : 'resume', userId: detailId, version: detail.membership!.version, title: detail.membership?.status === 'active' ? '입찰 이용 정지' : '입찰 이용 정지 해제' })}>{detail.membership.status === 'active' ? '이용 정지' : '정지 해제'}</button>}
         </div>
-        <h3 className="font-medium pt-3">처리 이력</h3>
-        {detail.events.length === 0 ? <p className="text-sm text-gray-500">처리 이력이 없습니다.</p> : <ul className="space-y-3">{detail.events.map(event => <li key={event.id} className="border-l-2 border-blue-100 pl-3 text-sm"><p>{ACTION_LABELS[event.action] || event.action} · {new Date(event.created_at).toLocaleString('ko-KR')}</p>{event.after_state?.guild_type && <p className="text-gray-600">{event.before_state?.guild_type ? GUILD_NAMES[event.before_state.guild_type] : '미등록'} → {GUILD_NAMES[event.after_state.guild_type]}</p>}<p className="text-xs text-gray-500 break-all">처리자: {event.actor_id}</p>{event.reason && <p className="whitespace-pre-wrap break-words">{event.reason}</p>}</li>)}</ul>}
-        <div className="flex gap-2"><button className={buttonClass} disabled={eventPage === 0} onClick={() => void inspect(detailId, eventPage - 1)}>이전 이력</button><button className={buttonClass} disabled={(eventPage + 1) * 30 >= detail.total} onClick={() => void inspect(detailId, eventPage + 1)}>다음 이력</button></div>
+        <h3 className="font-medium pt-3">처리 내역</h3>
+        {detail.events.length === 0 ? <p className="text-sm text-gray-500">처리 내역이 없습니다.</p> : <ul className="space-y-3">{detail.events.map(event => <li key={event.id} className="border-l-2 border-blue-100 pl-3 text-sm"><p>{ACTION_LABELS[event.action] || event.action} · {new Date(event.created_at).toLocaleString('ko-KR')}</p>{event.after_state?.guild_type && <p className="text-gray-600">{event.before_state?.guild_type ? GUILD_NAMES[event.before_state.guild_type] : '미등록'} → {GUILD_NAMES[event.after_state.guild_type]}</p>}<p className="text-xs text-gray-500 break-all">처리자: {event.actor_id}</p>{event.reason && <p className="whitespace-pre-wrap break-words">{event.reason}</p>}</li>)}</ul>}
+        <div className="flex gap-2"><button className={buttonClass} disabled={eventPage === 0} onClick={() => void inspect(detailId, eventPage - 1)}>이전 내역</button><button className={buttonClass} disabled={(eventPage + 1) * 30 >= detail.total} onClick={() => void inspect(detailId, eventPage + 1)}>다음 내역</button></div>
       </>}
     </section>
     <Modal isOpen={!!dialog} onClose={() => { if (!busy) setDialog(null); }} title={dialog?.title || '길드 관리'}>
