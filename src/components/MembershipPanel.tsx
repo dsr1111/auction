@@ -13,7 +13,6 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
   const { data, error, loading, refresh } = useMembership();
   const [guild, setGuild] = useState<GuildType | ''>('');
   const [nickname, setNickname] = useState('');
-  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -23,12 +22,11 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
     try {
       const response = await fetch('/api/membership', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, guildType: guild, nickname, reason: note, requestId: data?.request?.id }),
+        body: JSON.stringify({ action, guildType: guild, nickname, requestId: data?.request?.id }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || '신청을 처리하지 못했습니다.');
       setMessage(action === 'apply' ? '신청을 접수했습니다. 관리자 승인을 기다려주세요.' : '신청을 취소했습니다.');
-      setNote('');
     } catch (err) { setMessage(err instanceof Error ? err.message : '신청을 처리하지 못했습니다.'); }
     finally { await refresh(); setBusy(false); }
   }
@@ -40,7 +38,7 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
   const member = data?.membership;
 
   return <div className={embedded ? "space-y-4" : "max-w-2xl mx-auto p-4 sm:p-8 space-y-6"}>
-    <div>{!embedded && <h1 className="text-2xl font-bold text-gray-900">내 길드 / 가입 신청</h1>}<p className="mt-2 text-sm text-gray-600">Discord 역할은 그대로 사용하며, 실제 소속 길드는 관리자가 확인합니다.</p></div>
+    {!embedded && <h1 className="text-2xl font-bold text-gray-900">내 길드 / 가입 신청</h1>}
     {(message || error) && <div role="status" className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">{message || error}{error && <button onClick={() => void refresh()} className="ml-3 underline">다시 확인</button>}</div>}
     <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-3">
       <h2 className="text-lg font-semibold">현재 소속</h2>
@@ -66,10 +64,6 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
       <label className="block text-sm font-medium">게임 닉네임 (필수)
         <input value={nickname} onChange={event => setNickname(event.target.value)} required maxLength={100} className="mt-2 w-full rounded-xl border border-gray-300 p-3" />
       </label>
-      <label className="block text-sm font-medium">내용 (선택)
-        <textarea value={note} onChange={event => setNote(event.target.value)} maxLength={1000} rows={3} className="mt-2 w-full rounded-xl border border-gray-300 p-3" />
-      </label>
-      <p className="text-sm text-gray-600">한 계정은 한 길드에만 소속됩니다. 다른 길드에 진행 중인 입찰이 있으면 삭제 정정 처리 또는 마감 후 소속을 변경할 수 있습니다.</p>
       <button disabled={busy || !data || !!error} className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? '처리 중...' : '승인 신청'}</button>
     </form>}
   </div>;

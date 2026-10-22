@@ -9,9 +9,10 @@ type ModalProps = {
   children: React.ReactNode;
   title?: string;
   size?: 'md' | 'xl';
+  dismissible?: boolean;
 };
 
-const Modal = ({ isOpen, onClose, children, title, size = 'md' }: ModalProps) => {
+const Modal = ({ isOpen, onClose, children, title, size = 'md', dismissible = true }: ModalProps) => {
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -41,7 +42,7 @@ const Modal = ({ isOpen, onClose, children, title, size = 'md' }: ModalProps) =>
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onCloseRef.current();
+        if (dismissible) onCloseRef.current();
         return;
       }
 
@@ -73,7 +74,7 @@ const Modal = ({ isOpen, onClose, children, title, size = 'md' }: ModalProps) =>
       document.body.style.overflow = previousOverflow;
       previousActiveElement?.focus();
     };
-  }, [isOpen, mounted]);
+  }, [isOpen, mounted, dismissible]);
 
   if (!isOpen || !mounted) return null;
 
@@ -82,7 +83,7 @@ const Modal = ({ isOpen, onClose, children, title, size = 'md' }: ModalProps) =>
     <div
       className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center modal-overlay p-4"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (dismissible && event.target === event.currentTarget) onClose();
       }}
     >
       <div
@@ -94,14 +95,14 @@ const Modal = ({ isOpen, onClose, children, title, size = 'md' }: ModalProps) =>
         tabIndex={-1}
         className={`bg-white p-8 rounded-3xl shadow-2xl w-full relative text-gray-900 overflow-y-auto max-h-[90vh] modal-content ${size === 'xl' ? 'max-w-4xl' : 'max-w-lg'}`}
       >
-        <button
+        {dismissible && <button
           type="button"
           aria-label="닫기"
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-3xl transition-colors duration-200 hover:scale-110 transform focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
         >
           &times;
-        </button>
+        </button>}
         {title && <h2 id={titleId} className="text-2xl font-bold mb-6 text-gray-800">{title}</h2>}
         {children}
       </div>

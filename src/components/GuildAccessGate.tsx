@@ -14,6 +14,9 @@ export default function GuildAccessGate({ children, allowedGuild }: { children: 
   const data = membership.data;
   const reason = membership.blockReason(allowedGuild);
   if (membership.loading) return <p className="py-16 text-center text-gray-600">소속 길드 확인 중...</p>;
+  // Unregistered users apply through the mandatory onboarding dialog.
+  // Do not render auction content or a duplicate unregistered banner beneath it.
+  if (data && !data.membership) return null;
   return <>
     {reason && <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
       <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900 flex flex-wrap items-center justify-between gap-3" role="status">
