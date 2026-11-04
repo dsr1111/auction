@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
     const itemId = Number(body.itemId);
     const bidAmount = Number(body.bidAmount);
     const bidQuantity = Number(body.bidQuantity);
-    const bidderName = typeof body.bidderName === 'string' ? body.bidderName.trim() : '';
 
     if (!isGuildType(guildType)) {
       return NextResponse.json({ error: '경매 종류가 올바르지 않습니다.' }, { status: 400 });
@@ -84,9 +83,6 @@ export async function POST(request: NextRequest) {
     }
     if (!Number.isInteger(itemId) || itemId <= 0) {
       return NextResponse.json({ error: '경매 품목이 올바르지 않습니다.' }, { status: 400 });
-    }
-    if (!bidderName || bidderName.length > 100) {
-      return NextResponse.json({ error: '입찰자 닉네임은 1~100자로 입력해주세요.' }, { status: 400 });
     }
     if (!Number.isInteger(bidAmount) || bidAmount <= 0 || bidAmount > MAX_BID_AMOUNT || bidAmount % 10_000 !== 0) {
       return NextResponse.json({ error: '입찰 금액은 10,000bit 단위의 20억 이하 정수여야 합니다.' }, { status: 400 });
@@ -102,6 +98,9 @@ export async function POST(request: NextRequest) {
     const state = await readMembership(user.id, supabase);
     const blocked = membershipBlockReason(state.settings, state.membership, guildType);
     if (blocked) return NextResponse.json({ error: blocked }, { status: 403 });
+    // 입찰자 닉네임은 승인된 길드 소속의 게임 닉네임으로 고정 (클라이언트 입력 무시)
+    const bidderName = state.membership?.game_nickname?.trim() || '';
+    if (!bidderName) return NextResponse.json({ error: '길드 소속 닉네임을 확인할 수 없습니다. 관리자에게 문의해주세요.' }, { status: 409 });
     const { data: item, error: itemError } = await supabase
       .from(itemsTable)
       .select('id, price, quantity, end_time')

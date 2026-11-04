@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+
+export const dynamic = 'force-dynamic';
+
+// Supabase는 한 번에 최대 1,000행까지만 돌려주므로 나눠서 모두 가져옵니다.
+const BID_PAGE_SIZE = 1000;
 
 export async function GET(request: Request) {
   try {
@@ -7,6 +14,9 @@ export async function GET(request: Request) {
     const guildType = searchParams.get('guildType') || 'guild1';
     const itemsTable = guildType === 'guild2' ? 'items_guild2' : 'items';
     const bidHistoryTable = guildType === 'guild2' ? 'bid_history_guild2' : 'bid_history';
+
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ?? null;
 
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -21,18 +31,27 @@ export async function GET(request: Request) {
     // 각 아이템의 입찰 인원 수 및 최고 입찰 정보 가져오기
     const itemIds = data?.map(item => item.id) || [];
     const bidderCounts: Record<number, number> = {};
-    const highestBids: Record<number, { bid_amount: number; bidder_nickname: string }> = {};
+    const highestBids: Record<number, { bid_amount: number; bidder_nickname: string; bidder_discord_id: string | null }> = {};
 
     if (itemIds.length > 0) {
       // 각 아이템별 입찰 정보 조회
-      const { data: bidData } = await supabase
-        .from(bidHistoryTable)
-        .select('item_id, bidder_discord_id, bidder_nickname, bid_amount')
-        .in('item_id', itemIds)
-        .order('bid_amount', { ascending: false })
-        .order('created_at', { ascending: true });
+      // 정렬: 금액 높은 순 → 같은 금액이면 먼저 입찰한 순 (id는 페이지 경계 안정화용)
+      const bidData: { item_id: number; bidder_discord_id: string | null; bidder_nickname: string; bid_amount: number }[] = [];
+      for (let from = 0; ; from += BID_PAGE_SIZE) {
+        const { data: page, error: bidError } = await supabase
+          .from(bidHistoryTable)
+          .select('item_id, bidder_discord_id, bidder_nickname, bid_amount')
+          .in('item_id', itemIds)
+          .order('bid_amount', { ascending: false })
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + BID_PAGE_SIZE - 1);
+        if (bidError) throw bidError;
+        bidData.push(...(page || []));
+        if (!page || page.length < BID_PAGE_SIZE) break;
+      }
 
-      if (bidData) {
+      {
         // 아이템별 고유 입찰자 수 계산 및 최고 입찰 저장
         const itemBidders: Record<number, Set<string>> = {};
         bidData.forEach(bid => {
@@ -47,7 +66,8 @@ export async function GET(request: Request) {
           if (!highestBids[bid.item_id]) {
             highestBids[bid.item_id] = {
               bid_amount: bid.bid_amount,
-              bidder_nickname: bid.bidder_nickname
+              bidder_nickname: bid.bidder_nickname,
+              bidder_discord_id: bid.bidder_discord_id
             };
           }
         });
@@ -93,7 +113,8 @@ export async function GET(request: Request) {
 
       // 블라인드 경매: 마감 전에는 입찰 정보 숨김
       const bidderCount = bidderCounts[item.id] || 0;
-
+      // 로그인한 본인이 현재 1등 입찰자인지 (본인에게만 내려감)
+      const isMyHighestBid = !!userId && highestBids[item.id]?.bidder_discord_id === userId;
 
       if (!isEnded) {
         // 마감 전: 시작가만 표시, 입찰자 정보 숨김
@@ -102,6 +123,7 @@ export async function GET(request: Request) {
           current_bid: item.price, // 시작가로 표시
           last_bidder_nickname: null, // 숨김
           bidder_count: bidderCount, // 입찰 인원 수
+          is_my_highest_bid: isMyHighestBid,
           timeLeft,
           isEnded,
           serverTime: now
@@ -131,10 +153,11 @@ export async function GET(request: Request) {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
-    return NextResponse.json({
-      items: sortedItems,
-      serverTime: now
-    });
+    // 사용자마다 응답이 다르므로 캐시 금지
+    return NextResponse.json(
+      { items: sortedItems, serverTime: now },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
 
   } catch (error) {
     console.error('Error fetching auction items:', error);

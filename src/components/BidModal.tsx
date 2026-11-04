@@ -44,7 +44,8 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [bidQuantity, setBidQuantity] = useState<number>(1);
   const [bidQuantityInput, setBidQuantityInput] = useState<string>('1');
-  const [bidderName, setBidderName] = useState('');
+  // 입찰자 닉네임: 승인된 길드 소속의 게임 닉네임 (서버에서도 이 값으로 고정 저장)
+  const bidderName = membership.data?.membership?.game_nickname ?? '';
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
@@ -176,10 +177,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
       return;
     }
 
-    if (!bidderName.trim()) {
-      setError('입찰자 닉네임을 입력해주세요.');
-      return;
-    }
     if (!bidAmount || isNaN(bidAmount) || bidAmount <= 0) {
       setError('유효한 입찰 금액을 입력해주세요.');
       return;
@@ -221,7 +218,6 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
           itemId: item.id,
           bidAmount,
           bidQuantity: quantityToBid,
-          bidderName,
         }),
       });
       const data = await response.json();
@@ -357,11 +353,13 @@ const BidModal = ({ isOpen, onClose, item, onBidSuccess, guildType = 'guild1' }:
           <input
             id="nicknameInput"
             type="text"
-            value={bidderName}
-            onChange={(e) => setBidderName(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            placeholder="닉네임을 입력하세요"
+            value={bidderName || (membership.loading ? '불러오는 중...' : '')}
+            readOnly
+            aria-readonly="true"
+            className="w-full border border-gray-200 bg-gray-100 rounded-xl px-4 py-3 text-sm text-gray-700 cursor-not-allowed focus:outline-none"
+            placeholder="길드 가입 승인 후 표시됩니다"
           />
+          <p className="mt-1 text-xs text-gray-500">길드 가입 시 등록한 닉네임으로 입찰됩니다.</p>
         </div>
 
         <div>
