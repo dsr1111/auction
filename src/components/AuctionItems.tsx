@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import ItemCard from './ItemCard';
 import AddItemCard from './AddItemCard';
+import EditableNotice from './EditableNotice';
 import { subscribeToAuctionChannel } from '@/utils/pusher';
 
 type Item = {
@@ -282,23 +283,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
   return (
     <div className="space-y-6">
       {/* 아이템 수령 안내 문구 */}
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-        <div className="flex items-center">
-          <p className="text-sm text-red-800 font-medium">
-            <span className="font-bold">[필독]</span> 경매 마감 직후 정산 및 아이템 수령을 위해 30분 이내로 접속해 주세요.{' '}
-            <span className="font-semibold">미접속으로 인해 아이템 수령을 못할 시 본인 책임입니다.</span>
-            <br />
-            <br />
-            <span className="font-semibold">@ 반드시 인게임 닉네임으로 입찰해 주세요. 장난칠 시 입찰 삭제합니다.</span>
-            <br />
-            <br />
-            <span className="font-semibold">@ 잘못 입찰한 경우 상단 정정 신청 부탁드립니다.</span>
-            <br />
-            <br />
-            <span className="font-semibold">@ 가격이 블라인드된 경매입니다. 마감 직전에 입찰할 필요 없이 여유 있게 입찰해 주세요.</span>
-          </p>
-        </div>
-      </div>
+      <EditableNotice noticeKey={guildType === 'guild2' ? 'auction_guild2' : 'auction_guild1'} />
 
       {/* 총 입찰 금액 요약 */}
       {(() => {

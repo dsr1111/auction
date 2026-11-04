@@ -77,3 +77,12 @@
   z-index: var(--z-tooltip);
   position: fixed;
 }
+
+/* 안내 문구 서식 (보기/편집 공통) */
+.notice-rich p {
+  min-height: 1.25rem;
+  line-height: 1.6;
+}
+.notice-rich strong {
+  font-weight: 700;
+}
