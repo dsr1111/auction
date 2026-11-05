@@ -84,9 +84,14 @@ export async function GET(request: NextRequest) {
         const totalBidsCount = allBids?.length || 0;
         const myBidsCount = (allBids || []).filter(bid => bid.bidder_discord_id === currentUserId).length;
 
+        // 블라인드 경매: 마감 전에는 아이템 행의 최고가/입찰자 칸을 보내지 않음
+        const visibleItem = isEnded
+            ? itemData
+            : { ...itemData, current_bid: itemData.price, last_bidder_nickname: null };
+
         return NextResponse.json({
             bids: visibleBids,
-            item: itemData,
+            item: visibleItem,
             isEnded,
             totalBidsCount,
             myBidsCount

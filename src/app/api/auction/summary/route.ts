@@ -25,14 +25,20 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 });
         }
 
-        // 2. Fetch all bids
-        const { data: bidHistoryData, error: bidsError } = await supabase
-            .from(historyTable)
-            .select('item_id, bid_amount, bid_quantity, bidder_discord_id, created_at')
-            .order('bid_amount', { ascending: false });
-
-        if (bidsError) {
-            return NextResponse.json({ error: 'Failed to fetch bid history' }, { status: 500 });
+        // 2. Fetch all bids (Supabase는 1회 최대 1,000행 → 나눠서 모두 조회)
+        const bidHistoryData: { item_id: number; bid_amount: number; bid_quantity: number | null; bidder_discord_id: string | null; created_at: string }[] = [];
+        for (let from = 0; ; from += 1000) {
+            const { data: page, error: bidsError } = await supabase
+                .from(historyTable)
+                .select('item_id, bid_amount, bid_quantity, bidder_discord_id, created_at')
+                .order('bid_amount', { ascending: false })
+                .order('id', { ascending: true })
+                .range(from, from + 999);
+            if (bidsError) {
+                return NextResponse.json({ error: 'Failed to fetch bid history' }, { status: 500 });
+            }
+            bidHistoryData.push(...(page || []));
+            if (!page || page.length < 1000) break;
         }
 
         // 3. 수량을 배열 원소로 복제하지 않고 입찰 행 단위로 집계합니다.
@@ -148,8 +154,14 @@ export async function GET(request: NextRequest) {
             myBids.sort((a, b) => new Date(b.bid_time).getTime() - new Date(a.bid_time).getTime());
         }
 
+        // 블라인드 경매: 진행 중인 아이템이 하나라도 있으면 총액을 보내지 않음
+        // (화면에서만 가리면 개발자 도구로 실제 금액을 볼 수 있음)
+        const allEnded = !!items && items.length > 0 && items.every(item =>
+            !!item.end_time && new Date(item.end_time).getTime() <= now
+        );
+
         return NextResponse.json({
-            totalBidAmount,
+            totalBidAmount: allEnded ? totalBidAmount : null,
             completedTotalBidAmount,
             completedCount,
             myTotalBidAmount,

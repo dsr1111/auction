@@ -294,12 +294,6 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
           return new Date(item.end_time).getTime() <= now;
         });
 
-        // 숫자를 *로 마스킹하는 함수 (자릿수와 콤마 유지)
-        const maskNumber = (num: number) => {
-          const formatted = num.toLocaleString();
-          return formatted.replace(/\d/g, '*');
-        };
-
         return (
           <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
             {/* 전체 총 입찰 금액 헤더 */}
@@ -315,7 +309,7 @@ export default function AuctionItems({ onItemAdded, guildType = 'guild1' }: { on
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
                   <span className="text-2xl font-bold text-blue-600">
-                    {allEnded ? totalBidAmount.toLocaleString() : maskNumber(totalBidAmount)}
+                    {allEnded ? totalBidAmount.toLocaleString() : '***,***,***'}
                   </span>
                   <img
                     src="https://media.dsrwiki.com/dsrwiki/bit.webp"

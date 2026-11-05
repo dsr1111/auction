@@ -34,16 +34,19 @@ async function syncItemHighestBid(
 
   if (highestBidError) throw highestBidError;
 
+  const { data: item, error: itemError } = await supabase
+    .from(itemsTable)
+    .select('price, end_time')
+    .eq('id', itemId)
+    .single();
+  if (itemError) throw itemError;
+
+  // 블라인드 경매: 마감 전에는 아이템 행에 실제 최고가/입찰자를 기록하지 않음 (시작가로 유지)
+  const isEnded = !!item.end_time && new Date(item.end_time).getTime() <= Date.now();
   let currentBid = highestBid?.bid_amount;
   let lastBidderNickname = highestBid?.bidder_nickname ?? null;
 
-  if (!highestBid) {
-    const { data: item, error: itemError } = await supabase
-      .from(itemsTable)
-      .select('price')
-      .eq('id', itemId)
-      .single();
-    if (itemError) throw itemError;
+  if (!highestBid || !isEnded) {
     currentBid = item.price;
     lastBidderNickname = null;
   }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
-import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
 
 type ItemEditModalProps = {
@@ -21,7 +20,6 @@ type ItemEditModalProps = {
 };
 
 const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, guildType = 'guild1' }: ItemEditModalProps) => {
-  const supabase = createClient();
   const [quantity, setQuantity] = useState(item.quantity || 1);
   // UTC 시간을 로컬 시간으로 변환하여 datetime-local 입력 필드에 표시
   const [endTime, setEndTime] = useState('');
@@ -78,13 +76,12 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, gu
         updateData.end_time = localDate.toISOString();
       }
 
-      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
-      const { error } = await supabase
-        .from(tableName)
-        .update(updateData)
-        .eq('id', item.id);
-
-      if (error) throw error;
+      const response = await fetch('/api/auction/manage-items', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guildType, id: item.id, quantity: updateData.quantity, endTime: updateData.end_time }),
+      });
+      if (!response.ok) throw new Error('update failed');
 
       // WebSocket으로 실시간 업데이트 알림
       try {
@@ -108,13 +105,12 @@ const ItemEditModal = ({ isOpen, onClose, item, onItemUpdated, onItemDeleted, gu
     
     setIsDeleting(true);
     try {
-      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq('id', item.id);
-
-      if (error) throw error;
+      const response = await fetch('/api/auction/manage-items', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guildType, id: item.id }),
+      });
+      if (!response.ok) throw new Error('delete failed');
       
       // WebSocket으로 실시간 업데이트 알림
       try {

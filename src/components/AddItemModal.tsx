@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Modal from './Modal';
-import { createClient } from '@/lib/supabase/client';
 import { notifyItemUpdate } from '@/utils/pusher';
 
 type AddItemModalProps = {
@@ -21,7 +20,6 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded, guildType = 'guild1' }: Ad
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,24 +72,20 @@ const AddItemModal = ({ isOpen, onClose, onItemAdded, guildType = 'guild1' }: Ad
         return;
       }
 
-      const tableName = guildType === 'guild2' ? 'items_guild2' : 'items';
-      
-      const { error: insertError } = await supabase
-        .from(tableName)
-        .insert([
-          {
-            name: itemName.trim(),
-            price: price,
-            current_bid: price,
-            last_bidder_nickname: null,
-            end_time: endDateTime.toISOString(),
-            quantity: quantity,
-            remaining_quantity: quantity,
-          }
-        ]);
-
-      if (insertError) {
-        throw insertError;
+      const response = await fetch('/api/auction/manage-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guildType,
+          name: itemName.trim(),
+          price,
+          quantity,
+          endTime: endDateTime.toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || '아이템을 추가하지 못했습니다.');
       }
 
       // WebSocket으로 실시간 업데이트 알림
