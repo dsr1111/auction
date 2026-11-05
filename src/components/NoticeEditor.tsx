@@ -119,7 +119,8 @@ export default function NoticeEditor({ initialDoc, onChange, disabled }: Props) 
         <button type="button" title="선택한 글자의 서식 지우기" disabled={disabled} onClick={() => chain().unsetAllMarks().run()} className={btn}>서식 지우기</button>
       </div>
 
-      <div className="bg-red-50 p-4 cursor-text" onClick={() => editor.commands.focus()}>
+      {/* 편집 영역은 다크모드에서도 밝은 바탕으로 둡니다: 고른 글씨 색이 실제 색 그대로 보이게 */}
+      <div className="force-light bg-red-50 p-4 cursor-text" onClick={() => editor.commands.focus()}>
         <EditorContent editor={editor} />
       </div>
     </div>

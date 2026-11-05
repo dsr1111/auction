@@ -43,8 +43,10 @@ export default function MembershipPanel({ embedded = false }: { embedded?: boole
       <div><h2 className="text-xs font-medium text-gray-600">Discord 계정</h2><p className="mt-1 break-words text-sm font-semibold">{session.user.displayName || session.user.name}</p><p className="mt-1 break-all text-xs tabular-nums text-gray-600">{session.user.id}</p></div>
       {member && <div className="border-t border-gray-200 pt-3"><h2 className="text-xs font-medium text-gray-600">현재 소속</h2><div className="mt-2 flex flex-wrap items-center gap-2"><span className="membership-badge">{GUILD_NAMES[member.guild_type]}</span><p className="break-words text-sm font-semibold">{member.game_nickname}</p><span className="text-xs text-gray-600">{member.status === 'active' ? '승인됨' : '이전 이용 정지 상태'}</span></div></div>}
       {data?.settings.bidding_paused && <p className="text-sm text-red-700">신규 입찰이 일시 중지되었습니다.</p>}
-      {member && <Link href={member.guild_type === 'guild1' ? '/' : '/crack'} className="inline-block text-sm font-medium text-blue-700 underline">소속 길드 경매로 이동</Link>}
-      {session.user.isAdmin && <Link className="inline-block text-sm font-medium text-blue-700 underline" href="/admin/members">길드원 관리</Link>}
+      {(member || session.user.isAdmin) && <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {member && <Link href={member.guild_type === 'guild1' ? '/' : '/crack'} className="inline-block text-sm font-medium text-blue-700 underline">소속 길드 경매로 이동</Link>}
+        {session.user.isAdmin && <Link className="inline-block text-sm font-medium text-blue-700 underline" href="/admin/members">길드원 관리</Link>}
+      </div>}
     </section>
     {!pending && data?.request?.status === 'rejected' && data.request.review_reason && <p className="membership-warning whitespace-pre-wrap break-words">신청 거절 사유: {data.request.review_reason}</p>}
     {(pending || member?.status !== 'suspended') && <form onSubmit={event => { event.preventDefault(); void submit('apply'); }} className="space-y-5">

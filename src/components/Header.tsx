@@ -1,447 +1,216 @@
-
 "use client";
 
-import { useSession, signOut } from 'next-auth/react';
-import { useState, useEffect, useCallback } from 'react';
+// 사이트 상단 헤더: 길드 경매 전환, 정정신청, 화면 테마, 프로필 메뉴(내 길드·길드원 관리·로그아웃)
+// 지금 보고 있는 길드 경매의 색(세계수 초록 / 크랙 보라)이 탭과 헤더 아래 띠에 들어갑니다.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
+// Pretendard: 화면에 쓰인 글자 조각만 내려받는 방식(dynamic subset)이라 한글 글꼴이어도 가볍습니다.
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import LoginModal from './LoginModal';
-import UserContactModal from './UserContactModal';
 import CorrectionRequestModal from './CorrectionRequestModal';
+import ThemeToggle from './ThemeToggle';
 import { useMembership } from './MembershipProvider';
-import { hasAuctionAccess, GUILD_NAMES } from '@/lib/membership';
+import { hasAuctionAccess, GUILD_NAMES, type GuildType } from '@/lib/membership';
 
-interface ExtendedUser {
-    name?: string | null;
-    image?: string | null;
-    displayName?: string;
-    isAdmin?: boolean;
+const headerFont = "font-['Pretendard_Variable',Pretendard,system-ui,sans-serif]";
+
+const GUILD_STYLE: Record<GuildType, { path: string; tone: string; text: string; bar: string }> = {
+  guild1: { path: '/', tone: 'bg-emerald-600', text: 'text-emerald-700', bar: 'bg-emerald-500' },
+  guild2: { path: '/crack', tone: 'bg-violet-600', text: 'text-violet-700', bar: 'bg-violet-500' },
+};
+const GUILD_KEYS: GuildType[] = ['guild1', 'guild2'];
+
+function Badge({ n, label }: { n: number; label: string }) {
+  if (n <= 0) return null;
+  return (
+    <span aria-label={label} className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none tabular-nums text-white">
+      {n}
+    </span>
+  );
 }
 
-const Header = () => {
-    const { data: session } = useSession();
-    const membership = useMembership();
-    const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-    const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
-    const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-    const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
-    const pathname = usePathname();
-    const isAdmin = Boolean((session?.user as ExtendedUser | undefined)?.isAdmin);
-    const currentGuildType = pathname === '/crack' ? 'guild2' : 'guild1';
+export default function Header() {
+  const pathname = usePathname();
+  const currentGuild: GuildType = pathname === '/crack' ? 'guild2' : 'guild1';
+  const { data: session } = useSession();
+  const membership = useMembership();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [pendingCorrections, setPendingCorrections] = useState(0);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-    const handleSignOut = () => {
-        signOut({ callbackUrl: '/' });
-    };
+  const user = session?.user;
+  const isAdmin = user?.isAdmin === true;
+  const canAccess = !!user && hasAuctionAccess(user);
+  const myGuild = membership.data?.membership?.guild_type ?? null;
+  const pendingMembers = isAdmin ? membership.data?.pendingCount ?? 0 : 0;
+  const name = user?.displayName || user?.name || '';
+  const onGuildPage = pathname === '/' || pathname === '/crack';
 
-    const handleLoginClick = () => {
-        setIsLoginModalOpen(true);
-    };
+  // 미처리 정정 신청 건수 (관리자만, 기존 헤더와 같은 방식)
+  const fetchPendingCorrections = useCallback(async () => {
+    if (!isAdmin) { setPendingCorrections(0); return; }
+    try {
+      const res = await fetch('/api/correction-requests/count', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingCorrections(data.count || 0);
+    } catch {
+      // 다음 자동 갱신 때 다시 시도
+    }
+  }, [isAdmin]);
 
-    const handleLoginModalClose = () => {
-        setIsLoginModalOpen(false);
-    };
+  useEffect(() => {
+    fetchPendingCorrections();
+    if (!isAdmin) return;
+    const id = window.setInterval(fetchPendingCorrections, 30_000);
+    window.addEventListener('focus', fetchPendingCorrections);
+    return () => { window.clearInterval(id); window.removeEventListener('focus', fetchPendingCorrections); };
+  }, [fetchPendingCorrections, isAdmin]);
 
-    const fetchPendingCorrectionCount = useCallback(async () => {
-        if (!isAdmin) {
-            setPendingCorrectionCount(0);
-            return;
-        }
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [menuOpen]);
 
-        try {
-            const response = await fetch('/api/correction-requests/count', { cache: 'no-store' });
-            if (!response.ok) return;
-            const data = await response.json();
-            setPendingCorrectionCount(data.count || 0);
-        } catch {
-            // 다음 자동 갱신 또는 창 포커스 시 다시 시도합니다.
-        }
-    }, [isAdmin]);
+  const g = GUILD_STYLE[currentGuild];
+  const menuItem = 'flex w-full items-center justify-between px-4 py-2 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:bg-gray-50';
 
-    useEffect(() => {
-        fetchPendingCorrectionCount();
-        if (!isAdmin) return;
-
-        const intervalId = window.setInterval(fetchPendingCorrectionCount, 30_000);
-        window.addEventListener('focus', fetchPendingCorrectionCount);
-        return () => {
-            window.clearInterval(intervalId);
-            window.removeEventListener('focus', fetchPendingCorrectionCount);
-        };
-    }, [fetchPendingCorrectionCount, isAdmin]);
-
-    // 드롭다운 외부 클릭 시 닫기
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Element;
-            if (!target.closest('.profile-dropdown')) {
-                setIsProfileDropdownOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
-
-    const isActive = (path: string) => {
-        return pathname === path ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900';
-    };
-
+  const guildTabs = (mobile: boolean) => GUILD_KEYS.map((key) => {
+    const active = onGuildPage && key === currentGuild;
+    const style = GUILD_STYLE[key];
     return (
-        <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-            {session?.user && hasAuctionAccess(session.user) && <div className="border-b border-gray-100 bg-gray-50">
-                <div className="max-w-7xl mx-auto flex flex-wrap justify-end gap-4 px-4 py-2 text-xs sm:px-6 lg:px-8">
-                    <Link href="/membership" className="text-blue-700 hover:underline">내 길드: {membership.data?.membership ? GUILD_NAMES[membership.data.membership.guild_type] : '가입 신청'}</Link>
-                    {isAdmin && <Link href="/admin/members" className="relative text-blue-700 hover:underline">
-                        길드원 관리
-                        {(membership.data?.pendingCount ?? 0) > 0 && <span aria-label={`가입 승인 대기 ${membership.data!.pendingCount}건`} className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] text-white">{membership.data!.pendingCount}</span>}
-                    </Link>}
-                </div>
-            </div>}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
-                    {/* PC 메뉴 */}
-                    <div className="hidden md:flex items-center space-x-8">
-                        {/* 네비게이션 메뉴 */}
-                        <nav className="flex items-center space-x-8">
-                            <Link
-                                href="/"
-                                className={`py-2 text-sm font-medium transition-all duration-200 ${isActive('/')}`}
-                            >
-                                세계수 토벌 경매
-                            </Link>
-                            <Link
-                                href="/crack"
-                                className={`py-2 text-sm font-medium transition-all duration-200 ${isActive('/crack')}`}
-                            >
-                                크랙 토벌 경매
-                            </Link>
-
-                            {/* 아이템 거래 드롭다운 (비활성화)
-                            <div
-                                className="relative"
-                                onMouseEnter={() => setIsTradeDropdownOpen(true)}
-                                onMouseLeave={() => setIsTradeDropdownOpen(false)}
-                            >
-                                <button
-                                    className={`py-2 text-sm font-medium transition-all duration-200 flex items-center space-x-1 ${pathname.startsWith('/equipment') || pathname.startsWith('/potential') ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'
-                                        }`}
-                                >
-                                    <span>아이템 거래</span>
-                                    <svg
-                                        className={`w-4 h-4 transition-transform duration-200 ${isTradeDropdownOpen ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-
-                                {/* 드롭다운 메뉴 - 간격 제거 *}
-                                {isTradeDropdownOpen && (
-                                    <div className="absolute top-full left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
-                                        <Link
-                                            href="/equipment"
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                                        >
-                                            장비
-                                        </Link>
-                                        <Link
-                                            href="/ultimate-potential"
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                                        >
-                                            궁극체 포텐셜
-                                        </Link>
-                                    </div>
-                                )}
-                            </div>
-                            */}
-                        </nav>
-                    </div>
-
-                    {/* 모바일 햄버거 메뉴 버튼 */}
-                    <div className="md:hidden">
-                        <button
-                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* 프로필 정보 및 로그인/로그아웃 버튼 (PC) */}
-                    <div className="hidden md:flex items-center space-x-4">
-                        {session?.user ? (
-                            <div className="flex items-center space-x-2">
-                                {session.user.image && (
-                                    <img
-                                        src={session.user.image}
-                                        alt="Profile"
-                                        className="w-6 h-6 rounded-full object-cover"
-                                    />
-                                )}
-                                {/* 프로필 드롭다운 */}
-                                <div className="relative profile-dropdown">
-                                    <button
-                                        onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                                        className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
-                                    >
-                                        <span>{(session.user as ExtendedUser).displayName || session.user.name}</span>
-                                        {(session.user as ExtendedUser).isAdmin && (
-                                            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
-                                                관리자
-                                            </span>
-                                        )}
-                                        <svg
-                                            className={`w-4 h-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`}
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-
-                                    {/* 프로필 드롭다운 메뉴 */}
-                                    {isProfileDropdownOpen && (
-                                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
-                                            <button
-                                                onClick={() => {
-                                                    setIsContactModalOpen(true);
-                                                    setIsProfileDropdownOpen(false);
-                                                }}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center space-x-2"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                </svg>
-                                                <span>연락처 설정</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 로그아웃 버튼 */}
-                                <button
-                                    onClick={handleSignOut}
-                                    className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
-                                >
-                                    로그아웃
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setIsCorrectionModalOpen(true)}
-                                    className="relative bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                                >
-                                    정정신청
-                                    {isAdmin && pendingCorrectionCount > 0 && (
-                                        <span aria-label={`미처리 정정 신청 ${pendingCorrectionCount}건`} className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none tabular-nums text-white shadow-sm ring-2 ring-white">
-                                            {pendingCorrectionCount}
-                                        </span>
-                                    )}
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={handleLoginClick}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:shadow-md"
-                            >
-                                로그인
-                            </button>
-                        )}
-                    </div>
-
-                    {/* 프로필 정보만 표시 (모바일) */}
-                    <div className="md:hidden flex items-center space-x-4">
-                        {session?.user ? (
-                            <div className="flex items-center space-x-2">
-                                {session.user.image && (
-                                    <img
-                                        src={session.user.image}
-                                        alt="Profile"
-                                        className="w-6 h-6 rounded-full object-cover"
-                                    />
-                                )}
-                                <div className="relative profile-dropdown">
-                                    <button
-                                        onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                                        className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
-                                    >
-                                        <span>{(session.user as ExtendedUser).displayName || session.user.name}</span>
-                                        {(session.user as ExtendedUser).isAdmin && (
-                                            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-xl text-xs font-medium bg-orange-100 text-gray-800 border border-orange-200">
-                                                관리자
-                                            </span>
-                                        )}
-                                        <svg
-                                            className={`w-4 h-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`}
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-
-                                    {/* 모바일 프로필 드롭다운 메뉴 */}
-                                    {isProfileDropdownOpen && (
-                                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
-                                            <button
-                                                onClick={() => {
-                                                    setIsContactModalOpen(true);
-                                                    setIsProfileDropdownOpen(false);
-                                                }}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center space-x-2"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                </svg>
-                                                <span>연락처 설정</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-500">게스트</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 모바일 햄버거 메뉴 */}
-                {isMobileMenuOpen && (
-                    <div className="md:hidden border-t border-gray-200 bg-white">
-                        <div className="px-4 py-4 space-y-4">
-                            {/* 네비게이션 메뉴 */}
-                            <nav className="space-y-2">
-                                <Link
-                                    href="/"
-                                    className={`block py-2 text-sm font-medium transition-all duration-200 ${isActive('/')}`}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    세계수 토벌 경매
-                                </Link>
-                                <Link
-                                    href="/crack"
-                                    className={`block py-2 text-sm font-medium transition-all duration-200 ${isActive('/crack')}`}
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    크랙 토벌 경매
-                                </Link>
-
-                                {/* 아이템 거래 (비활성화)
-                                <div className="space-y-2">
-                                    <div className="py-2 text-sm font-medium text-gray-600">
-                                        아이템 거래
-                                    </div>
-                                    <div className="pl-4 space-y-1">
-                                        <Link
-                                            href="/equipment"
-                                            className="block py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            장비
-                                        </Link>
-                                        <Link
-                                            href="/ultimate-potential"
-                                            className="block py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            궁극체 포텐셜
-                                        </Link>
-                                    </div>
-                                </div>
-                                */}
-                            </nav>
-
-                            {/* 로그인/로그아웃 버튼 */}
-                            <div className="pt-4 border-t border-gray-200 space-y-2">
-                                {session?.user ? (
-                                    <>
-                                        <button
-                                            onClick={() => {
-                                                handleSignOut();
-                                                setIsMobileMenuOpen(false);
-                                            }}
-                                            className="w-full bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
-                                        >
-                                            로그아웃
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setIsContactModalOpen(true);
-                                                setIsMobileMenuOpen(false);
-                                            }}
-                                            className="w-full bg-green-50 hover:bg-green-100 text-green-600 hover:text-green-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-green-200 hover:border-green-300"
-                                        >
-                                            연락처 설정
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsCorrectionModalOpen(true);
-                                                setIsMobileMenuOpen(false);
-                                            }}
-                                            className="relative w-full bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border border-blue-200 hover:border-blue-300"
-                                        >
-                                            정정신청
-                                            {isAdmin && pendingCorrectionCount > 0 && (
-                                                <span aria-label={`미처리 정정 신청 ${pendingCorrectionCount}건`} className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold leading-none tabular-nums text-white shadow-sm ring-2 ring-white">
-                                                    {pendingCorrectionCount}
-                                                </span>
-                                            )}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        onClick={() => {
-                                            handleLoginClick();
-                                            setIsMobileMenuOpen(false);
-                                        }}
-                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:shadow-md"
-                                    >
-                                        로그인
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* 로그인 모달 */}
-            <LoginModal
-                isOpen={isLoginModalOpen}
-                onClose={handleLoginModalClose}
-            />
-
-            {/* 연락처 설정 모달 */}
-            {session?.user && (
-                <>
-                    <UserContactModal
-                        isOpen={isContactModalOpen}
-                        onClose={() => setIsContactModalOpen(false)}
-                    />
-                    <CorrectionRequestModal
-                        isOpen={isCorrectionModalOpen}
-                        onClose={() => setIsCorrectionModalOpen(false)}
-                        isAdmin={isAdmin}
-                        defaultGuildType={currentGuildType}
-                        onPendingCountChange={setPendingCorrectionCount}
-                    />
-                </>
-            )}
-        </header>
+      <li key={key}>
+        <Link
+          href={style.path}
+          aria-current={active ? 'page' : undefined}
+          className={mobile
+            ? `flex h-11 w-full items-center justify-center gap-1.5 text-sm font-semibold ${active ? style.text : 'text-gray-500'}`
+            : `flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${active ? `bg-white shadow-sm ${style.text}` : 'text-gray-500 hover:text-gray-900'}`}
+        >
+          {GUILD_NAMES[key]}
+        </Link>
+      </li>
     );
-};
+  });
 
-export default Header;
+  return (
+    <header className={`${headerFont} sticky top-0 z-50 border-b border-gray-200 bg-white`}>
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6 lg:px-8">
+        <Link href={'/'} className="shrink-0 rounded-[8px] text-[17px] font-bold tracking-tight text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+          토벌 경매
+        </Link>
+
+        <nav aria-label="길드 경매" className="hidden md:block">
+          <ul className="flex items-center gap-1 rounded-full bg-gray-100 p-1">{guildTabs(false)}</ul>
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          {user && (
+            <button
+              type="button"
+              onClick={() => setCorrectionOpen(true)}
+              className="hidden h-9 items-center gap-2 rounded-[8px] px-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              정정신청
+              {isAdmin && <Badge n={pendingCorrections} label={`미처리 정정 신청 ${pendingCorrections}건`} />}
+            </button>
+          )}
+
+          <ThemeToggle className={user ? 'hidden sm:inline-flex' : ''} />
+
+          {user ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex h-10 items-center gap-2 rounded-full border border-gray-200 py-1 pl-1 pr-3 hover:border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <span className="relative">
+                  {user.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.image} alt="" className="h-8 w-8 rounded-full object-cover" />
+                  ) : (
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white ${myGuild ? GUILD_STYLE[myGuild].tone : 'bg-gray-500'}`}>{name.slice(0, 1)}</span>
+                  )}
+                  {pendingMembers + pendingCorrections > 0 && isAdmin && (
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white" aria-label="확인할 알림 있음" />
+                  )}
+                </span>
+                <span className="hidden max-w-[8rem] truncate text-sm font-semibold text-gray-800 sm:inline">{name}</span>
+                <svg className={`h-4 w-4 text-gray-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+
+              {menuOpen && (
+                <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
+                  <p className="flex items-center gap-1.5 border-b border-gray-100 px-4 py-3 text-sm font-bold text-gray-900">
+                    <span className="truncate">{name}</span>
+                    {myGuild && <span className={`shrink-0 ${GUILD_STYLE[myGuild].text}`}>{GUILD_NAMES[myGuild]}</span>}
+                    {isAdmin && <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">관리자</span>}
+                  </p>
+                  <div className="py-1.5 text-sm">
+                    {canAccess && (
+                      <Link role="menuitem" href={'/membership'} onClick={() => setMenuOpen(false)} className={menuItem}>
+                        {myGuild ? '내 길드' : '길드 가입 신청'}
+                      </Link>
+                    )}
+                    {canAccess && isAdmin && (
+                      <Link role="menuitem" href={'/admin/members'} onClick={() => setMenuOpen(false)} className={menuItem}>
+                        길드원 관리 <Badge n={pendingMembers} label={`가입 승인 대기 ${pendingMembers}건`} />
+                      </Link>
+                    )}
+                    <button role="menuitem" type="button" onClick={() => { setCorrectionOpen(true); setMenuOpen(false); }} className={`${menuItem} sm:hidden`}>
+                      정정신청 {isAdmin && <Badge n={pendingCorrections} label={`미처리 정정 신청 ${pendingCorrections}건`} />}
+                    </button>
+                    <div className="flex items-center justify-between px-4 py-2 sm:hidden"><span className="text-gray-700">화면</span><ThemeToggle /></div>
+                  </div>
+                  <div className="border-t border-gray-100 py-1.5 text-sm">
+                    <button role="menuitem" type="button" onClick={() => signOut({ callbackUrl: '/' })} className="flex w-full px-4 py-2 text-left font-semibold text-red-600 hover:bg-red-50">
+                      로그아웃
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setLoginOpen(true)}
+              className="h-9 rounded-[8px] bg-[#5865F2] px-4 text-sm font-semibold text-white hover:bg-[#4752C4] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              디스코드로 로그인
+            </button>
+          )}
+        </div>
+      </div>
+
+      <nav aria-label="길드 경매" className="border-t border-gray-100 md:hidden">
+        <ul className="grid grid-cols-2">{guildTabs(true)}</ul>
+      </nav>
+
+      {/* 지금 보고 있는 길드 색 띠 */}
+      <div aria-hidden="true" className={`absolute inset-x-0 -bottom-px h-[3px] transition-colors duration-300 motion-reduce:transition-none ${onGuildPage ? g.bar : 'bg-gray-200'}`} />
+
+      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
+      {user && (
+        <CorrectionRequestModal
+          isOpen={correctionOpen}
+          onClose={() => setCorrectionOpen(false)}
+          isAdmin={isAdmin}
+          defaultGuildType={currentGuild}
+          onPendingCountChange={setPendingCorrections}
+        />
+      )}
+    </header>
+  );
+}

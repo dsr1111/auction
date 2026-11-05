@@ -85,7 +85,8 @@ export default function CorrectionRequestModal({
   const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [requests, setRequests] = useState<CorrectionRequest[]>([]);
   const [requestFilter, setRequestFilter] = useState<'open' | 'all'>('open');
-  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  // 관리자는 열자마자 목록을 불러오므로 처음부터 '불러오는 중'으로 시작 (빈 목록이 잠깐 보이지 않게)
+  const [isLoadingRequests, setIsLoadingRequests] = useState(isAdmin);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
   const [editingBidAmount, setEditingBidAmount] = useState('');
@@ -132,12 +133,17 @@ export default function CorrectionRequestModal({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    // 닫힐 때 첫 화면(관리자: 신청 목록, 일반: 신청 작성)으로 되돌려 둡니다.
+    // 열 때 바꾸면 지난번 탭이 잠깐 보이고 그 탭의 목록까지 불러오다가 창 크기가 바뀌며 깜빡입니다.
+    if (!isOpen) {
+      setActiveView(isAdmin ? 'requests' : 'form');
+      setIsLoadingRequests(isAdmin);
+      return;
+    }
     setGuildType(defaultGuildType);
     setSelectedBidId(null);
     setDetails('');
     setFormMessage(null);
-    setActiveView(isAdmin ? 'requests' : 'form');
     if (isAdmin) fetchRequests();
   }, [defaultGuildType, fetchRequests, isAdmin, isOpen]);
 

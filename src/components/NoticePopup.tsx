@@ -47,7 +47,7 @@ const NoticePopup = ({ isOpen, onClose }: NoticePopupProps) => {
           className="p-4 sm:p-6 flex-1 overflow-y-auto"
           style={{
             scrollbarWidth: 'thin',
-            scrollbarColor: '#cbd5e1 #f1f5f9'
+            scrollbarColor: 'rgb(var(--c-slate-300)) rgb(var(--c-slate-100))'
           }}
         >
           <div className="space-y-4 text-gray-700">
