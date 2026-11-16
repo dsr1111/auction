@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    /* tailwind.config.js의 rounded-lg/md/sm이 이 값을 씁니다 (없으면 0px로 각져 보임) */
+    --radius: 0.5rem;
     --font-noto-sans: 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
     --z-header: 50;
     --z-modal: 1000;

@@ -49,6 +49,7 @@ export default function Header() {
   const pendingMembers = isAdmin ? membership.data?.pendingCount ?? 0 : 0;
   const name = user?.displayName || user?.name || '';
   const onGuildPage = pathname === '/' || pathname === '/crack';
+  const onTradePage = pathname === '/trade';
 
   // 미처리 정정 신청 건수 (관리자만, 기존 헤더와 같은 방식)
   const fetchPendingCorrections = useCallback(async () => {
@@ -83,6 +84,21 @@ export default function Header() {
   const g = GUILD_STYLE[currentGuild];
   const menuItem = 'flex w-full items-center justify-between px-4 py-2 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:bg-gray-50';
 
+  // 디지코어 거래 탭 (길드 구분 없음, 주황색)
+  const tradeTab = (mobile: boolean) => (
+    <li key="trade">
+      <Link
+        href="/trade"
+        aria-current={onTradePage ? 'page' : undefined}
+        className={mobile
+          ? `flex h-11 w-full items-center justify-center gap-1.5 text-sm font-semibold ${onTradePage ? 'text-amber-700' : 'text-gray-500'}`
+          : `flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${onTradePage ? 'bg-white shadow-sm text-amber-700' : 'text-gray-500 hover:text-gray-900'}`}
+      >
+        디지코어 거래
+      </Link>
+    </li>
+  );
+
   const guildTabs = (mobile: boolean) => GUILD_KEYS.map((key) => {
     const active = onGuildPage && key === currentGuild;
     const style = GUILD_STYLE[key];
@@ -108,8 +124,8 @@ export default function Header() {
           토벌 경매
         </Link>
 
-        <nav aria-label="길드 경매" className="hidden md:block">
-          <ul className="flex items-center gap-1 rounded-full bg-gray-100 p-1">{guildTabs(false)}</ul>
+        <nav aria-label="경매·거래 메뉴" className="hidden md:block">
+          <ul className="flex items-center gap-1 rounded-full bg-gray-100 p-1">{guildTabs(false)}{tradeTab(false)}</ul>
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -194,12 +210,12 @@ export default function Header() {
         </div>
       </div>
 
-      <nav aria-label="길드 경매" className="border-t border-gray-100 md:hidden">
-        <ul className="grid grid-cols-2">{guildTabs(true)}</ul>
+      <nav aria-label="경매·거래 메뉴" className="border-t border-gray-100 md:hidden">
+        <ul className="grid grid-cols-3">{guildTabs(true)}{tradeTab(true)}</ul>
       </nav>
 
       {/* 지금 보고 있는 길드 색 띠 */}
-      <div aria-hidden="true" className={`absolute inset-x-0 -bottom-px h-[3px] transition-colors duration-300 motion-reduce:transition-none ${onGuildPage ? g.bar : 'bg-gray-200'}`} />
+      <div aria-hidden="true" className={`absolute inset-x-0 -bottom-px h-[3px] transition-colors duration-300 motion-reduce:transition-none ${onGuildPage ? g.bar : onTradePage ? 'bg-amber-500' : 'bg-gray-200'}`} />
 
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
       {user && (
