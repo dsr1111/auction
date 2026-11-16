@@ -6,6 +6,7 @@ import { useMembership } from '@/components/MembershipProvider';
 import { DIGICORES, digicoreSearchKey, digicoreShortName } from '@/lib/digicores';
 import DigicoreIcon from './DigicoreIcon';
 import NewListingModal from './NewListingModal';
+import EditListingModal from './EditListingModal';
 import { ACTIVE_LABEL, DONE_LABEL, formatBit, timeAgo, TYPE_LABEL, type ListingType, type TradeListing } from './types';
 
 type Sort = 'recent' | 'price_asc' | 'price_desc';
@@ -36,6 +37,7 @@ export default function TradeBoard() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
   const [modal, setModal] = useState<{ type: ListingType } | null>(null);
+  const [editing, setEditing] = useState<TradeListing | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -284,7 +286,7 @@ export default function TradeBoard() {
                   const done = l.status === 'completed';
                   return (
                     <li key={l.id} className={`flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:flex-nowrap ${done ? 'opacity-60' : ''}`}>
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex min-w-0 basis-full items-center gap-3 sm:min-w-[12rem] sm:flex-1 sm:basis-auto">
                         <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${l.listing_type === 'sell' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'}`}>{TYPE_LABEL[l.listing_type]}</span>
                         <button type="button" onClick={() => setSelected(l.digicore)} className="shrink-0" aria-label={`${digicoreShortName(l.digicore)}만 보기`}>
                           <DigicoreIcon name={l.digicore} size={40} />
@@ -295,12 +297,12 @@ export default function TradeBoard() {
                         </div>
                       </div>
 
-                      <div className="w-36 shrink-0 text-right">
+                      <div className="shrink-0 sm:w-36 sm:text-right">
                         <p className="text-sm font-bold tabular-nums text-gray-900">{formatBit(l.price)} <span className="text-xs font-medium text-gray-500">bit</span></p>
                         <p className="text-xs text-gray-500">{l.quantity > 1 ? `${l.quantity}개 · 총 ${formatBit(l.price * l.quantity)}` : '1개'}</p>
                       </div>
 
-                      <div className="w-28 shrink-0 text-right sm:text-left">
+                      <div className="min-w-0 max-w-[8rem] shrink sm:w-28 sm:max-w-none">
                         <p className="truncate text-sm font-medium text-gray-800" title={l.user_nickname}>{l.user_nickname}{mine && <span className="ml-1 text-xs text-blue-600">(나)</span>}</p>
                         <p className="text-xs text-gray-400">{timeAgo(done && l.completed_at ? l.completed_at : l.created_at, now)}</p>
                       </div>
@@ -334,6 +336,12 @@ export default function TradeBoard() {
                             DM
                           </a>
                         )}
+                        {!done && mine && (
+                          <button type="button" disabled={busyId === l.id} onClick={() => setEditing(l)} aria-label="거래글 수정" title="가격·남은 수량·메모 수정" className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.2 5.2l3.6 3.6M4 20l4.2-.9L19.4 7.9a2 2 0 000-2.8l-.5-.5a2 2 0 00-2.8 0L4.9 15.8 4 20z" /></svg>
+                            수정
+                          </button>
+                        )}
                         {!done && (mine || me?.isAdmin) && (
                           <button type="button" disabled={busyId === l.id} onClick={() => remove(l)} aria-label="거래글 삭제" title="삭제" className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
                             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4h6v3M4 7h16" /></svg>
@@ -357,6 +365,13 @@ export default function TradeBoard() {
         initialDigicore={selected}
         nickname={myNickname}
         onCreated={(l) => setListings((prev) => [l, ...prev])}
+      />
+      <EditListingModal
+        listing={editing}
+        onClose={() => setEditing(null)}
+        onSaved={(l, completed) =>
+          setListings((prev) => [...prev.map((x) => (x.id === l.id ? l : x)), ...(completed ? [completed] : [])])
+        }
       />
     </div>
   );
