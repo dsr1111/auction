@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import DiscordProvider from 'next-auth/providers/discord';
+import { isCorrectionApprover } from '@/lib/correction-approvers';
 
 interface DiscordGuildMember {
   user: {
@@ -19,6 +20,7 @@ interface ExtendedUser {
   displayName?: string;
   isAdmin?: boolean;
   canUseAuction?: boolean;
+  canApproveCorrections?: boolean;
 }
 
 interface DiscordAccount {
@@ -165,6 +167,8 @@ export const authOptions = {
         (session.user as ExtendedUser).canUseAuction = canUseAuction;
         (session.user as any).isAdminGuild1 = token.isAdminGuild1;
         (session.user as any).isAdminGuild2 = token.isAdminGuild2;
+        // 매 요청마다 계산 → 환경변수만 바꾸면 다시 로그인하지 않아도 반영
+        (session.user as ExtendedUser).canApproveCorrections = isCorrectionApprover(token.id, token.isAdmin);
       }
       return session;
     },

@@ -61,8 +61,9 @@ async function syncItemHighestBid(
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
-    const user = session?.user as { id?: string; isAdmin?: boolean } | undefined;
-    if (!user?.id || !user.isAdmin) {
+    const user = session?.user;
+    // 정정 처리는 CORRECTION_APPROVER_IDS 에 등록된 사람만
+    if (!user?.id || !user.canApproveCorrections) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -24,6 +24,8 @@ declare module "next-auth" {
       image?: string | null
       displayName?: string
       isAdmin?: boolean
+      /** 정정 신청 목록 보기·처리 권한 (CORRECTION_APPROVER_IDS) */
+      canApproveCorrections?: boolean
       guild1Member?: boolean
       guild2Member?: boolean
       isGuild1Member?: boolean

@@ -44,6 +44,8 @@ export default function Header() {
 
   const user = session?.user;
   const isAdmin = user?.isAdmin === true;
+  // 정정 신청 목록·처리: CORRECTION_APPROVER_IDS 에 등록된 사람만 (다른 관리자는 일반 사용자처럼 신청만)
+  const canApproveCorrections = user?.canApproveCorrections === true;
   const canAccess = !!user && hasAuctionAccess(user);
   const myGuild = membership.data?.membership?.guild_type ?? null;
   const pendingMembers = isAdmin ? membership.data?.pendingCount ?? 0 : 0;
@@ -51,9 +53,9 @@ export default function Header() {
   const onGuildPage = pathname === '/' || pathname === '/crack';
   const onTradePage = pathname === '/trade';
 
-  // 미처리 정정 신청 건수 (관리자만, 기존 헤더와 같은 방식)
+  // 미처리 정정 신청 건수 (정정 승인자만)
   const fetchPendingCorrections = useCallback(async () => {
-    if (!isAdmin) { setPendingCorrections(0); return; }
+    if (!canApproveCorrections) { setPendingCorrections(0); return; }
     try {
       const res = await fetch('/api/correction-requests/count', { cache: 'no-store' });
       if (!res.ok) return;
@@ -62,15 +64,15 @@ export default function Header() {
     } catch {
       // 다음 자동 갱신 때 다시 시도
     }
-  }, [isAdmin]);
+  }, [canApproveCorrections]);
 
   useEffect(() => {
     fetchPendingCorrections();
-    if (!isAdmin) return;
+    if (!canApproveCorrections) return;
     const id = window.setInterval(fetchPendingCorrections, 30_000);
     window.addEventListener('focus', fetchPendingCorrections);
     return () => { window.clearInterval(id); window.removeEventListener('focus', fetchPendingCorrections); };
-  }, [fetchPendingCorrections, isAdmin]);
+  }, [fetchPendingCorrections, canApproveCorrections]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -137,7 +139,7 @@ export default function Header() {
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
               정정신청
-              {isAdmin && <Badge n={pendingCorrections} label={`미처리 정정 신청 ${pendingCorrections}건`} />}
+              {canApproveCorrections && <Badge n={pendingCorrections} label={`미처리 정정 신청 ${pendingCorrections}건`} />}
             </button>
           )}
 
@@ -186,7 +188,7 @@ export default function Header() {
                       </Link>
                     )}
                     <button role="menuitem" type="button" onClick={() => { setCorrectionOpen(true); setMenuOpen(false); }} className={`${menuItem} sm:hidden`}>
-                      정정신청 {isAdmin && <Badge n={pendingCorrections} label={`미처리 정정 신청 ${pendingCorrections}건`} />}
+                      정정신청 {canApproveCorrections && <Badge n={pendingCorrections} label={`미처리 정정 신청 ${pendingCorrections}건`} />}
                     </button>
                     <div className="flex items-center justify-between px-4 py-2 sm:hidden"><span className="text-gray-700">화면</span><ThemeToggle /></div>
                   </div>
@@ -222,7 +224,7 @@ export default function Header() {
         <CorrectionRequestModal
           isOpen={correctionOpen}
           onClose={() => setCorrectionOpen(false)}
-          isAdmin={isAdmin}
+          isAdmin={canApproveCorrections}
           defaultGuildType={currentGuild}
           onPendingCountChange={setPendingCorrections}
         />

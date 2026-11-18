@@ -13,7 +13,7 @@ type GuildType = typeof GUILD_TYPES[number];
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !(session.user as { isAdmin?: boolean })?.isAdmin) {
+    if (!session?.user?.canApproveCorrections) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
